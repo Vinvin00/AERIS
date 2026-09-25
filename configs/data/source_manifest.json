@@ -1,0 +1,436 @@
+{
+  "schema_version": 1,
+  "manifest_id": "aeris-source-audit-2026-09-24",
+  "audited_at": "2026-09-24",
+  "scope_note": "Source/rights audit only. No images, video or full archives are acquired. Measured FGVC values come from the 407,927-byte annotations-only archive, inspected outside the repository and deleted afterwards. See docs/dataset.md.",
+  "class_mapping": {
+    "version": "aeris-aircraft-v1",
+    "classes": {
+      "0": "aircraft"
+    }
+  },
+  "width_bins_px": [
+    "[0,16)",
+    "[16,32)",
+    "[32,64)",
+    "[64,inf)"
+  ],
+  "sources": [
+    {
+      "id": "fgvc-aircraft-2013b",
+      "name": "FGVC-Aircraft 2013b",
+      "role": "still_image_smoke_baseline",
+      "acquisition_status": "not_acquired",
+      "source_uri": "https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/",
+      "provenance": "Oxford VGG release; photographs from airliners.net contributors; Maji et al. 2013, arXiv:1306.5151.",
+      "rights": {
+        "terms_url": "https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/",
+        "terms_summary": "Images for non-commercial research purposes only; photographers retain copyright and must be contacted for other use.",
+        "commercial_use": false,
+        "redistribution_permitted": false,
+        "repo_bundling_permitted": false
+      },
+      "modality": {
+        "sensor": "rgb_visible",
+        "media": "still_image",
+        "fixed_camera": null,
+        "availability_reason": {
+          "fixed_camera": "independent still photographs; camera setup not applicable or recorded"
+        }
+      },
+      "classes": {
+        "source_taxonomy": "variant/family/manufacturer hierarchy of the main aircraft",
+        "mapping_to_aeris": {
+          "every annotated main aircraft": 0
+        }
+      },
+      "annotation_capabilities": {
+        "bbox": true,
+        "objects_per_image": "one main aircraft",
+        "exhaustive_labels": false,
+        "default_annotation_status": "partial",
+        "track_ids": false,
+        "timestamps": false,
+        "annotated_negative_frames": false,
+        "occlusion_truncation_flags": false,
+        "bbox_convention_stated": "xmin ymin xmax ymax, top-left pixel is (1,1)",
+        "bbox_convention_observed": "130 of 10,000 boxes have xmin or ymin equal to 0, which the stated 1-based convention does not allow",
+        "banner": "20-pixel copyright banner at the bottom of every image; remove from model input, keep original-frame coordinates"
+      },
+      "counts": {
+        "published_landing_page": {
+          "images": 10200,
+          "variants": 102,
+          "families": 70,
+          "manufacturers": 41
+        },
+        "published_paper": {
+          "images": 10000,
+          "variants": 100,
+          "families": 70,
+          "manufacturers": 30
+        },
+        "measured_annotations_archive": {
+          "images": 10000,
+          "variants": 100,
+          "families": 70,
+          "manufacturers": 30,
+          "split_images": {
+            "train": 3334,
+            "val": 3333,
+            "test": 3333
+          },
+          "images_in_more_than_one_split": 0
+        }
+      },
+      "discrepancies": [
+        "Landing page and bundled README state 10,200 images/102 variants/41 manufacturers; the 2013b annotation files contain 10,000/100/30, matching the paper.",
+        "Published annotations MD5 e3799900175f63abbc48a5bc5b16427e does not match the served file (MD5 6939ddc41c731b6d5e82b20b2255f999, reproduced on two downloads); byte size matches the Content-Length. Integrity of the served file versus the authors' original is unresolved.",
+        "Landing page lists the annotations archive as 375 KB; served size is 407,927 bytes.",
+        "Both published .md5 files have Last-Modified 2014-01-17 17:28:19 GMT, earlier than the annotations archive (17:42:51) and the full archive (17:55:16); the published MD5s probably describe earlier builds, so the full-archive MD5 may not match either."
+      ],
+      "width_bin_support": {
+        "[0,16)": 0,
+        "[16,32)": 0,
+        "[32,64)": 0,
+        "[64,inf)": 10000
+      },
+      "width_bin_note": "Box width xmax-xmin+1 in annotation pixels; minimum 94, median 1004. FGVC gives no tiny-object support.",
+      "retrieval": {
+        "artifacts": [
+          {
+            "name": "fgvc-aircraft-2013b-annotations.tar.gz",
+            "url": "https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/archives/fgvc-aircraft-2013b-annotations.tar.gz",
+            "size_bytes": 407927,
+            "md5_published": "e3799900175f63abbc48a5bc5b16427e",
+            "md5_measured": "6939ddc41c731b6d5e82b20b2255f999",
+            "sha256_measured": "50e4419bd330b68a2e85dbcb32339d31120190efe6944682e87c9b431f5f202a",
+            "availability_reason": {}
+          },
+          {
+            "name": "fgvc-aircraft-2013b.tar.gz",
+            "url": "https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/archives/fgvc-aircraft-2013b.tar.gz",
+            "size_bytes": 2753340328,
+            "md5_published": "32eca553f897e747706144f3bb444df0",
+            "md5_measured": null,
+            "sha256_measured": null,
+            "availability_reason": {
+              "md5_measured": "2.75 GB archive not downloaded in this metadata-only audit",
+              "sha256_measured": "2.75 GB archive not downloaded in this metadata-only audit"
+            }
+          }
+        ],
+        "instructions": "Download into data/raw/fgvc-aircraft-2013b/ (Git-ignored). Verify the annotations archive against sha256_measured. For the full archive, record MD5 and SHA-256 before extraction; if the MD5 differs from the published value, log it as a discrepancy and pin the measured SHA-256 only after the owner approves, or the maintainers confirm the current file. Never commit images."
+      },
+      "grouping": {
+        "group_key": null,
+        "official_split": "random image-level split after diversity selection (paper); not photographer- or event-isolated",
+        "leakage_risk": "Same aircraft, photographer or event can appear in train and test. Treat FGVC scores as a smoke check only.",
+        "availability_reason": {
+          "group_key": "annotation files carry no photographer, event or airframe ID"
+        }
+      },
+      "pretraining_overlap": null,
+      "availability_reason": {
+        "pretraining_overlap": "no pretrained detector selected yet (AERIS-006); check against the chosen model's training data"
+      },
+      "planned_evaluations": [
+        "detection_smoke"
+      ],
+      "eligible_evaluations": [],
+      "metric_policy": {
+        "valid": [
+          "recall of the annotated main aircraft at a stated IoU threshold",
+          "localization error of matched main-aircraft boxes"
+        ],
+        "unavailable": [
+          "AP",
+          "precision",
+          "false positives per frame",
+          "negative-frame errors"
+        ],
+        "unmatched_detections": "Detections not matched to the main-aircraft box are left unscored (neither true nor false positive): other aircraft in the photo are unlabeled."
+      }
+    },
+    {
+      "id": "dut-anti-uav",
+      "name": "DUT Anti-UAV (detection and tracking)",
+      "role": "out_of_domain_reference",
+      "acquisition_status": "not_acquired",
+      "source_uri": "https://github.com/wangdongdut/DUT-Anti-UAV",
+      "provenance": "Zhao, Zhang, Li, Wang, IEEE T-ITS 2022, arXiv:2205.10851; archives on Google Drive and Baidu.",
+      "rights": {
+        "terms_url": "https://arxiv.org/abs/2205.10851",
+        "terms_summary": "Paper states the data 'will be released publicly for academic research'. No explicit dataset license found. The repository's Apache-2.0 license covers repository contents; the arXiv CC BY-NC-SA 4.0 license covers the paper. Neither is a media redistribution grant.",
+        "commercial_use": false,
+        "redistribution_permitted": false,
+        "repo_bundling_permitted": false
+      },
+      "modality": {
+        "sensor": "rgb_visible",
+        "media": "still_image_and_video",
+        "fixed_camera": false
+      },
+      "classes": {
+        "source_taxonomy": "single class UAV (more than 35 UAV types)",
+        "mapping_to_aeris": {}
+      },
+      "annotation_capabilities": {
+        "bbox": true,
+        "objects_per_image": "detection: 10,109 boxes on 10,000 images; tracking: one target per sequence",
+        "exhaustive_labels": null,
+        "default_annotation_status": "partial",
+        "track_ids": false,
+        "timestamps": null,
+        "annotated_negative_frames": null,
+        "occlusion_truncation_flags": null,
+        "bbox_convention_stated": null,
+        "bbox_convention_observed": null,
+        "banner": "none reported",
+        "availability_reason": {
+          "exhaustive_labels": "archives not inspected",
+          "timestamps": "tracking archive format not inspected; paper does not state PTS",
+          "annotated_negative_frames": "paper does not state whether target-absent frames are labeled",
+          "occlusion_truncation_flags": "annotation format not inspected",
+          "bbox_convention_stated": "repository and paper do not document indexing or endpoints",
+          "bbox_convention_observed": "archives not inspected"
+        }
+      },
+      "counts": {
+        "published_paper": {
+          "detection_images": 10000,
+          "detection_boxes": 10109,
+          "split_images": {
+            "train": 5200,
+            "val": 2600,
+            "test": 2200
+          },
+          "tracking_sequences": 20,
+          "tracking_frames": 24804
+        },
+        "measured": null,
+        "availability_reason": {
+          "measured": "archives not downloaded"
+        }
+      },
+      "discrepancies": [],
+      "width_bin_support": null,
+      "retrieval": {
+        "artifacts": [
+          {
+            "name": "detection train/val/test and tracking img/gt archives",
+            "url": "https://github.com/wangdongdut/DUT-Anti-UAV",
+            "size_bytes": null,
+            "md5_published": null,
+            "md5_measured": null,
+            "sha256_measured": null,
+            "availability_reason": {
+              "size_bytes": "Google Drive/Baidu links publish no size",
+              "md5_published": "no checksum published",
+              "md5_measured": "not downloaded",
+              "sha256_measured": "not downloaded"
+            }
+          }
+        ],
+        "instructions": "Do not acquire for the aircraft MVP. If later needed as a UAV-domain reference, get written confirmation of permitted use, record SHA-256 of every archive, and keep it out of aircraft metrics."
+      },
+      "grouping": {
+        "group_key": "tracking sequence ID",
+        "official_split": "authors' detection train/val/test; grouping of detection images by source video is not documented",
+        "leakage_risk": "Detection images may come from related footage; not audited.",
+        "availability_reason": {}
+      },
+      "pretraining_overlap": null,
+      "availability_reason": {
+        "width_bin_support": "box sizes not measured; archives not downloaded",
+        "pretraining_overlap": "no pretrained detector selected yet (AERIS-006)"
+      },
+      "planned_evaluations": [],
+      "eligible_evaluations": []
+    },
+    {
+      "id": "aeris-owned-video-pilot",
+      "name": "AERIS owned fixed-camera aircraft video pilot",
+      "role": "primary_video_benchmark",
+      "acquisition_status": "planned",
+      "source_uri": null,
+      "provenance": "To be captured by, or explicitly licensed to, the project owner. See acquisition_plan.",
+      "rights": {
+        "terms_url": null,
+        "terms_summary": "Owner-held rights required before capture or use; the license decision is open.",
+        "commercial_use": null,
+        "redistribution_permitted": null,
+        "repo_bundling_permitted": false,
+        "availability_reason": {
+          "terms_url": "no footage or license exists yet",
+          "commercial_use": "depends on the owner's footage terms, undecided",
+          "redistribution_permitted": "depends on the owner's footage terms, undecided"
+        }
+      },
+      "modality": {
+        "sensor": "rgb_visible",
+        "media": "video",
+        "fixed_camera": true
+      },
+      "classes": {
+        "source_taxonomy": "aircraft (fixed-wing and rotorcraft) visible in frame",
+        "mapping_to_aeris": {
+          "aircraft": 0
+        }
+      },
+      "annotation_capabilities": {
+        "bbox": true,
+        "objects_per_image": "all visible in-scope aircraft",
+        "exhaustive_labels": true,
+        "default_annotation_status": "complete",
+        "track_ids": true,
+        "timestamps": true,
+        "annotated_negative_frames": true,
+        "occlusion_truncation_flags": true,
+        "bbox_convention_stated": "AERIS contract v1: 0-based half-open original-frame pixels",
+        "bbox_convention_observed": null,
+        "banner": "none",
+        "availability_reason": {
+          "bbox_convention_observed": "no annotations exist yet"
+        }
+      },
+      "counts": {
+        "planned": {
+          "clips_max": 12,
+          "clip_seconds": 20,
+          "frames_approx": 7200,
+          "sessions_min": 6
+        },
+        "measured": null,
+        "availability_reason": {
+          "measured": "not captured"
+        }
+      },
+      "discrepancies": [],
+      "width_bin_support": null,
+      "retrieval": {
+        "artifacts": [],
+        "instructions": "Store original media in data/raw/aeris-pilot/ (Git-ignored) and back it up privately. Record SHA-256 of encoded files and of decoded frames, plus container PTS, at ingest."
+      },
+      "grouping": {
+        "group_key": "capture session ID (one location, one day, one camera setup)",
+        "official_split": "none; AERIS split_policy applies",
+        "leakage_risk": "Adjacent frames and clips from the same session are correlated; split whole sessions only.",
+        "availability_reason": {}
+      },
+      "pretraining_overlap": null,
+      "availability_reason": {
+        "source_uri": "not captured",
+        "width_bin_support": "not captured",
+        "pretraining_overlap": "not captured; false only for owner-captured footage recorded after detector weights are fixed; verify in AERIS-006"
+      },
+      "planned_evaluations": [
+        "detection",
+        "tracking",
+        "forecast"
+      ],
+      "eligible_evaluations": []
+    }
+  ],
+  "split_policy": {
+    "unit": "source_group",
+    "procedure": [
+      "Assign whole source groups (capture session, or tracking sequence where no session is known) to one split before looking at model results.",
+      "Frames, clips and every derivative (crops, resizes, re-encodes, augmentations) inherit their group's split.",
+      "Run exact-duplicate checks across splits; any cross-split match moves the later group or is removed, and is logged.",
+      "Run the near-duplicate audit; reviewer decisions are logged with both file hashes.",
+      "Record per-split support for negatives and each width bin before any evaluation."
+    ],
+    "splits": [
+      "development",
+      "validation",
+      "holdout"
+    ],
+    "holdout_sealed": true,
+    "holdout_rule": "Holdout is opened only for release evaluation (AERIS-018); never used for threshold or model selection.",
+    "derivatives_inherit_source_split": true,
+    "exact_duplicate_checks": [
+      "sha256 of encoded file bytes",
+      "sha256 of decoded RGB frame pixels"
+    ],
+    "near_duplicate_audit": {
+      "method": "perceptual-hash candidate pairs across splits, then manual review",
+      "hamming_threshold": null,
+      "availability_reason": {
+        "hamming_threshold": "set in AERIS-003 from the measured hash-distance distribution of the acquired data, not guessed here"
+      }
+    },
+    "negatives": {
+      "definition": "annotation_status complete and zero objects",
+      "counts_only_complete_status": true,
+      "requirement": "Each split must contain negative frames from at least one session; report their count per split. Partial or unlabeled frames never count as negatives."
+    },
+    "tiny_objects": {
+      "bins": [
+        "[0,16)",
+        "[16,32)",
+        "[32,64)",
+        "[64,inf)"
+      ],
+      "requirement": "Report per-split, per-bin support in original-frame pixels. A bin with zero holdout support reports metrics as unavailable, never zero or pass.",
+      "known_gap": "FGVC provides no boxes under 64 px wide; tiny-target evidence must come from the video pilot."
+    },
+    "pilot_allocation": {
+      "sessions_min": 6,
+      "development": 3,
+      "validation": 1,
+      "holdout": 2
+    },
+    "fgvc_use": "Official splits kept as-is for a detection smoke check only; not eligible for the development regression set or holdout.",
+    "interval_policy": "With 2 holdout sessions (about 4 clips), sequence-bootstrap intervals are not informative. Holdout results are per-sequence and descriptive; AERIS-005 sets the minimum number of sequences for reporting intervals before any holdout result, otherwise intervals are null with a reason."
+  },
+  "acquisition_plan": {
+    "missing_labels": [
+      "track IDs across frames",
+      "decode PTS timestamps",
+      "complete-annotation status per frame",
+      "annotated negative frames",
+      "tiny-target boxes (under 32 px wide)",
+      "occlusion and truncation flags",
+      "simultaneous multi-aircraft identities",
+      "camera ID and optional calibration"
+    ],
+    "caps": {
+      "retained_media_gb": 1,
+      "annotation_and_review_hours": 24,
+      "clips_max": 12
+    },
+    "effort_hours_estimate": {
+      "selection_and_provenance": [
+        2,
+        4
+      ],
+      "annotation": [
+        8,
+        14
+      ],
+      "independent_review": [
+        4,
+        6
+      ]
+    },
+    "effort_basis": "Engineering judgement assuming keyframe interpolation with per-frame review; not measured. Capture travel and waiting for rare events are excluded and may exceed the caps.",
+    "review_sample_fraction": null,
+    "constraints": [
+      "Owner-captured or explicitly licensed footage only; record the license before use.",
+      "Fixed tripod, fixed zoom, recorded RGB; note camera model, resolution and frame rate.",
+      "Capture from lawful public vantage points; follow local law and airport rules; do not identify people.",
+      "Raw media and annotations stay out of Git; commit only manifests, hashes and retrieval notes.",
+      "Stop when a cap is reached and report missing regimes instead of extending silently."
+    ],
+    "decisions_needed": [
+      "Who captures or licenses the footage, and under which terms.",
+      "Capture locations and dates for at least six independent sessions.",
+      "Annotation tool (CVAT is a candidate) and export format mapped to contract v1.",
+      "Approval of the 24-hour annotation/review budget."
+    ],
+    "availability_reason": {
+      "review_sample_fraction": "fixed and recorded before review starts, from the actual frame count"
+    }
+  }
+}

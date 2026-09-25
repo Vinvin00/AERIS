@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "checks": {
+    "governance": {
+      "argv": [
+        "{python}",
+        "tools/orchestrate.py",
+        "lint"
+      ],
+      "timeout_s": 30
+    },
+    "unit": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py"
+      ],
+      "timeout_s": 120
+    },
+    "cpp-configure": {
+      "argv": [
+        "cmake",
+        "-S",
+        ".",
+        "-B",
+        "build",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "timeout_s": 120
+    },
+    "cpp-build": {
+      "argv": [
+        "cmake",
+        "--build",
+        "build",
+        "--parallel",
+        "2"
+      ],
+      "timeout_s": 300
+    },
+    "cpp-test": {
+      "argv": [
+        "ctest",
+        "--test-dir",
+        "build",
+        "--output-on-failure"
+      ],
+      "timeout_s": 120
+    },
+    "contracts": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_contracts.py"
+      ],
+      "timeout_s": 120
+    },
+    "manifest": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_manifest.py"
+      ],
+      "timeout_s": 120
+    },
+    "dataset": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_dataset.py"
+      ],
+      "timeout_s": 120
+    },
+    "fixtures": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_fixtures.py"
+      ],
+      "timeout_s": 120
+    },
+    "metrics": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_metrics.py"
+      ],
+      "timeout_s": 120
+    },
+    "detection": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_detection.py"
+      ],
+      "timeout_s": 120
+    },
+    "baseline": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_baseline.py"
+      ],
+      "timeout_s": 120
+    },
+    "video": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_video.py"
+      ],
+      "timeout_s": 120
+    },
+    "tracking": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_tracking.py"
+      ],
+      "timeout_s": 120
+    },
+    "trajectory": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_trajectory.py"
+      ],
+      "timeout_s": 120
+    },
+    "camera": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_camera.py"
+      ],
+      "timeout_s": 120
+    },
+    "pipeline": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/integration/test_pipeline.py"
+      ],
+      "timeout_s": 120
+    },
+    "robustness": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_robustness.py"
+      ],
+      "timeout_s": 120
+    },
+    "cpp_parity": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/integration/test_cpp_parity.py"
+      ],
+      "timeout_s": 120
+    },
+    "regression": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_regression.py"
+      ],
+      "timeout_s": 120
+    },
+    "benchmark": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_benchmark.py"
+      ],
+      "timeout_s": 120
+    },
+    "tiling": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_tiling.py"
+      ],
+      "timeout_s": 120
+    },
+    "release": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/integration/test_release.py"
+      ],
+      "timeout_s": 120
+    },
+    "range": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/unit/test_range.py"
+      ],
+      "timeout_s": 120
+    },
+    "edge": {
+      "argv": [
+        "{python}",
+        "tools/check_tests.py",
+        "tests/integration/test_edge.py"
+      ],
+      "timeout_s": 120
+    }
+  }
+}

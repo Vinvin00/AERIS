@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.20)
+project(aeris VERSION 0.0.1 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+include(CTest)
+add_library(aeris_core INTERFACE)
+target_include_directories(aeris_core INTERFACE cpp/include)
+if(BUILD_TESTING)
+  add_executable(aeris_contract_test cpp/tests/frame_stamp_test.cpp)
+  target_link_libraries(aeris_contract_test PRIVATE aeris_core)
+  add_test(NAME frame_stamp_contract COMMAND aeris_contract_test)
+endif()
+# OpenCV, Eigen, ONNX Runtime and GoogleTest are introduced and pinned in AERIS-014.
+# No network dependency downloads are required for the foundation build.

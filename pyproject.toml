@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aeris"
+version = "0.0.1"
+description = "Monocular aircraft perception research — engineering scaffold"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2,<3", "opencv-python-headless>=5,<6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["python", "."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

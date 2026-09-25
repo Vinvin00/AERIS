@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "dataset_id": "fixture-canonical",
+  "class_mapping_version": "aeris-aircraft-v1",
+  "image_root": "images",
+  "group_basis": "one capture session per sequence (synthetic)",
+  "unannotated_attributes": [
+    "truncated"
+  ],
+  "transforms": {},
+  "sequences": [
+    {
+      "sequence_id": "clip-a",
+      "group_id": "session-1",
+      "split": "development"
+    },
+    {
+      "sequence_id": "clip-b",
+      "group_id": "session-2",
+      "split": "holdout"
+    }
+  ]
+}

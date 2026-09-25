@@ -1,0 +1,777 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "AERIS-001",
+      "title": "Canonical data types",
+      "objective": "Implement versioned frame, annotation, detection and prediction records with strict validation and JSON round trips.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/data/*",
+        "tests/unit/*contracts*",
+        "docs/decisions/001-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Finite geometry and explicit null availability are enforced",
+        "AC2": "Sequence IDs, timestamps, bbox conventions and negative/unlabeled frames round-trip without conflation",
+        "AC3": "Invalid IDs, timestamps, nonfinite numbers and malformed boxes fail with useful errors"
+      },
+      "required_artifacts": [
+        "python/aeris/data/contracts.py",
+        "tests/unit/test_contracts.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "contracts"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-002",
+      "title": "Dataset feasibility audit",
+      "objective": "Audit candidate RGB data and document one usable source plus the gap to a real identity-annotated video benchmark. Metadata and rights review only; no paid downloads or large transfer.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-001"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "docs/dataset.md",
+        "configs/data/*",
+        "tests/unit/*manifest*",
+        "docs/decisions/002-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Source, terms URL, modality, classes, annotation capabilities and retrieval/checksum plan are explicit",
+        "AC2": "Sequence-level split strategy covers negatives, tiny objects and duplicate leakage",
+        "AC3": "A real-video acquisition/annotation plan names missing labels, effort and constraints"
+      },
+      "required_artifacts": [
+        "docs/dataset.md",
+        "configs/data/source_manifest.json",
+        "tests/unit/test_manifest.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "manifest"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-003",
+      "title": "Dataset loader and QA",
+      "objective": "Implement canonical loader, validator, conversion fixture, statistics and an annotation contact-sheet command. Add bounded OpenCV dependency and reproducible environment details.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-001",
+        "AERIS-002"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/data/*",
+        "tests/unit/*dataset*",
+        "tests/fixtures/data/*",
+        "docs/data_qa.md",
+        "pyproject.toml",
+        "requirements/*",
+        "docs/decisions/003-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Missing/corrupt frames, malformed boxes, duplicate objects, track IDs and split leakage are rejected",
+        "AC2": "Conversion preserves explicit coordinate conventions and source grouping",
+        "AC3": "A small owned/generated fixture produces statistics and a visually inspected contact sheet"
+      },
+      "required_artifacts": [
+        "python/aeris/data/validate.py",
+        "python/aeris/data/visualize.py",
+        "tests/unit/test_dataset.py",
+        "docs/data_qa.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "dataset"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-004",
+      "title": "Analytic ground-truth fixtures",
+      "objective": "Create deterministic synthetic image-space and calibrated projection fixtures, with truth kept out of perception inputs.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-001"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/simulation/*",
+        "tests/unit/*fixtures*",
+        "tests/fixtures/simulation/*",
+        "docs/decisions/004-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Known constant motion, crossings, gaps, variable delta times and empty frames have analytic expected values",
+        "AC2": "Projection fixtures include camera parameters and independent truth without leaking future labels",
+        "AC3": "Fixed seeds and hashes reproduce artifacts; synthetic scope is labeled"
+      },
+      "required_artifacts": [
+        "python/aeris/simulation/fixtures.py",
+        "tests/unit/test_fixtures.py",
+        "tests/fixtures/simulation/manifest.json"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "fixtures"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-005",
+      "title": "Metric adapters and evaluation protocol",
+      "objective": "Integrate standard detection/tracking evaluators and implement causal forecast evaluation with availability reporting.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-003",
+        "AERIS-004"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/evaluation/*",
+        "tests/unit/*metrics*",
+        "tests/fixtures/evaluation/*",
+        "docs/evaluation.md",
+        "pyproject.toml",
+        "requirements/*",
+        "docs/decisions/005-*.md"
+      ],
+      "acceptance": {
+        "AC1": "COCO and TrackEval adapters match known perfect, missing and wrong-ID cases with pinned versions",
+        "AC2": "Forecast evaluation records horizon matching, support and misses without future leakage",
+        "AC3": "Size bins, negative frames, partial labels and unavailable truth have explicit tested behavior"
+      },
+      "required_artifacts": [
+        "python/aeris/evaluation/metrics.py",
+        "tests/unit/test_metrics.py",
+        "docs/evaluation.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "metrics"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-006",
+      "title": "Pretrained detector and export spike",
+      "objective": "Select a baseline with recorded code/weight terms, integrate inference and prove early CPU ONNX export feasibility. No training. Document bounded download size before fetching.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-003",
+        "AERIS-005"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/detection/*",
+        "tests/unit/*detection*",
+        "tests/fixtures/detection/*",
+        "docs/detection.md",
+        "configs/detector/*",
+        "pyproject.toml",
+        "requirements/*",
+        "models/README.md",
+        "docs/decisions/006-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Real pretrained detections use correct class mapping and invert preprocessing into original coordinates",
+        "AC2": "Model provenance, terms, version/hash, preprocessing/NMS and dependency locks are recorded",
+        "AC3": "Python and ONNX CPU outputs agree under declared numeric/postprocessing tolerances on a fixed sample"
+      },
+      "required_artifacts": [
+        "python/aeris/detection/baseline.py",
+        "tests/unit/test_detection.py",
+        "docs/detection.md",
+        "configs/detector/baseline.json"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "detection"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-007",
+      "title": "Measured baseline and gate selection",
+      "objective": "Run a real labeled baseline, freeze a development regression split, and define reviewable performance thresholds from measured repeatability.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-005",
+        "AERIS-006"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "benchmarks/baseline_manifest.json",
+        "configs/evaluation/*",
+        "docs/baseline.md",
+        "tests/unit/*baseline*",
+        "docs/decisions/007-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Real data/model/config/environment/artifact digests make the baseline reproducible",
+        "AC2": "AP, size recall, negatives and supports are reported without copying illustrative plan numbers",
+        "AC3": "Thresholds and tolerance rationale are frozen before candidate comparisons; final holdout is separate"
+      },
+      "required_artifacts": [
+        "benchmarks/baseline_manifest.json",
+        "configs/evaluation/regression.json",
+        "docs/baseline.md",
+        "tests/unit/test_baseline.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "baseline"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-008",
+      "title": "Timestamp-aware video pipeline",
+      "objective": "Connect recorded video decoding to baseline detections, stage timings and optional rendered output.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-006"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/video/*",
+        "tests/unit/*video*",
+        "tests/fixtures/video/*",
+        "docs/video.md",
+        "pyproject.toml",
+        "requirements/*",
+        "docs/decisions/008-*.md"
+      ],
+      "acceptance": {
+        "AC1": "PTS or explicitly marked fallback drives monotonically increasing timestamps; zero/negative deltas fail",
+        "AC2": "Decode/preprocess/inference/postprocess/render/total timings and skipped frames are recorded",
+        "AC3": "A bounded real sample and deterministic fake detector fixture exercise output dimensions and failure paths"
+      },
+      "required_artifacts": [
+        "python/aeris/video/pipeline.py",
+        "tests/unit/test_video.py",
+        "docs/video.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "video"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-009",
+      "title": "Kalman tracking and association",
+      "objective": "Implement timestamp-aware Kalman state and gated Hungarian association with explicit lifecycle transitions.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-008",
+        "AERIS-004",
+        "AERIS-005"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/tracking/*",
+        "tests/unit/*tracking*",
+        "tests/fixtures/tracking/*",
+        "docs/tracking.md",
+        "configs/tracker/*",
+        "pyproject.toml",
+        "requirements/*",
+        "docs/decisions/009-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Crossing, missing, duplicate and empty detections test stable IDs and lifecycle timeout in seconds",
+        "AC2": "Covariance stays finite/PSD and prediction/update use variable delta time without future access",
+        "AC3": "Tracking metrics run on identity-labeled real video; absent labels block real-performance claims"
+      },
+      "required_artifacts": [
+        "python/aeris/tracking/tracker.py",
+        "tests/unit/test_tracking.py",
+        "docs/tracking.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "tracking"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-010",
+      "title": "Causal image-space forecasts",
+      "objective": "Implement constant-velocity and separately specified acceleration forecasts, with comparable horizon evaluation and uncertainty checks.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-009",
+        "AERIS-005"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/estimation/trajectory.py",
+        "tests/unit/*trajectory*",
+        "tests/fixtures/trajectory/*",
+        "docs/trajectory_estimation.md",
+        "docs/decisions/010-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Forecasts use past/current observations only and timestamp horizons 0.1/0.25/0.5/1/2 seconds",
+        "AC2": "Analytic fixtures validate trajectories and covariance propagation; missed forecasts remain visible",
+        "AC3": "Both models use identical eligible truth/support; per-horizon errors and empirical interval coverage are reported"
+      },
+      "required_artifacts": [
+        "python/aeris/estimation/trajectory.py",
+        "tests/unit/test_trajectory.py",
+        "docs/trajectory_estimation.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "trajectory"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-011",
+      "title": "Calibrated camera-relative geometry",
+      "objective": "Implement pixel-to-ray and angular extent/rate for valid fixed-camera calibration, with graceful pixel-only mode.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-001",
+        "AERIS-004"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/estimation/camera.py",
+        "tests/unit/*camera*",
+        "tests/fixtures/camera/*",
+        "docs/camera_model.md",
+        "configs/camera/*",
+        "docs/decisions/011-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Projection/ray round trips include distortion and crop/resize transformations with numerical tolerances",
+        "AC2": "Unavailable calibration and camera/zoom changes suppress unsupported angular claims",
+        "AC3": "Heading and size-change outputs preserve conventions and do not imply metric range or aircraft yaw"
+      },
+      "required_artifacts": [
+        "python/aeris/estimation/camera.py",
+        "tests/unit/test_camera.py",
+        "docs/camera_model.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "camera"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-012",
+      "title": "Integrated Python MVP",
+      "objective": "Expose the recorded-video CLI and benchmark entry points with reproducible artifacts and clear metric availability.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-007",
+        "AERIS-010",
+        "AERIS-011"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/cli.py",
+        "python/aeris/__main__.py",
+        "tests/integration/*",
+        "docs/mvp.md",
+        "pyproject.toml",
+        "docs/decisions/012-*.md"
+      ],
+      "acceptance": {
+        "AC1": "CLI produces overlay, tracks, predictions, metrics, timings and manifest from a bounded real clip",
+        "AC2": "Unlabeled input produces null truth-dependent metrics with reasons, never invented accuracy",
+        "AC3": "End-to-end tests cover empty input, no detections, missing calibration and deterministic fixture replay"
+      },
+      "required_artifacts": [
+        "python/aeris/cli.py",
+        "tests/integration/test_pipeline.py",
+        "docs/mvp.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "pipeline"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-013",
+      "title": "Controlled robustness campaign",
+      "objective": "Add photometric, geometric and temporal degradations with consistent labels and documented severity/seed.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-012"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/evaluation/robustness.py",
+        "tests/unit/*robustness*",
+        "tests/fixtures/robustness/*",
+        "docs/robustness.md",
+        "configs/robustness/*",
+        "docs/decisions/013-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Photometric/geometric/temporal transformations preserve or transform truth appropriately",
+        "AC2": "Frame drops retain actual times; derivative data never crosses source splits",
+        "AC3": "Clean vs degraded measured results include support, failure examples and parameter manifests"
+      },
+      "required_artifacts": [
+        "python/aeris/evaluation/robustness.py",
+        "tests/unit/test_robustness.py",
+        "docs/robustness.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "robustness"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-014",
+      "title": "C++ runtime with Python parity",
+      "objective": "Port frozen reference contracts and runtime using pinned OpenCV/Eigen/ONNX Runtime and GoogleTest; preserve shared fixtures.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-012",
+        "AERIS-006"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "cpp/*",
+        "CMakeLists.txt",
+        "tests/integration/*cpp*",
+        "docs/cpp_runtime.md",
+        "configs/runtime/*",
+        "requirements/cpp*",
+        "docs/decisions/014-*.md"
+      ],
+      "acceptance": {
+        "AC1": "C++ video-to-tracks/forecast output matches Python fixtures within predeclared tolerances",
+        "AC2": "GoogleTest covers variable delta time, missing detections, ray geometry and covariance behavior",
+        "AC3": "Build and ctest execute the real runtime and parity tests; model input/output/NMS are identical"
+      },
+      "required_artifacts": [
+        "cpp/apps/aeris_video.cpp",
+        "cpp/tests/parity_test.cpp",
+        "tests/integration/test_cpp_parity.py",
+        "docs/cpp_runtime.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "cpp_parity",
+        "cpp-configure",
+        "cpp-build",
+        "cpp-test"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-015",
+      "title": "Benchmark regression gates",
+      "objective": "Implement numerical benchmark comparison against approved development baselines and integrate the reproducible subset into CI.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-007",
+        "AERIS-012",
+        "AERIS-013"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/evaluation/regression.py",
+        "tests/unit/*regression*",
+        "tests/fixtures/regression/*",
+        "docs/regression.md",
+        ".github/workflows/*",
+        "docs/decisions/015-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Missing metrics, protocol/model/data mismatches and real regressions fail with actionable diagnostics",
+        "AC2": "Fixtures prove boundary equality, lower/higher-is-better and unavailable metric semantics",
+        "AC3": "CPU deterministic CI and optional fixed-hardware performance jobs are separate; gates are not relaxed to pass"
+      },
+      "required_artifacts": [
+        "python/aeris/evaluation/regression.py",
+        "tests/unit/test_regression.py",
+        "docs/regression.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "regression"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-016",
+      "title": "Reproducible CPU performance",
+      "objective": "Benchmark Python and C++ CPU ONNX paths on the same model/data/protocol; record practical latency/quality tradeoffs.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-014",
+        "AERIS-015"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "benchmarks/cpu_manifest.json",
+        "tests/unit/*benchmark*",
+        "docs/performance.md",
+        "scripts/benchmark_cpu.py",
+        "docs/decisions/016-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Warmup, sample counts, per-stage/end-to-end percentiles and throughput are clearly defined",
+        "AC2": "Same model/preprocessing/precision/hardware enable a defensible comparison and parity check",
+        "AC3": "Measured artifacts and manifests are available; real-time claims name FPS/resolution/hardware and drops"
+      },
+      "required_artifacts": [
+        "benchmarks/cpu_manifest.json",
+        "tests/unit/test_benchmark.py",
+        "docs/performance.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "benchmark"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-017",
+      "title": "Bounded tiny-target experiment",
+      "objective": "Compare baseline resolution to one higher-resolution or tiled candidate under a fixed budget. Fine-tuning needs a separate explicit compute budget.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-007",
+        "AERIS-008"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/detection/tiling.py",
+        "tests/unit/*tiling*",
+        "experiments/tiny_targets.md",
+        "configs/experiments/*",
+        "docs/decisions/017-*.md"
+      ],
+      "acceptance": {
+        "AC1": "One-factor experiment holds split/model/evaluator fixed and reports original-pixel size bins",
+        "AC2": "Crop/tile coordinate inversion, overlap deduplication and edge cases are tested",
+        "AC3": "Accuracy and latency comparison includes negatives, support and failures; negative results are preserved"
+      },
+      "required_artifacts": [
+        "experiments/tiny_targets.md",
+        "configs/experiments/tiny_targets.json",
+        "tests/unit/test_tiling.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "tiling"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-018",
+      "title": "Release evidence and reproduction",
+      "objective": "Assemble the v1 engineering report, clean-machine instructions, demo and claim-to-evidence table.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-015",
+        "AERIS-016",
+        "AERIS-017"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "docs/results.md",
+        "docs/release.md",
+        "README.md",
+        "LICENSE",
+        "tests/integration/*release*",
+        "docs/decisions/018-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Clean documented commands reproduce the small public/owned fixture and locate large artifact manifests",
+        "AC2": "Every claimed result links actual evidence and separates real/synthetic, CPU/NVIDIA and measured/experimental",
+        "AC3": "Remaining limits, selected license, calibration conditions and unavailable optional work are explicit"
+      },
+      "required_artifacts": [
+        "docs/results.md",
+        "docs/release.md",
+        "tests/integration/test_release.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "release"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-019",
+      "title": "Conditional monocular range research",
+      "objective": "Deferred: design range inference only under documented projected-size/pose priors and validate uncertainty coverage against suitable truth.",
+      "status": "deferred",
+      "depends_on": [
+        "AERIS-018"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "python/aeris/estimation/range.py",
+        "docs/range_research.md",
+        "tests/unit/*range*",
+        "docs/decisions/019-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Explicit size/pose assumptions and abstention policy accompany every result",
+        "AC2": "Independent range truth measures bias, error and interval coverage across regimes"
+      },
+      "required_artifacts": [
+        "docs/range_research.md",
+        "tests/unit/test_range.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "range"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-020",
+      "title": "NVIDIA deployment experiment",
+      "objective": "Deferred: benchmark TensorRT/Jetson only after compatible physical hardware, resource budget and parity protocol are available.",
+      "status": "deferred",
+      "depends_on": [
+        "AERIS-018"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "docs/edge_deployment.md",
+        "tests/integration/*edge*",
+        "configs/edge/*",
+        "scripts/benchmark_edge.py",
+        "docs/decisions/020-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Actual NVIDIA device/runtime/precision/provider and engine provenance are recorded",
+        "AC2": "Accuracy/parity and latency measured on the device justify any acceleration claim"
+      },
+      "required_artifacts": [
+        "docs/edge_deployment.md",
+        "tests/integration/test_edge.py"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "edge"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    }
+  ]
+}

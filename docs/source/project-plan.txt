@@ -1,0 +1,999 @@
+Yes. I’d structure this as a serious 8–12 week engineering project, where every phase leaves the repository working. The goal is to avoid spending three weeks building infrastructure before you can detect a plane.
+
+AERIS
+
+Monocular Aircraft Detection, Tracking & Trajectory Estimation
+
+Core objective: Given monocular optical video, detect and persistently track aircraft, estimate image-space size and motion, predict short-horizon trajectories, and quantify the uncertainty/error of those estimates against known ground truth.
+
+The eventual pipeline:
+
+Video / Camera
+      │
+      ▼
+┌──────────────┐
+│ Preprocessing│  OpenCV
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│   Detector   │  PyTorch → ONNX
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│   Tracker    │  Kalman + Association
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│ State Est.   │  Position / size / motion
+└──────┬───────┘
+       ▼
+┌──────────────┐
+│ Trajectory   │  Future image-space position
+│ Predictor    │
+└──────┬───────┘
+       ▼
+ Metrics / Evaluation / Visualization
+
+Later, the real-time side moves into C++, while Python remains responsible for training, datasets and evaluation.
+
+⸻
+
+Phase 0 — Engineering foundation
+
+Do this before ML.
+
+0.1 Repository
+
+I’d use one monorepo:
+
+aeris/
+│
+├── README.md
+├── LICENSE
+├── .gitignore
+├── pyproject.toml
+├── CMakeLists.txt
+├── docker/
+│
+├── configs/
+│   ├── detector/
+│   ├── tracker/
+│   ├── evaluation/
+│   └── camera/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   ├── annotations/
+│   └── samples/
+│
+├── models/
+│   ├── checkpoints/
+│   ├── onnx/
+│   └── tensorrt/
+│
+├── python/
+│   └── aeris/
+│       ├── data/
+│       ├── detection/
+│       ├── tracking/
+│       ├── estimation/
+│       ├── evaluation/
+│       ├── simulation/
+│       └── visualization/
+│
+├── cpp/
+│   ├── include/aeris/
+│   ├── src/
+│   ├── apps/
+│   └── tests/
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── regression/
+│
+├── scripts/
+│
+├── experiments/
+│
+├── benchmarks/
+│
+├── docs/
+│
+└── .github/
+    └── workflows/
+
+Don’t actually fill all those directories immediately. They’re the destination.
+
+0.2 Python environment
+
+Start with:
+
+Python 3.11/3.12, PyTorch, OpenCV, NumPy, pytest, matplotlib, pandas
+
+Then introduce other dependencies only when they’re needed.
+
+0.3 C++ environment
+
+Set up:
+
+C++20 + CMake + OpenCV + Eigen + GoogleTest
+
+For now, just get this passing:
+
+$ pytest
+================ 5 passed ================
+$ ctest
+100% tests passed
+
+This means your project starts with testing built in rather than adding tests six weeks later.
+
+0.4 CI
+
+GitHub Actions:
+
+push / PR
+   │
+   ├── Python lint
+   ├── Python tests
+   ├── C++ build
+   └── C++ tests
+
+Milestone 0:
+
+Empty but professionally structured Python/C++ project with CI passing.
+
+⸻
+
+Phase 1 — Dataset & annotation infrastructure
+
+This is where you properly learn the dataset-management/QA part of the Quantum JD.
+
+1.1 Choose datasets
+
+You’ll eventually want a combination of:
+
+real aircraft footage + annotated aircraft images/video + synthetic sequences with known ground truth.
+
+Do not worry about getting the perfect dataset immediately.
+
+Start with one dataset that provides aircraft bounding boxes.
+
+1.2 Standard internal annotation format
+
+Regardless of source format, AERIS should convert everything into one internal representation.
+
+For example:
+
+frame_id
+timestamp
+class_id
+track_id
+x_min
+y_min
+x_max
+y_max
+confidence
+
+This matters because later you might consume multiple datasets.
+
+1.3 Dataset validator
+
+Build:
+
+python -m aeris.data.validate
+
+It checks:
+
+* image exists
+* image readable
+* annotation exists
+* bbox has positive area
+* bbox within image
+* class valid
+* no malformed values
+* duplicate annotation detection
+* track IDs valid
+* corrupted frames
+* dataset split leakage
+
+1.4 Dataset statistics
+
+Generate:
+
+Total images
+Total annotations
+Aircraft per image
+Bounding-box size distribution
+Class distribution
+Image resolution distribution
+Small/medium/large targets
+
+Bounding-box size distribution will become particularly important.
+
+1.5 Annotation visualizer
+
+python -m aeris.data.visualize
+
+Randomly sample annotated frames and render the boxes.
+
+This is your first substantial OpenCV work.
+
+Tests
+
+test_invalid_bbox
+test_out_of_bounds_bbox
+test_missing_image
+test_corrupt_image
+test_duplicate_annotation
+test_annotation_conversion
+test_split_integrity
+
+Milestone 1:
+
+Reproducible, validated aircraft CV dataset with automated QA.
+
+⸻
+
+Phase 2 — Detection baseline
+
+Now we actually detect aircraft.
+
+2.1 Establish baseline
+
+Use a pretrained object detector first.
+
+Don’t train anything.
+
+Run inference:
+
+image
+ ↓
+detector
+ ↓
+aircraft detections
+ ↓
+OpenCV visualization
+
+2.2 Evaluation pipeline
+
+Build this before fine-tuning.
+
+Metrics:
+
+Precision
+Recall
+F1
+mAP@0.50
+mAP@0.50:0.95
+
+And especially:
+
+Recall by target size
+
+For example:
+
+Target width	Recall
+< 16px	0.31
+16–32px	0.57
+32–64px	0.81
+>64px	0.94
+
+Now you have a measurable baseline.
+
+2.3 Fine-tune
+
+Fine-tune your detector on the aircraft dataset.
+
+Compare:
+
+Pretrained baseline
+        VS
+Fine-tuned detector
+
+Don’t just replace the baseline. Keep its results.
+
+2.4 Tiny-object experiment
+
+Because long-range aircraft are small, investigate:
+
+higher input resolution / tiled inference / cropping / augmentation
+
+Compare them systematically.
+
+Milestone 2:
+
+Fine-tuned aircraft detector with reproducible benchmark against baseline.
+
+⸻
+
+Phase 3 — Video perception
+
+So far:
+
+image → detection
+
+Now:
+
+video → detections over time
+
+This is where OpenCV becomes central.
+
+3.1 Video pipeline
+
+Implement:
+
+cv::VideoCapture / cv2.VideoCapture
+             ↓
+         frame
+             ↓
+       preprocessing
+             ↓
+         detector
+             ↓
+      visualization
+             ↓
+        output video
+
+Track timestamps and processing latency for every frame.
+
+3.2 Benchmark runtime
+
+Record:
+
+Mean latency
+P50 latency
+P95 latency
+P99 latency
+FPS
+
+Separate:
+
+Decode
+Preprocessing
+Inference
+Postprocessing
+Rendering
+
+Now you know where the system is slow.
+
+Milestone 3:
+
+Real-time-ish aircraft detection from recorded video with profiling.
+
+⸻
+
+Phase 4 — Multi-object tracking
+
+Now stop treating every frame independently.
+
+4.1 Track representation
+
+Each aircraft gets:
+
+Track {
+    id
+    position
+    velocity
+    bbox
+    age
+    frames_since_seen
+    confidence
+}
+
+4.2 Kalman filter
+
+Implement the filter yourself.
+
+Start with:
+
+x=[c_x,c_y,v_x,v_y,w,h]
+
+Measurements:
+
+z=[c_x,c_y,w,h]
+
+The detector gives noisy measurements.
+
+Kalman predicts where the aircraft should appear next.
+
+4.3 Association
+
+Multiple aircraft means you need to associate detections with tracks.
+
+Build:
+
+Predicted tracks
+       +
+New detections
+       ↓
+Cost matrix
+       ↓
+Assignment
+       ↓
+Updated tracks
+
+Start with IoU/distance matching.
+
+Then use Hungarian assignment.
+
+4.4 Track lifecycle
+
+Implement:
+
+Tentative
+    ↓
+Confirmed
+    ↓
+Lost
+    ↓
+Deleted
+
+This sounds small but is essential to a decent tracker.
+
+4.5 Tracking KPIs
+
+Measure things like:
+
+ID switches, track fragmentation, track lifetime, position error, association accuracy.
+
+Milestone 4:
+
+Multiple aircraft receive persistent identities and survive short detection losses.
+
+⸻
+
+Phase 5 — Motion & trajectory estimation
+
+This becomes the core intellectual part of AERIS.
+
+5.1 Image-space motion
+
+For every aircraft:
+
+x(t)
+y(t)
+w(t)
+h(t)
+
+Calculate:
+
+vx
+vy
+ax
+ay
+bbox expansion rate
+direction
+angular movement
+
+5.2 Camera calibration
+
+Now learn actual CV geometry.
+
+OpenCV calibration gives you the camera intrinsic matrix:
+
+K =
+\begin{bmatrix}
+f_x&0&c_x\\
+0&f_y&c_y\\
+0&0&1
+\end{bmatrix}
+
+That allows conversion from pixels into viewing angles.
+
+Now instead of:
+
+moving 12 px/s right
+
+you can estimate:
+
+angular motion ≈ X°/s.
+
+5.3 Direction estimation
+
+Calculate image-plane heading.
+
+        ↑
+      ↖ ↑ ↗
+    ←   ✈   →
+      ↙ ↓ ↘
+        ↓
+
+Smooth it through the state estimator rather than calculating it from two frames.
+
+5.4 Trajectory prediction
+
+Start simple.
+
+Constant velocity:
+
+p(t+\Delta t)=p(t)+v\Delta t
+
+Then constant acceleration.
+
+Then compare them.
+
+Do not immediately throw a neural network at trajectory prediction.
+
+5.5 Prediction horizons
+
+Benchmark:
+
+100 ms
+250 ms
+500 ms
+1 s
+2 s
+
+Measure prediction error at each horizon.
+
+Example:
+
+0.25s → 4.2 px
+0.50s → 8.7 px
+1.00s → 23.1 px
+2.00s → 71.8 px
+
+Milestone 5:
+
+AERIS can detect an aircraft, track it and predict where its image-space track is likely to continue.
+
+⸻
+
+Phase 6 — Apparent size & range estimation research
+
+Treat this as experimental, because monocular ranging is fundamentally ambiguous.
+
+6.1 Angular size
+
+Camera calibration + bbox dimensions gives apparent angular dimensions.
+
+Output:
+
+Angular width:  1.72°
+Angular height: 0.48°
+
+This is directly observable.
+
+6.2 Size-change estimation
+
+Track:
+
+\frac{dw}{dt}
+
+and
+
+\frac{dh}{dt}
+
+This gives evidence of whether the aircraft is getting larger/smaller in the image.
+
+Classify relative motion:
+
+APPROACHING
+RECEDING
+CROSSING
+UNCERTAIN
+
+6.3 Approximate range
+
+Only when you have a reasonable assumption/estimate for physical aircraft dimensions should you attempt approximate range.
+
+Importantly, output:
+
+Estimated range:
+1.4–1.9 km
+Uncertainty:
+±250 m
+
+rather than fake centimeter-level precision.
+
+6.4 Uncertainty model
+
+Propagate uncertainty from:
+
+bbox measurement + aircraft dimension estimate + camera calibration + tracking uncertainty.
+
+This is a great technical component.
+
+Milestone 6:
+
+Apparent-size, angular-motion and experimental range/motion estimates with explicit uncertainty.
+
+⸻
+
+Phase 7 — Ground-truth evaluation environment
+
+This is what makes the project scientifically credible.
+
+We need sequences where we know:
+
+true position
+true velocity
+true aircraft dimensions
+true camera parameters
+
+You could generate synthetic evaluation sequences rather than relying entirely on real footage.
+
+The perception pipeline does not get access to this data.
+
+It only sees:
+
+RGB frames
+
+Evaluation does:
+
+VISION ESTIMATE
+       │
+       ▼
+    compare
+       ▲
+       │
+GROUND TRUTH
+
+Now measure:
+
+Detection
+
+mAP
+precision
+recall
+
+Tracking
+
+position error
+ID switches
+track retention
+
+Motion
+
+angular velocity error
+direction error
+
+Trajectory
+
+prediction RMSE
+error vs prediction horizon
+
+Range
+
+MAE
+RMSE
+relative error
+uncertainty calibration
+
+Milestone 7:
+
+Every major claim AERIS makes can be quantitatively tested.
+
+This phase is very important for the eventual CV.
+
+⸻
+
+Phase 8 — Move runtime into C++
+
+Until here, you can prototype heavily in Python.
+
+Now freeze your algorithms.
+
+Reimplement the runtime.
+
+cpp/
+├── include/aeris/
+│   ├── detection/
+│   │   └── detector.hpp
+│   ├── tracking/
+│   │   ├── kalman_filter.hpp
+│   │   └── tracker.hpp
+│   ├── estimation/
+│   │   ├── state_estimator.hpp
+│   │   └── trajectory_predictor.hpp
+│   ├── camera/
+│   │   └── camera_model.hpp
+│   └── core/
+│       └── pipeline.hpp
+│
+├── src/
+│   ├── detector.cpp
+│   ├── tracker.cpp
+│   ├── kalman_filter.cpp
+│   ├── state_estimator.cpp
+│   ├── trajectory_predictor.cpp
+│   ├── camera_model.cpp
+│   └── pipeline.cpp
+│
+├── apps/
+│   ├── aeris_video.cpp
+│   └── aeris_benchmark.cpp
+│
+└── tests/
+
+8.1 Export PyTorch
+
+PyTorch
+   ↓
+ONNX
+   ↓
+C++ runtime
+
+8.2 OpenCV C++
+
+Move:
+
+video decoding, preprocessing, visualization, camera calibration, geometric operations
+
+into C++.
+
+8.3 GoogleTest
+
+Tests:
+
+KalmanFilter.PredictConstantVelocity
+KalmanFilter.HandlesNoisyMeasurements
+Tracker.MaintainsIdentity
+Tracker.HandlesMissingDetection
+CameraModel.PixelToRay
+Trajectory.ConstantVelocity
+Trajectory.UncertaintyIncreasesWithTime
+
+This is the point where you can legitimately put C++ on the CV.
+
+Milestone 8:
+
+Complete C++ real-time perception runtime using a model trained in Python.
+
+⸻
+
+Phase 9 — Robustness framework
+
+Now try to break AERIS.
+
+Build an OpenCV degradation framework.
+
+Given:
+
+clean.mp4
+
+automatically produce controlled degradation.
+
+Environmental/image effects
+
+Gaussian noise
+motion blur
+defocus blur
+low brightness
+contrast loss
+haze/fog approximation
+JPEG compression
+resolution reduction
+
+Camera effects
+
+camera shake
+rotation
+frame drops
+variable FPS
+
+Then benchmark automatically:
+
+                     mAP    Tracking    Traj Error
+Clean                .81       .89        12px
+Motion blur          .69       .77        21px
+Low light            .63       .71        27px
+Compression          .75       .83        16px
+Tiny target          .48       .59        43px
+
+Now you’ve built a genuine CV evaluation framework, not just a model.
+
+Milestone 9:
+
+Quantified robustness under controlled visual degradation.
+
+⸻
+
+Phase 10 — Performance optimization / edge inference
+
+Only now touch TensorRT.
+
+Baseline:
+
+PyTorch FP32
+
+then:
+
+PyTorch
+   ↓
+ONNX
+   ↓
+TensorRT FP32
+   ↓
+TensorRT FP16
+
+Potentially later INT8.
+
+Compare:
+
+Runtime	mAP	P95 latency	FPS
+PyTorch FP32	—	—	—
+ONNX	—	—	—
+TensorRT FP32	—	—	—
+TensorRT FP16	—	—	—
+
+If you eventually get Jetson access, repeat on-device.
+
+Now you can talk about the actual:
+
+accuracy ↔ latency ↔ compute trade-off
+
+rather than simply listing TensorRT on your CV.
+
+Milestone 10:
+
+Optimized inference runtime with quantitative performance comparison.
+
+⸻
+
+Phase 11 — Regression testing
+
+This is where pytest becomes more than unit tests.
+
+Store an approved benchmark dataset.
+
+Every significant model/system update runs:
+
+Detection regression
+Tracking regression
+Trajectory regression
+Latency regression
+
+Example:
+
+================ AERIS REGRESSION ================
+Detection mAP       0.742   threshold ≥ 0.720    PASS
+Recall              0.811   threshold ≥ 0.790    PASS
+Tracking score      0.873   threshold ≥ 0.850    PASS
+1s prediction RMSE  18.4px  threshold ≤ 20px     PASS
+P95 latency         24.8ms  threshold ≤ 25ms     PASS
+===================================================
+
+If performance drops:
+
+FAILED
+P95 latency:
+baseline: 24.8ms
+current:  31.3ms
+Regression: +26.2%
+
+CI fails.
+
+This directly attacks the testing/KPI gap in your CV.
+
+⸻
+
+Phase 12 — Documentation & final engineering report
+
+Don’t finish with a README containing:
+
+pip install…
+
+Create actual engineering documentation.
+
+docs/
+├── architecture.md
+├── dataset.md
+├── detection.md
+├── tracking.md
+├── camera_model.md
+├── trajectory_estimation.md
+├── uncertainty.md
+├── evaluation.md
+├── edge_deployment.md
+└── results.md
+
+Your README should show the result immediately:
+
+AERIS
+Monocular Aircraft Detection & Trajectory Estimation
+[demo GIF/video]
+Detection mAP: ...
+Tracking: ...
+P95 latency: ...
+Trajectory RMSE: ...
+Architecture
+[diagram]
+Research Results
+[plots]
+Quick Start
+...
+
+Include a proper limitations section, especially explaining what can and cannot reliably be inferred from monocular imagery.
+
+⸻
+
+Development order
+
+Do not attempt all of this simultaneously. I’d use these milestones:
+
+Week	Main objective	Main thing you learn
+1	Repo + dataset pipeline	pytest, OpenCV basics
+2	Detector baseline	CV + PyTorch
+3	Fine-tuning + evaluation	ML evaluation
+4	Video + tracking	OpenCV + Kalman
+5	Motion + trajectory	State estimation
+6	Camera geometry + apparent size	CV geometry
+7	Ground-truth evaluation	KPI design
+8	C++ runtime	C++/CMake/OpenCV
+9	Finish C++ + GoogleTest	Production engineering
+10	Robustness testing	CV research
+11	ONNX/TensorRT	Edge ML
+12	Benchmarks + docs	Research communication
+
+Don’t treat 12 weeks as a deadline. It’s the order of attack.
+
+⸻
+
+GitHub issues I’d create immediately
+
+Your first sprint can literally become:
+
+AERIS-001   Initialize Python project
+AERIS-002   Configure pytest
+AERIS-003   Initialize CMake/C++20 project
+AERIS-004   Configure GoogleTest
+AERIS-005   Configure GitHub Actions
+AERIS-006   Define canonical annotation schema
+AERIS-007   Implement dataset loader
+AERIS-008   Implement annotation validator
+AERIS-009   Implement OpenCV annotation visualizer
+AERIS-010   Generate dataset statistics
+AERIS-011   Integrate baseline aircraft detector
+AERIS-012   Implement detection visualization
+AERIS-013   Implement detection metrics
+AERIS-014   Create baseline benchmark
+
+Then don’t create 100 more issues yet. Finish those and define Sprint 2 from what you actually learn.
+
+⸻
+
+What “finished” means
+
+This matters because otherwise AERIS could expand forever.
+
+I’d call AERIS v1.0 finished when you can run:
+
+aeris input.mp4
+
+and receive:
+
+output.mp4
+tracks.csv
+metrics.json
+benchmark.json
+
+where the video shows:
+
+             previous trajectory
+           · · · ·
+                 ╲
+                  ✈ #4 ─ · · · · ·
+                          prediction
+Aircraft #4
+Confidence:       0.94
+Angular velocity: 0.71°/s
+Direction:        63°
+Angular size:     1.4°
+Motion:           approaching
+
+And separately:
+
+aeris-benchmark evaluation_dataset/
+
+produces quantitative results for:
+
+detection + tracking + trajectory prediction + robustness + latency.
+
+That gives you a coherent flagship project instead of a pile of technologies.
+
+And importantly, it complements your existing missile-guidance project rather than duplicating it: that project demonstrates 6-DOF simulation, PyTorch guidance, Kubernetes/CI and 236 automated tests; AERIS adds computer vision, OpenCV, C++, camera geometry, tracking/state estimation and edge inference. VincenzoBalbi_ShieldAICV.pdf
+
+By the end, the technical story on your CV becomes significantly stronger: one project asks “where should the autonomous system go?”, while AERIS asks “what does the autonomous system see, and how reliably can it estimate motion from that perception?”
