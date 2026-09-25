@@ -14,8 +14,9 @@ frozen ML training environment.
 
 - `eval-linux-x86_64-py311.txt`: hash-pinned pycocotools 2.0.11 and scipy 1.17.1 for the
   AERIS-005 evaluators, plus the install command for official TrackEval at commit
-  `12c8791b`. That is a VCS pin, whose integrity check is the commit SHA; it is verified at
-  run time. Verified by a fresh-venv install of both Linux locks and the full test suite.
+  `12c8791b`. That is a VCS pin, whose integrity check is the commit SHA. At run time the
+  commit pip recorded and the installed files' RECORD hashes are checked. Verified by a
+  fresh-venv install of both Linux locks and the full test suite.
 
 CI on Python 3.11/3.12 still resolves the ranges in pyproject.toml rather than a lock.
 The `dev` extra includes the evaluators so CI installs them.

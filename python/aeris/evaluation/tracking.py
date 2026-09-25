@@ -4,8 +4,9 @@ Protocol (docs/evaluation.md):
 - Only identity-labelled sequences are eligible: every frame ``complete`` and every
   non-ignored object carries a track ID. Detector-only or partial data cannot score
   tracking; ineligible sequences are listed with reasons.
-- Tracker boxes matched (Hungarian, IoU >= 0.5) to ignored truth objects are removed
-  before scoring, as MOTChallenge preprocessing removes distractor matches.
+- Distractors follow TrackEval's MOTChallenge preprocessing: one Hungarian assignment of
+  tracker boxes over all truth (IoU below 0.5 zeroed); only boxes assigned to an ignored
+  object are removed, so a box on a labelled object that also overlaps an ignored one stays.
 - Similarity is TrackEval's own box IoU; HOTA, CLEAR (MOTA, IDSW, Frag, MT/PT/ML) and
   Identity (IDF1) are TrackEval's metric classes and sequence combination.
 - Predicted-only tracker boxes (``observed=False``) are excluded unless requested, and are
@@ -61,14 +62,20 @@ def _sequence_data(records, boxes_by_frame, box_iou, assign):
             "num_tracker_ids": len(tracker_names), "num_gt_dets": 0, "num_tracker_dets": 0,
             "gt_ids": [], "tracker_ids": [], "similarity_scores": []}
     removed = 0
+    eps = np.finfo(float).eps
     for record in records:
         truth = [item for item in record.objects if not item.ignore]
         ignored = [item.bbox for item in record.objects if item.ignore]
         tracked = list(boxes_by_frame.get(record.frame.frame_index, []))
         if ignored and tracked:
-            overlap = box_iou(_boxes(ignored), _boxes([b.bbox for b in tracked]), box_format="x0y0x1y1")
-            rows, cols = assign(-overlap)
-            drop = {c for r, c in zip(rows, cols) if overlap[r, c] >= DISTRACTOR_IOU}
+            # MOTChallenge preprocessing (TrackEval mot_challenge_2d_box): one Hungarian
+            # assignment over all truth, labelled rows first, with IoU below 0.5 zeroed;
+            # remove only tracker boxes assigned to an ignored row.
+            scores = box_iou(_boxes([i.bbox for i in truth] + ignored), _boxes([b.bbox for b in tracked]),
+                             box_format="x0y0x1y1")
+            scores[scores < DISTRACTOR_IOU - eps] = 0
+            rows, cols = assign(-scores)
+            drop = {c for r, c in zip(rows, cols) if scores[r, c] > eps and r >= len(truth)}
             removed += len(drop)
             tracked = [b for i, b in enumerate(tracked) if i not in drop]
         similarity = (box_iou(_boxes([i.bbox for i in truth]), _boxes([b.bbox for b in tracked]),

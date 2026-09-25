@@ -1,7 +1,9 @@
 """Shared evaluation helpers: evaluator pins, availability, width bins and intervals."""
 from __future__ import annotations
 
+import base64
 import contextlib
+import hashlib
 import importlib.metadata
 import io
 import json
@@ -38,13 +40,29 @@ def evaluator_versions() -> dict:
                           "source": TRACKEVAL_SOURCE}}
 
 
+def record_mismatches(distribution) -> list[str]:
+    """Installed Python files whose SHA-256 differs from the wheel RECORD pip wrote."""
+    changed = []
+    for entry in distribution.files or ():
+        if entry.hash is None or entry.hash.mode != "sha256" or not str(entry).endswith(".py"):
+            continue
+        digest = hashlib.sha256(entry.locate().read_bytes()).digest()
+        if base64.urlsafe_b64encode(digest).rstrip(b"=").decode() != entry.hash.value:
+            changed.append(str(entry))
+    return changed
+
+
 def require_pinned_evaluators() -> dict:
+    """Check versions, the pip-recorded TrackEval commit and its installed-file hashes."""
     versions = evaluator_versions()
     problems = []
     if versions["pycocotools"] != PYCOCOTOOLS_VERSION:
         problems.append(f"pycocotools {versions['pycocotools']} != pinned {PYCOCOTOOLS_VERSION}")
     if versions["trackeval"]["commit"] != TRACKEVAL_COMMIT:
         problems.append(f"trackeval commit {versions['trackeval']['commit']} != pinned {TRACKEVAL_COMMIT}")
+    changed = record_mismatches(importlib.metadata.distribution("trackeval"))
+    if changed:
+        problems.append(f"trackeval files differ from the installed RECORD: {changed[:5]}")
     if problems:
         raise EvaluatorVersionError("; ".join(problems))
     return versions

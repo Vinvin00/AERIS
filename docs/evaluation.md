@@ -15,8 +15,10 @@ model quality.
 | pycocotools (COCO API) | 2.0.11 from PyPI | BSD-2-Clause | `COCOeval` bbox: AP50, AP@[.50:.95], per-image matches |
 | TrackEval | official upstream commit `12c8791b303e0a0b50f753af204249e622d0281a` (2022-11-29) | MIT | HOTA, CLEAR, Identity metric classes and sequence combination; box IoU |
 
-Both are verified at run time. `require_pinned_evaluators()` refuses other versions,
-and every report records the installed versions.
+`require_pinned_evaluators()` refuses anything else, and every report records the
+installed versions. It checks the pycocotools version and the TrackEval commit that pip
+recorded (`direct_url.json`). It also checks every installed TrackEval Python file against
+the SHA-256 in pip's `RECORD`, so later edits to the installed evaluator are detected.
 
 **TrackEval and NumPy 2.** TrackEval at the pinned commit still uses `np.float` and
 `np.int`, which NumPy 1.24 removed; NumPy only ever defined them as the builtins `float`
@@ -42,10 +44,10 @@ Install: `pip install -e '.[eval]'` (or `.[dev]`), or the hash lock
 | `ignore` objects | Become COCO crowd regions (`iscrowd=1`), COCO's own ignore mechanism. A detection matched to one is neither a true nor a false positive (`detections_matched_to_ignored_regions`) |
 | Partial frames | A full-frame crowd region per category leaves unmatched detections unscored. Labelled objects there count toward `recall_including_partial` and the width bins |
 | Threshold metrics | Precision, recall, F1, TP/FP/FN and false positives per complete frame need a caller-supplied, validation-selected `score_threshold` (inclusive). Without one they are null with a reason. They use COCOeval matches at one stated `iou_threshold` (default 0.5) on complete frames |
-| Budget | `max_detections_per_frame` (1–100, default 100 = COCO's) keeps the highest scores. With the threshold it gives the fixed detection budget a recall-only (partially labelled) check needs (AERIS-002 N3) |
+| Budget | `max_detections_per_frame` (1–100, default 100) keeps a frame's highest scores across all classes. COCO's own `maxDets=100` applies per image *and category*, so the two coincide only for a single class. With the threshold, the budget gives the fixed detection budget a recall-only (partially labelled) check needs (AERIS-002 N3) |
 | Width bins | Contract bins on truth box width in original pixels: `[0,16)`, `[16,32)`, `[32,64)`, `[64,inf)`. They are not COCO area ranges. Each bin reports `support` (non-ignored labelled objects) and `recall`; zero support gives a null recall |
 | Negative frames | `complete` frames with no objects: count, frames with a false positive, false positives per negative frame |
-| Consistency | A detection on a frame without truth, with metadata different from its frame, or with a different class map raises `EvaluationError`. Classes the truth never labels score as false positives |
+| Consistency | A detection on a frame without truth, with metadata different from its frame, or with a different class map raises `EvaluationError`. A class the truth never labels counts as a false positive in the threshold metrics. COCO AP averages only over categories that have truth, so such detections do not change AP |
 
 ## Tracking (`evaluate_tracking`)
 
@@ -57,8 +59,12 @@ Install: `pip install -e '.[eval]'` (or `.[dev]`), or the hash lock
   `observed=False` marks a predicted-only position. Those are excluded unless
   `include_predicted=True`, and always counted separately. Duplicate tracker IDs in a
   frame raise.
-- **Distractors.** Tracker boxes matched (Hungarian, IoU >= 0.5) to ignored truth objects
-  are removed before scoring, like MOTChallenge distractor preprocessing.
+- **Distractors.** These follow TrackEval's MOTChallenge preprocessing
+  (`mot_challenge_2d_box.py`):
+  - One Hungarian assignment matches tracker boxes against *all* truth (labelled and
+    ignored), with IoU below 0.5 zeroed.
+  - Only boxes assigned to an ignored object are removed. A box on a labelled object
+    that also overlaps an ignored one is kept and scored.
 - **Metrics.** Similarity is TrackEval's box IoU. Metrics are TrackEval's classes:
   - HOTA, DetA, AssA and LocA are the mean over TrackEval's 19 localization thresholds.
   - MOTA and MOTP use CLEAR at IoU 0.5.
@@ -77,6 +83,9 @@ Install: `pip install -e '.[eval]'` (or `.[dev]`), or the hash lock
 - **Oracle-identity protocol.** Forecasts are `PredictionRecord`s keyed by ground-truth
   `track_id`, issue time and horizon. Forecasting is scored apart from association;
   end-to-end forecast scoring through tracker matches is not implemented here.
+- **Truth observations.** Track observations come from labelled objects on `complete`
+  and `partial` frames: a labelled object is known even when other objects are not.
+  `ignore` objects and `unlabeled` frames never supply forecast truth.
 - **Eligible set.** It comes from truth alone, so it is the same for every model. Its
   SHA-256 digest is reported as `eligible_set_digest`, which comparisons must check.
   An eligible (track, issue, horizon) triple needs three things:
@@ -90,6 +99,8 @@ Install: `pip install -e '.[eval]'` (or `.[dev]`), or the hash lock
 - **Misses.** An absent forecast or a null centre counts as missed. Each horizon reports
   `eligible`, `scored`, `missed`, `coverage` (scored / eligible), `rmse_px` and
   `mean_error_px`. An error score is never shown without its coverage.
+- **Duplicates.** Two forecasts with the same sequence, track, issue time and horizon
+  raise, whether or not they are eligible.
 - **Unscored forecasts.** These are counted by reason: unknown track, issue time not an
   annotated observation, target beyond the labelled span, target in an over-long gap, or
   horizon not evaluated. A forecast issued before its track's first annotated
@@ -98,8 +109,9 @@ Install: `pip install -e '.[eval]'` (or `.[dev]`), or the hash lock
   of Gaussian ellipses at 50/90/95 % (chi-square(2) quantile −2 ln(1−p)) and the mean
   ellipse area. Degenerate covariances are counted, not scored. Covariance coverage is
   an empirical check, not proof of calibration.
-- **Trajectory errors.** ADE/FDE are computed over issue points whose every evaluated
-  horizon is eligible and scored. FDE uses the longest horizon.
+- **Trajectory errors.** `trajectory.eligible` counts issue points whose every evaluated
+  horizon has truth. ADE/FDE average over the `support` points that have every horizon
+  scored, and `missed` and `coverage` sit beside them. FDE uses the longest horizon.
 - **Intervals.** Per-horizon RMSE intervals come from a sequence bootstrap: whole
   sequences are resampled, never correlated frames (seeded, 1000 resamples, 95 %). They
   need at least `MIN_SEQUENCES_FOR_INTERVALS = 10` sequences with scored forecasts;

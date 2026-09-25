@@ -5,15 +5,18 @@ not by re-running the adapters' own helpers. SYNTHETIC inputs: these check evalu
 plumbing and protocol, not model quality.
 """
 from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
+import random
+import tempfile
 import unittest
 from unittest.mock import patch
 
 import numpy as np
 
 from aeris.data.contracts import (
-    AnnotationRecord, BBox, DetectionRecord, PredictionRecord,
+    AnnotationRecord, BBox, DetectionRecord, FrameRecord, GroundTruthObject, PredictionRecord,
 )
 from aeris.evaluation import _common
 from aeris.evaluation.metrics import (
@@ -49,6 +52,32 @@ def with_status(records, status, sequence_id=None, frames=None):
     return out
 
 
+def synthetic_truth(sequence_id, frames, dt=0.125):
+    """frames: per frame, a list of (annotation_id, track_id or None, bbox, ignore)."""
+    records = []
+    for index, objects in enumerate(frames):
+        frame = FrameRecord(1, sequence_id, index, index * dt, "provided", 200, 150,
+                            f"{sequence_id}-{index}.png", "0" * 64, "cam", "complete", {})
+        records.append(AnnotationRecord(1, frame, "aeris-aircraft-v1", tuple(
+            GroundTruthObject(aid, 0, box, track, ignore, False, False,
+                              {} if track else {"track_id": "ignored object"})
+            for aid, track, box, ignore in objects)))
+    return records
+
+
+def assert_nulls_have_reasons(test, value, path="report"):
+    if isinstance(value, dict):
+        if "availability_reason" in value:
+            for key, item in value.items():
+                if item is None:
+                    test.assertIn(key, value["availability_reason"], f"{path}.{key} is null without a reason")
+        for key, item in value.items():
+            assert_nulls_have_reasons(test, item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for number, item in enumerate(value):
+            assert_nulls_have_reasons(test, item, f"{path}[{number}]")
+
+
 def tracker_boxes(records, rename=lambda sequence, frame, track: track, drop=()):
     return [TrackerBox(r.frame.sequence_id, r.frame.frame_index,
                        "trk-" + rename(r.frame.sequence_id, r.frame.frame_index, item.track_id), item.bbox)
@@ -82,6 +111,29 @@ class PinnedEvaluatorTests(unittest.TestCase):
             with self.assertRaisesRegex(EvaluatorVersionError, "pycocotools 2.0.10 != pinned 2.0.11"):
                 evaluate_detection(TRUTH, DETECTIONS)
             self.assertEqual(evaluator_versions()["pycocotools"], "2.0.10")
+
+    def test_modified_trackeval_files_are_detected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "hota.py"
+            source.write_bytes(b"edited\n")
+
+            class Entry:
+                hash = type("Hash", (), {"mode": "sha256", "value": "not-the-recorded-digest"})()
+
+                def __str__(self):
+                    return "trackeval/metrics/hota.py"
+
+                def locate(self):
+                    return source
+
+            self.assertEqual(_common.record_mismatches(type("Dist", (), {"files": [Entry()]})()),
+                             ["trackeval/metrics/hota.py"])
+            Entry.hash.value = __import__("base64").urlsafe_b64encode(
+                hashlib.sha256(b"edited\n").digest()).rstrip(b"=").decode()
+            self.assertEqual(_common.record_mismatches(type("Dist", (), {"files": [Entry()]})()), [])
+        with patch.object(_common, "record_mismatches", return_value=["trackeval/metrics/hota.py"]):
+            with self.assertRaisesRegex(EvaluatorVersionError, "differ from the installed RECORD"):
+                require_pinned_evaluators()
 
     def test_numpy_aliases_are_scoped_to_trackeval(self):
         evaluate_tracking(TRUTH, tracker_boxes(TRUTH))
@@ -202,6 +254,31 @@ class TrackEvalAdapterTests(unittest.TestCase):
         # TrackEval reports LocA 1 at thresholds without matches.
         self.assertAlmostEqual(combined["LocA"], (12 * 3.4 / 5.4 + 7) / 19, places=9)
 
+    def test_distractor_removal_uses_one_joint_assignment(self):
+        # A labelled object R and an ignored object I overlap (IoU 9/11). The MOTChallenge
+        # rule assigns tracker boxes over all truth jointly, so a box on R stays and scores.
+        labelled, ignored = BBox(20, 20, 40, 40), BBox(22, 20, 42, 40)
+        truth = synthetic_truth("dist", [[("r", "r", labelled, False), ("i", None, ignored, True)]] * 3)
+        perfect = [TrackerBox("dist", k, "trk", labelled) for k in range(3)]
+        report = evaluate_tracking(truth, perfect)
+        self.assertEqual(report["counts"]["removed_as_distractor_matches"], 0)
+        self.assertEqual((report["combined"]["HOTA"], report["combined"]["IDF1"], report["combined"]["MOTA"]),
+                         (1.0, 1.0, 1.0))
+        report = evaluate_tracking(truth, perfect + [TrackerBox("dist", k, "extra", ignored) for k in range(3)])
+        self.assertEqual((report["counts"]["removed_as_distractor_matches"], report["combined"]["CLR_FP"]), (3, 0))
+
+    def test_distractor_matches_need_iou_of_one_half(self):
+        # A box shifted right by d over a 20 px ignored object has IoU (20 - d) / (20 + d):
+        # d = 5.8 gives 0.550 (removed), d = 8.6 gives 0.399 (kept, a false positive).
+        labelled, ignored = BBox(20, 20, 40, 40), BBox(100, 20, 120, 40)
+        truth = synthetic_truth("thr", [[("r", "r", labelled, False), ("i", None, ignored, True)]] * 2)
+        for shift, removed, false_positives in ((5.8, 2, 0), (8.6, 0, 2)):
+            boxes = ([TrackerBox("thr", k, "trk", labelled) for k in range(2)]
+                     + [TrackerBox("thr", k, "x", BBox(100 + shift, 20, 120 + shift, 40)) for k in range(2)])
+            report = evaluate_tracking(truth, boxes)
+            self.assertEqual((report["counts"]["removed_as_distractor_matches"], report["combined"]["CLR_FP"]),
+                             (removed, false_positives), shift)
+
     def test_predicted_only_boxes_are_reported_separately(self):
         boxes = [replace(b, observed=b.frame_index != 5) for b in tracker_boxes(TRUTH)]
         predicted = sum(not b.observed for b in boxes)
@@ -304,6 +381,76 @@ class ForecastProtocolTests(unittest.TestCase):
             evaluate_forecasts([base, replace(base, model_name="other", horizon_s=0.25,
                                               target_time_s=base.issue_time_s + 0.25)], TRUTH)
 
+    def test_trajectory_errors_carry_eligibility_and_coverage(self):
+        # With horizons 0.1/0.25/0.5 an issue point needs truth 0.5 s ahead: t1, t2 and t3 at
+        # t <= 0.5 s (frames 0-5 and 8, 7 each) = 21; b1 (0.25-0.625 s) has none.
+        horizons = (0.1, 0.25, 0.5)
+        forecasts = [replace(p, center=(p.center[0] + 6 * p.horizon_s, p.center[1] + 8 * p.horizon_s))
+                     for p in analytic_forecasts() if p.horizon_s in horizons]  # error 10 * horizon
+        trajectory = evaluate_forecasts(forecasts, TRUTH, horizons=horizons)["trajectory"]
+        self.assertEqual((trajectory["eligible"], trajectory["support"], trajectory["missed"],
+                          trajectory["coverage"]), (21, 21, 0, 1.0))
+        self.assertAlmostEqual(trajectory["ade_px"], (1 + 2.5 + 5) / 3, places=9)
+        self.assertAlmostEqual(trajectory["fde_px"], 5.0, places=9)
+        without_t1 = evaluate_forecasts([p for p in forecasts if p.track_id != "t1"], TRUTH,
+                                        horizons=horizons)["trajectory"]
+        self.assertEqual((without_t1["eligible"], without_t1["support"], without_t1["missed"]), (21, 14, 7))
+        self.assertAlmostEqual(without_t1["coverage"], 2 / 3, places=12)
+        # An issue point missing even one horizon is missed as a whole.
+        no_long_t1 = [p for p in forecasts if not (p.track_id == "t1" and p.horizon_s == 0.5)]
+        partial = evaluate_forecasts(no_long_t1, TRUTH, horizons=horizons)["trajectory"]
+        self.assertEqual((partial["support"], partial["missed"]), (14, 7))
+
+    def test_correlated_and_degenerate_covariances(self):
+        # Residual (3, 4), covariance [[4, 2], [2, 4]]: d^2 = (4*9 - 2*2*12 + 4*16) / 12 = 52/12,
+        # inside the 90% ellipse (4.605) and outside the 50% one (1.386).
+        levels = evaluate_forecasts(analytic_forecasts((3.0, 4.0), ((4.0, 2.0), (2.0, 4.0))),
+                                    TRUTH)["per_horizon"]["0.1"]["uncertainty"]["levels"]
+        self.assertEqual((levels["0.5"]["empirical_coverage"], levels["0.9"]["empirical_coverage"]), (0.0, 1.0))
+        singular = evaluate_forecasts(analytic_forecasts((3.0, 4.0), ((1.0, 1.0), (1.0, 1.0))),
+                                      TRUTH)["per_horizon"]["0.1"]
+        self.assertEqual((singular["uncertainty"]["degenerate_covariance"], singular["uncertainty"]["with_covariance"]),
+                         (37, 37))
+        self.assertIsNone(singular["uncertainty"]["levels"]["0.9"]["empirical_coverage"])
+
+    def test_partial_frames_supply_truth_but_ignored_objects_never_do(self):
+        digest = evaluate_forecasts([], TRUTH)["eligible_set_digest"]
+        self.assertEqual(evaluate_forecasts([], with_status(TRUTH, "partial", CROSSING, {8}))["eligible_set_digest"],
+                         digest)
+        # t3 has 12 + 10 + 7 + 1 eligible targets (h 0.1/0.25/0.5/1): ignoring it leaves 62 of 92.
+        # The ignored objects keep their track ID: ignore alone must exclude them.
+        ignored_t3 = [replace(r, objects=tuple(replace(o, ignore=True) if o.track_id == "t3" else o
+                                               for o in r.objects)) for r in TRUTH]
+        report = evaluate_forecasts(analytic_forecasts(), ignored_t3)
+        self.assertEqual(report["eligible_total"], 62)
+        self.assertEqual(report["unscored_predictions"]["unknown_or_excluded_track"], 65)  # 13 frames x 5
+
+    def test_horizons_outside_the_evaluation_are_counted_not_scored(self):
+        report = evaluate_forecasts(analytic_forecasts(), TRUTH, horizons=(0.1,))
+        self.assertEqual(list(report["per_horizon"]), ["0.1"])
+        self.assertEqual(report["unscored_predictions"]["horizon_not_evaluated"], 4 * 41)
+        beyond = next(p for p in analytic_forecasts() if p.issue_time_s == 1.0 and p.track_id == "t1")
+        with self.assertRaisesRegex(EvaluationError, "duplicate forecast"):
+            evaluate_forecasts([beyond, beyond], TRUTH)
+
+    def test_bootstrap_resamples_whole_sequences(self):
+        # Nine sequences with one error of 0 and one with 100 errors of 10. Resampling values
+        # would keep the pooled RMSE near 9.6; resampling sequences drops the heavy one in
+        # about 35% of draws (0.9 ** 10), so the lower 95% bound is 0.
+        groups = {f"light{i}": [0.0] for i in range(9)} | {"heavy": [10.0] * 100}
+        rmse = lambda values: (sum(v * v for v in values) / len(values)) ** 0.5  # noqa: E731
+        interval = sequence_bootstrap(groups, rmse, seed=1)
+        self.assertEqual(interval["low"], 0.0)
+        self.assertGreater(interval["high"], 9.0)
+        # Percentile rule: sorted estimates at floor(0.025 * 999) and ceil(0.975 * 999).
+        means = {f"s{i}": [float(i), float(i + 1)] for i in range(12)}
+        rng, names = random.Random(3), sorted(means)
+        estimates = sorted(sum(values) / len(values) for values in (
+            [v for _ in names for v in means[names[rng.randrange(12)]]] for _ in range(1000)))
+        interval = sequence_bootstrap(means, lambda v: sum(v) / len(v), seed=3)
+        self.assertEqual((interval["low"], interval["high"]), (estimates[24], estimates[975]))
+        self.assertLess(estimates[0], estimates[24])
+
     def test_sequence_bootstrap_needs_enough_sequences(self):
         groups = {f"s{i}": [float(i), float(i + 1)] for i in range(12)}
         interval = sequence_bootstrap(groups, lambda v: sum(v) / len(v), seed=3)
@@ -342,6 +489,7 @@ class AvailabilityTests(unittest.TestCase):
         truth = with_status(TRUTH, "partial", CROSSING, {2})
         report = evaluate_detection(truth, DETECTIONS, score_threshold=0.25)
         self.assertEqual(report["false_positives"], 1)  # only the frame-9 duplicate remains
+        self.assertEqual(report["false_positives_per_complete_frame"], 1 / 20)  # 20 complete frames
         self.assertEqual(report["support"]["detections_matched_to_ignored_regions"], 1)
         self.assertEqual(report["frames"]["partial"], 1)
         self.assertEqual(report["recall_including_partial"], 40 / 41)
@@ -392,8 +540,34 @@ class AvailabilityTests(unittest.TestCase):
         self.assertEqual(set(forecast["sequences"]["excluded"].values()),
                          {"untimed frames: forecast horizons need timestamps"})
         # A class the truth never labels is scored as a false positive, not silently dropped.
-        other = detection_like(TRUTH[0], BBox(40, 80, 60, 90), 0.9, class_id=1)
-        self.assertEqual(evaluate_detection(TRUTH, DETECTIONS + [other], score_threshold=0.5)["false_positives"], 2)
+        other = detection_like(TRUTH[0], BBox(40, 80, 60, 90), 0.99, class_id=1)
+        with_other = evaluate_detection(TRUTH, DETECTIONS + [other], score_threshold=0.5)
+        self.assertEqual(with_other["false_positives"], 2)
+        # COCO AP averages over categories that have truth, so it ignores the unlabelled class.
+        self.assertAlmostEqual(with_other["ap50"], 98 / 101, places=12)
+
+    def test_no_labelled_truth_in_complete_frames_gives_null_ap(self):
+        all_ignored = [replace(r, objects=tuple(replace(o, ignore=True) for o in r.objects)) for r in TRUTH]
+        report = evaluate_detection(all_ignored, DETECTIONS, score_threshold=0.5)
+        for name in ("ap50", "ap_50_95", "recall"):
+            self.assertIsNone(report[name])
+        self.assertIn("no non-ignored ground truth", report["availability_reason"]["ap50"])
+
+    def test_every_null_has_a_reason(self):
+        untimed = [replace(r, frame=replace(r.frame, timestamp_s=None, timestamp_source="unavailable",
+                                            availability_reason={"timestamp_s": "still images"}))
+                   for r in TRUTH]
+        no_ids = [replace(r, objects=tuple(replace(o, track_id=None, availability_reason={"track_id": "none"})
+                                           for o in r.objects)) for r in TRUTH]
+        reports = (evaluate_detection(TRUTH, DETECTIONS), evaluate_detection(TRUTH, [], score_threshold=0.5),
+                   evaluate_detection(with_status(TRUTH, "partial"), DETECTIONS, score_threshold=0.5),
+                   evaluate_tracking(no_ids, []), evaluate_tracking(TRUTH, tracker_boxes(TRUTH)),
+                   evaluate_forecasts([], TRUTH), evaluate_forecasts([], untimed),
+                   evaluate_forecasts(analytic_forecasts(covariance=((1.0, 1.0), (1.0, 1.0))), TRUTH))
+        for report in reports:
+            assert_nulls_have_reasons(self, report)
+        self.assertIn("score_threshold", reports[0]["availability_reason"])
+        self.assertIn("model_name", reports[5]["availability_reason"])
 
     def test_reports_are_strict_json(self):
         reports = (evaluate_detection(TRUTH, DETECTIONS, score_threshold=0.5),

@@ -4,6 +4,9 @@ Protocol (docs/evaluation.md):
 - Oracle-identity protocol: forecasts are keyed by ground-truth track ID, issue time and
   horizon. That scores forecasting apart from association; end-to-end scoring through
   tracker matches is outside this adapter.
+- Track observations come from labelled objects on ``complete`` and ``partial`` frames
+  (a labelled object is known even when others are not). ``ignore`` objects and
+  ``unlabeled`` frames never supply truth.
 - The eligible set comes from truth alone, so it is the same for every model. It holds
   each (track, issue time, horizon) where the track is annotated at the issue time and
   truth at issue time + horizon can be interpolated linearly between two annotated
@@ -107,10 +110,15 @@ def evaluate_forecasts(predictions, truth, *, horizons=PREDICTION_HORIZONS_S,
     models = {p.model_name for p in predictions if isinstance(p, PredictionRecord)}
     if len(models) > 1:
         raise EvaluationError(f"one model per evaluation; got {sorted(models)}")
-    scored, null_centre, unscored, suspects = {}, set(), Counter(), 0
+    scored, null_centre, unscored, suspects, seen = {}, set(), Counter(), 0, set()
     for prediction in predictions:
         if not isinstance(prediction, PredictionRecord):
             raise EvaluationError("predictions: expected PredictionRecord entries")
+        raw_key = (prediction.sequence_id, prediction.track_id, prediction.issue_time_s,
+                   prediction.horizon_s)
+        if raw_key in seen:
+            raise EvaluationError(f"duplicate forecast for {raw_key}")
+        seen.add(raw_key)
         observations = tracks.get((prediction.sequence_id, prediction.track_id))
         if observations is None:
             unscored["unknown_or_excluded_track"] += 1
@@ -168,19 +176,27 @@ def evaluate_forecasts(predictions, truth, *, horizons=PREDICTION_HORIZONS_S,
         entry["uncertainty"] = _coverage([scored[k] for k in keys if k in scored], coverage_levels)
         entry["availability_reason"] = reasons
         per_horizon[str(horizon)] = entry
-    trajectory_errors = []
+    trajectory_errors, trajectory_eligible = [], 0
     for (sequence_id, track_id, index) in sorted({k[:3] for k in eligible}):
         keys = [(sequence_id, track_id, index, h) for h in horizons]
+        if not all(k in eligible for k in keys):
+            continue
+        trajectory_eligible += 1
         if all(k in scored for k in keys):
             trajectory_errors.append([scored[k]["error"] for k in keys])
     trajectory_reasons = {}
-    trajectory = {"support": len(trajectory_errors),
+    trajectory = {"eligible": trajectory_eligible, "support": len(trajectory_errors),
+                  "missed": trajectory_eligible - len(trajectory_errors),
+                  "coverage": ratio(len(trajectory_errors), trajectory_eligible, "coverage",
+                                    trajectory_reasons,
+                                    "no issue point with every evaluated horizon eligible"),
                   "ade_px": math.fsum(math.fsum(e) / len(e) for e in trajectory_errors)
                   / len(trajectory_errors) if trajectory_errors else None,
                   "fde_px": math.fsum(e[-1] for e in trajectory_errors) / len(trajectory_errors)
                   if trajectory_errors else None,
-                  "definition": "mean over issue points whose every evaluated horizon is eligible "
-                                "and scored; FDE uses the longest horizon",
+                  "definition": "eligible: issue points whose every evaluated horizon has truth; "
+                                "ADE/FDE average over those with every horizon scored (support); "
+                                "FDE uses the longest horizon",
                   "availability_reason": trajectory_reasons}
     if not trajectory_errors:
         trajectory_reasons.update(ade_px="no issue point with every horizon scored",
@@ -189,6 +205,8 @@ def evaluate_forecasts(predictions, truth, *, horizons=PREDICTION_HORIZONS_S,
     reasons = {}
     if not tracks:
         reasons["per_horizon"] = "no timed identity-labelled truth: forecast metrics are unavailable"
+    if not models:
+        reasons["model_name"] = "no predictions were supplied"
     return {
         "protocol": "oracle ground-truth identity; truth interpolation evaluator-only, no extrapolation",
         "model_name": models.pop() if models else None,

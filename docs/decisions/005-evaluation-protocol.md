@@ -11,7 +11,9 @@ Decision:
   IoU. Width bins are the contract's original-pixel bins, with explicit support.
 - **Tracking.** Metrics come from the official TrackEval at commit `12c8791b` (MIT),
   installed as a VCS pin. The adapter calls its HOTA, CLEAR and Identity classes and its
-  box IoU directly on identity-labelled complete sequences. TrackEval still references
+  box IoU directly on identity-labelled complete sequences. Distractor removal is one
+  joint Hungarian assignment over labelled and ignored truth (IoU < 0.5 zeroed), exactly as
+  in TrackEval's MOTChallenge preprocessing. TrackEval still references
   `np.float`/`np.int`, removed in NumPy 1.24. The adapter restores exactly those builtin
   aliases while TrackEval runs and removes them afterwards; the upstream source is
   unmodified. Parity against the same commit on NumPy 1.23 without the shim was
@@ -22,7 +24,9 @@ Decision:
   `missed` and `coverage`. Interval coverage uses chi-square(2) ellipses, and
   sequence-bootstrap intervals need at least 10 sequences.
 - **Pins.** Pinned versions are enforced at run time and recorded in every report. The
-  `dev` extra carries the evaluators, so CI installs them.
+  check covers the pycocotools version, the TrackEval commit pip recorded, and TrackEval's
+  installed files against pip's RECORD hashes. The `dev` extra carries the evaluators, so
+  CI installs them.
 
 Alternatives rejected:
 

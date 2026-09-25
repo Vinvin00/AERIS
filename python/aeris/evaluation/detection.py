@@ -197,6 +197,8 @@ def evaluate_detection(truth, detections, *, iou_threshold: float = 0.5,
     unlabeled = {key for key, record in frames.items() if record.frame.annotation_status == "unlabeled"}
     labelled = [item for key, r in frames.items() if key not in unlabeled for item in r.objects]
     reasons: dict[str, str] = {}
+    if score_threshold is None:
+        reasons["score_threshold"] = "no validation-selected score threshold was supplied"
     ap50, ap = _average_precision(frames, by_frame, categories, reasons)
     report = {
         "evaluator": {"name": "pycocotools COCOeval (bbox)", "versions": versions},
