@@ -1,4 +1,5 @@
 """Loader/QA/conversion/contact-sheet tests on owned synthetic fixtures only."""
+from collections.abc import Hashable
 import copy
 import hashlib
 import json
@@ -14,9 +15,12 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from aeris.data.contracts import ContractError
+from aeris.data.contracts import (
+    AnnotationRecord, BBox, ContractError, DetectionRecord, FrameRecord, GroundTruthObject,
+    PredictionRecord,
+)
 from aeris.data.fgvc import convert_fgvc
-from aeris.data.validate import decode, validate_dataset
+from aeris.data.validate import decode, read_annotations, validate_dataset
 from aeris.data.visualize import contact_sheet
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -290,6 +294,32 @@ class CanonicalFixtureTests(DatasetTestCase):
         self.write_index(index)
         self.assertProblem("dataset.json: unknown class_mapping_version nonsense")
         self.assertControlledCliProblem("dataset.json: unknown class_mapping_version nonsense")
+
+    def test_unparseable_json_is_reported_per_line_not_raised(self):
+        deep = "[" * 100000 + "]" * 100000
+        huge = '{"frame": ' + "9" * 5000 + "}"
+        with (self.canonical / "annotations.jsonl").open("a") as handle:
+            handle.write(deep + "\n" + huge + "\n")
+        self.assertProblem("annotations.jsonl:8: JSON:")
+        self.assertProblem("annotations.jsonl:9: JSON:")
+        self.assertControlledCliProblem("annotations.jsonl:9: JSON:")
+        (self.canonical / "dataset.json").write_text(deep)
+        self.assertProblem("dataset.json: JSON:")
+        self.assertControlledCliProblem("dataset.json: JSON:")
+
+    def test_duplicate_box_check_hashes_bbox_while_records_are_unhashable(self):
+        self.assertEqual(hash(BBox(4, 30, 74, 50)), hash(BBox(4.0, 30.0, 74.0, 50.0)))
+        records, problems = read_annotations(self.canonical)
+        self.assertEqual(problems, [])
+        record = records[2][1]
+        for value in (record, record.frame, record.objects[0]):
+            with self.subTest(type=type(value).__name__):
+                self.assertNotIsInstance(value, Hashable)
+                with self.assertRaisesRegex(TypeError, "unhashable"):
+                    hash(value)
+        for record_type in (FrameRecord, GroundTruthObject, AnnotationRecord, DetectionRecord,
+                            PredictionRecord):
+            self.assertIsNone(record_type.__hash__)
 
 
 class FgvcConversionTests(DatasetTestCase):

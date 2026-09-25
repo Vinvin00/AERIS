@@ -1,0 +1,7 @@
+# Exact lock for the AERIS-003 data tooling on Linux x86_64 (glibc >= 2.28), CPython 3.11.
+# Install: python -m pip install --only-binary=:all: --require-hashes -r requirements/data-linux-x86_64-py311.txt
+# Licenses: numpy BSD-3-Clause (+ bundled permissive), opencv-python-headless Apache-2.0.
+# Verified 2026-09-25 on CPython 3.11.15 (fresh venv, hash-checked install, full unittest suite).
+# numpy wheel: cp311 manylinux_2_27/2_28 x86_64; opencv wheel: cp37-abi3 manylinux_2_28 x86_64.
+numpy==2.4.6 --hash=sha256:89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93
+opencv-python-headless==5.0.0.93 --hash=sha256:ed709fdf9aa0bd1f2ed8549e71d19449b03a675bb581eb292285f6861953be37

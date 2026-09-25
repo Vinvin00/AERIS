@@ -57,7 +57,7 @@ Validation reports every problem, each with a file and line number where possibl
 | Missing frame | image file absent under `image_root` |
 | Corrupt frame | SHA-256 of bytes ≠ `image_checksum`; empty bytes or OpenCV cannot decode; decoded size ≠ recorded width×height |
 | Path escape or malformed path | absolute `image_path`, symlink or other path resolving outside `image_root`, null bytes or failed path resolution |
-| Malformed boxes and lines | contract v1 parsing: out-of-frame or zero-area boxes, NaN/Infinity, duplicate keys, unknown or missing fields, blank lines |
+| Malformed boxes and lines | contract v1 parsing: out-of-frame or zero-area boxes, NaN/Infinity, duplicate keys, unknown or missing fields, blank lines, JSON the parser cannot handle (nesting past the recursion limit, integers past Python's digit limit) |
 | Duplicate objects | same `annotation_id` or `track_id` twice in a frame (contract); same class and identical box twice in a frame |
 | Track IDs | duplicate identity within a frame; class change of a track within a sequence |
 | Sequence errors | non-increasing frame index or time, mixed timed/untimed frames, class-map change, sequence not listed, listed sequence without frames |
@@ -149,7 +149,21 @@ with no problems.
 scale 1.0. The sheets are generated outputs and are not committed. Regenerate them
 with the commands above.
 
+**Linux re-inspection (2026-09-25).** The cloud coordinator session regenerated both
+sheets from the committed fixtures on CPython 3.11.15 with OpenCV 5.0.0 (tile width 320)
+and viewed them. Every observation above held. The 1-px red crop line is hard to see at
+preview scale, so a pixel check was also run: it found the line at the expected row in
+all four FGVC tiles (sheet y = 189, original y = 70), and a 3× zoom showed it on the
+banner edge. `validate` reproduced the statistics table and the conversion flags exactly.
+
 ## Bounded original-sample QA
+
+**Evidence availability.** This section is the original macOS session's record. Its
+evidence files (`orchestration/runs/research/…`, `data/raw/g1-bounded-sample/…`) are
+Git-ignored and stayed on that machine. The 2026-09-25 cloud session that re-verified
+AERIS-001 to 003 did not have them, so it could not re-check the claims below. Treat
+them as unverified until that archive is restored or the sample is fetched again
+within the recorded budget.
 
 The coordinator fetched exactly the first 8 MiB of the
 [official FGVC archive](https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/archives/fgvc-aircraft-2013b.tar.gz)
@@ -202,19 +216,33 @@ aircraft, supporting caution about annotation completeness and target scale.
 
 ## Environment
 
-The local `.venv` runs CPython 3.14.6 on Apple M4 Pro (arm64). It uses numpy 2.5.3
-and opencv-python-headless 5.0.0.93, hash-pinned in
-`requirements/data-macos-arm64-py314.txt`. pyproject declares `numpy>=2,<3` and
-`opencv-python-headless>=5,<6`. CI runs Linux Python 3.11/3.12, which resolves
-those ranges; that CI was **not** run for this task. No Python 3.11/3.12
-interpreter is installed locally.
+pyproject declares `numpy>=2,<3` and `opencv-python-headless>=5,<6`. Two
+environments have run the tooling:
+
+- **macOS arm64:** the original local `.venv`, CPython 3.14.6 on Apple M4 Pro, with
+  numpy 2.5.3 and opencv-python-headless 5.0.0.93. Hash-pinned in
+  `requirements/data-macos-arm64-py314.txt`.
+- **Linux x86_64 (cloud container, 2026-09-25):** CPython 3.11.15 with numpy 2.4.6
+  and opencv-python-headless 5.0.0.93. Hash-pinned in
+  `requirements/data-linux-x86_64-py311.txt`. A hash-checked install of that lock
+  into a fresh venv passed the full unittest suite. Running `generate.py` there
+  reproduced every committed fixture file byte for byte.
+
+CI (GitHub Actions, Linux Python 3.11/3.12) resolves the pyproject ranges rather
+than a lock. Python 3.12 has no lock.
+
+```sh
+python3.11 -m venv .venv
+.venv/bin/pip install --only-binary=:all: --require-hashes -r requirements/data-linux-x86_64-py311.txt
+```
 
 ## Limitations
 
 - Automated tests use generated fixtures; three real original image/label pairs
   provide bounded ingestion/visual QA only. Full-release acquisition and fitness,
   endpoint inclusion, tiny-target coverage and real video evidence remain unproven.
-- There is no near-duplicate check, and no Linux lock file.
+- There is no near-duplicate check. Locks exist only for macOS arm64 CPython 3.14
+  and Linux x86_64 CPython 3.11.
 - The FGVC `occluded`/`truncated` flags are `false` placeholders. Consumers must
   honour `unannotated_attributes`.
 - The FGVC conversion was exercised on generated fixtures and the three-image
