@@ -1,8 +1,9 @@
 # Durable project state
 
-As of 2026-09-24: no perception pipeline, downloaded dataset, trained model,
-real benchmark, or published release exists. AERIS-001 and AERIS-002 are accepted
-(see below). G0 is the engineering scaffold, not a detection milestone.
+As of 2026-09-25: no perception pipeline, downloaded dataset, trained model,
+real benchmark, or published release exists. G1 (AERIS-001 to 003) is accepted
+(see below). G1 is data contracts, audit and QA tooling on synthetic fixtures, not
+perception evidence. G0 is the engineering scaffold, not a detection milestone.
 
 Decisions: fixed-camera RGB recorded-video MVP; original-frame pixel coordinates;
 CPU first; ground truth and regression designed early; Python reference before C++
@@ -19,31 +20,79 @@ packets, reports, checks, reviews, and feedback and is intentionally excluded fr
 Copy durable task decisions into `docs/decisions/` and keep evidence in a backed-up
 artifact store before moving machines. Do not commit private source data or secrets.
 
-## Accepted (2026-09-24)
+## Run-archive recovery (2026-09-25)
+
+The repository reached GitHub as one commit (`0d28c9a`) without `orchestration/runs/`.
+The 2026-09-24 acceptances of AERIS-001/002 and the unfinished AERIS-003 attempt could
+therefore not be carried over (`recovery.md`). A cloud coordinator session reconstructed
+each task from source:
+
+1. Baseline: the tree minus the files the task created.
+2. Report: reconstructed by the coordinator from the source.
+3. `verify`, then a fresh independent subagent review.
+4. `accept`.
+
+Each evidence folder has a `RECONSTRUCTION.md`. The reconstructed archive was given to
+the owner as `aeris-runs-2026-09-25.tar.gz`. Extract it at the repository root so
+`orchestration/runs/state.json` exists before the next `prepare`; without it, `status`
+shows AERIS-001 as ready again. Keep the original macOS archive if it still exists: it
+holds the original reviews and the bounded FGVC real-sample evidence cited in
+`docs/data_qa.md`, which this session could not see.
+
+This cloud environment's network policy blocks web fetches from the dataset and paper
+hosts (`robots.ox.ac.uk`, `arxiv.org`, `github.com`), so measured external facts
+(FGVC checksums, Last-Modified times) were not re-measured during reconstruction.
+
+## Accepted (2026-09-25, reconstructed)
+
+Scores are correctness/tests/reproducibility/contracts/scope out of 4.
 
 - AERIS-001 canonical records (`python/aeris/data/contracts.py`, ADR 001).
+  Review: accept, 4/3/3/4/4.
 - AERIS-002 dataset audit (`docs/dataset.md`, `configs/data/source_manifest.json`,
-  ADR 002). FGVC is a still-image smoke check only; the owned video pilot is the only
-  source that can back tracking/forecast claims, and it does not exist yet.
+  ADR 002). Review: accept, 3/3/3/4/4. FGVC is a still-image smoke check only; the
+  owned video pilot is the only source that can back tracking/forecast claims, and it
+  does not exist yet.
+- AERIS-003 dataset loader and QA (`python/aeris/data/{validate,fgvc,visualize}.py`,
+  `docs/data_qa.md`, ADR 003). Review: accept on attempt 2 of 3, 4/3/4/3/4.
+  Attempt 1 was sent back for one major finding, since fixed: counts of unannotated
+  attributes were reported as zeros instead of null. The completion changes added a
+  Linux x86_64 CPython 3.11 hash lock and made contract JSON parser failures
+  reportable. They also made records explicitly unhashable.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
-independence is operational only.
+independence is operational only. One reviewer session reviewed 001 and 002. A fresh
+session reviewed both 003 attempts; the coordinator co-authored 003.
 
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |
 |---|---|---|
-| 001 | Records are frozen dataclasses but `hash()` raises (dict in `availability_reason`); set `__hash__ = None` or store reasons as a tuple | AERIS-003 |
-| 001 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report | AERIS-008 |
-| 002 N1 | Manifest validator checks key presence but not values: empty strings, empty `artifacts`/`sources`, non-bool flags, unknown status/evaluation names, `1e400` | AERIS-003 (when porting to `python/aeris/data/validate.py`) |
-| 002 N2 | 9 of 35 validator-rule mutants survive the tests (fallback, role/status, width bins, duplicate IDs, `holdout_rule`) | AERIS-003 |
-| 002 N3 | FGVC recall-only smoke check needs a fixed detection budget (top-k or pre-fixed score threshold) or it rewards box spam | AERIS-005/006 |
-| 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
+| 001 F1 | 17 of 34 contract mutants survive. The untested checks are ID, version and timestamp checks on detection, prediction, truth and annotation records; there are no `annotation_id`/`track_id` identifier tests. The reconstructed 001 report (F2) wrongly claimed them | next contracts task (unassigned) |
+| 001 F4 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report | AERIS-008 |
+| 002 N1/F1 | Manifest validator value checks: 27 of 40 invalid values pass (no sources, `False` class ID, `1e400`, unknown evaluation names). Not ported to `python/aeris/data` by AERIS-003 | unassigned |
+| 002 N2/F2 | 11 of 38 validator-rule mutants survive | unassigned |
+| 002 N3/F3 | FGVC recall-only smoke check needs a fixed detection budget (top-k or pre-fixed threshold). AERIS-005's read list omits the manifest; adding it needs a reviewed planning change | AERIS-005/006 |
+| 002 N4/F4 | Wording: ADR 002 overstates session splitting as "the only rule" preventing leakage; the original report said 18 object patterns (17) | next ADR 002 touch |
+| 003 A2 F1 | A `true` flag on an attribute listed in `unannotated_attributes` is accepted silently. With `ignore` listed, the statistics reason then wrongly says the width bins count every object. Reject or report such flags | next task touching `validate.py` (AERIS-005) |
+| 003 A2 F2 | Two mutants survive. A sheet that never prints NEGATIVE passes `test_sheet_captions_and_attribute_tags` (the attempt-2 report overstated that test). No test lists `ignore` as unannotated | next task touching `validate.py`/`visualize.py` (AERIS-005) |
+
+Closed by AERIS-003:
+
+- Records holding `availability_reason` are explicitly unhashable (001 follow-up).
+- `contracts.loads` reports RecursionError, oversized-integer and undecodable input as
+  `ContractError`, so the loader reports such lines instead of crashing (001 F5).
+- All six attempt-1 review findings: statistics nulls, stronger tests, unverified claims
+  qualified, CLI errors, per-line decoding, and FGVC split subsets.
 
 ## Owner decisions blocking real video evidence (not G1)
 
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
 of the 24 h annotation/review budget. See `docs/dataset.md`.
 
-Next action: `prepare AERIS-003` (dataset loader and QA, last G1 task). AERIS-004 is
-also ready but belongs to G2.
+Integration: branch `claude/inspiring-keller-xf368q`, draft PR Vinvin00/AERIS#1. CI
+(GitHub Actions, Python 3.11/3.12 and C++) passed on the attempt-2 source.
+
+Next action: restore `orchestration/runs/` from `aeris-runs-2026-09-25.tar.gz`, then
+`prepare AERIS-004` (analytic ground-truth fixtures, first G2 task, ready). AERIS-005
+waits for AERIS-004.
