@@ -42,9 +42,15 @@ Reproducibility:
 - **Exact positions.** Image-space timestamps are dyadic and sizes even, so centres
   and boxes are exact in binary floating point.
 - **Detector noise.** It is an Irwin–Hall sum of four uniforms taken from SHA-256 of
-  (seed, key), using only IEEE arithmetic. That keeps it independent of platform,
-  NumPy version and libm. Each frame's noise is keyed by its own identifiers, so
-  inputs up to time t never depend on later frames.
+  (seed, key). The four 53-bit integers are summed exactly and converted to float once.
+  That keeps it independent of platform, NumPy version, libm and float summation
+  order. Each frame's noise is keyed by its own identifiers, so inputs up to time t
+  never depend on later frames.
+- **Float sums.** They use `math.fsum`, which is correctly rounded, never built-in
+  `sum()`. Python 3.12 changed `sum()` over floats to compensated summation, and an
+  early version of this generator produced different bytes on CI's 3.11 and 3.12 jobs.
+  A test now re-runs the generator with `sum()` adding in reverse order and requires
+  identical output. Generation is byte-identical on CPython 3.11, 3.12 and 3.13.
 - **Trigonometric values.** Only headings and angular extents need libm. They are
   rounded to 9 decimal degrees and 12 decimal radians, so a last-bit difference
   between platforms changes the committed bytes only with negligible probability.

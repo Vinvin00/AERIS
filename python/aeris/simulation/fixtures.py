@@ -12,10 +12,12 @@ Two families, each split into perception inputs and evaluator-only truth:
 Coordinates are original-frame continuous pixels: pixel (i, j) spans [i, i+1) x [j, j+1),
 so the top-left pixel centre is (0.5, 0.5). Image-space timestamps are dyadic, so
 centres and boxes are exact in binary floating point. Detector noise comes from SHA-256
-of (seed, key) and IEEE arithmetic only. Values that need trigonometry are rounded
-(ANGLE_DECIMALS, DEGREE_DECIMALS) so a last-bit libm difference between platforms cannot
-change artifact bytes except with negligible probability. Inputs for frames up to time t
-never depend on later frames. Scene units are arbitrary; only ratios matter.
+of (seed, key) and exact integer sums. Float sums use math.fsum (correctly rounded),
+never built-in sum(), whose float algorithm changed in Python 3.12. Values that need
+trigonometry are rounded (ANGLE_DECIMALS, DEGREE_DECIMALS) so a last-bit libm
+difference between platforms cannot change artifact bytes except with negligible
+probability. Inputs for frames up to time t never depend on later frames. Scene units
+are arbitrary; only ratios matter.
 
 Usage: python -m aeris.simulation.fixtures OUT_DIR [--seed N] [--images]
 """
@@ -125,16 +127,26 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _unit(seed: int, *key) -> float:
-    """Uniform in [0, 1) from SHA-256 of (seed, key); independent of platform and numpy."""
+def _bits(seed: int, *key) -> int:
+    """53 uniform random bits from SHA-256 of (seed, key); independent of platform and numpy."""
     digest = hashlib.sha256(json.dumps([seed, *key]).encode()).digest()
-    return (int.from_bytes(digest[:8], "big") >> 11) / 2.0 ** 53
+    return int.from_bytes(digest[:8], "big") >> 11
+
+
+def _unit(seed: int, *key) -> float:
+    """Uniform in [0, 1), exactly representable."""
+    return _bits(seed, *key) / 2.0 ** 53
 
 
 def _noise(seed: int, *key) -> float:
     """Zero-mean noise with standard deviation NOISE_SIGMA_PX: an Irwin-Hall sum of four
-    uniforms (approximately Gaussian, bounded at +/-2*sqrt(3) sigma), IEEE arithmetic only."""
-    return (sum(_unit(seed, *key, k) for k in range(4)) - 2.0) * NOISE_SIGMA_PX * math.sqrt(3.0)
+    uniforms (approximately Gaussian, bounded at +/-2*sqrt(3) sigma).
+
+    The four 53-bit integers are summed exactly and converted to float once, so the value
+    does not depend on float summation order.
+    """
+    total = sum(_bits(seed, *key, k) for k in range(4)) - 2 ** 54
+    return total / 2.0 ** 53 * NOISE_SIGMA_PX * math.sqrt(3.0)
 
 
 def _jitter(box: BBox, seed: int, *key) -> BBox:
@@ -147,9 +159,13 @@ def _visible(track: Track, frame_index: int) -> bool:
     return frame_index not in track.hidden
 
 
+def _speed(velocity: tuple[float, float]) -> float:
+    return math.sqrt(math.fsum(value * value for value in velocity))
+
+
 def _heading_deg(velocity: tuple[float, float]) -> float | None:
     """Image heading atan2(-vy, vx), counterclockwise from image right, in [0, 360)."""
-    if math.hypot(*velocity) < MIN_SPEED_PX_S:
+    if _speed(velocity) < MIN_SPEED_PX_S:
         return None
     return round(math.degrees(math.atan2(-velocity[1], velocity[0])) % 360.0, DEGREE_DECIMALS)
 
@@ -267,7 +283,7 @@ def _expected_sequence(scenario: Scenario, detection_rows: list[dict]) -> dict:
     last_time = scenario.frames[-1][1]
     tracks = []
     for track in scenario.tracks:
-        speed = math.hypot(*track.velocity)
+        speed = _speed(track.velocity)
         heading = _heading_deg(track.velocity)
         tracks.append({
             "track_id": track.track_id, "class_id": 0,
@@ -368,8 +384,12 @@ def project(point: tuple[float, float, float]) -> tuple[float, float]:
     return CAMERA["fx"] * x + CAMERA["cx"], CAMERA["fy"] * y + CAMERA["cy"]
 
 
+def _dot(a, b) -> float:
+    return math.fsum(p * q for p, q in zip(a, b))
+
+
 def _norm(v) -> float:
-    return math.sqrt(sum(value * value for value in v))
+    return math.sqrt(_dot(v, v))
 
 
 def _unit_vector(v) -> list[float]:
@@ -383,7 +403,7 @@ def _cross(a, b) -> list[float]:
 
 def _angle(a, b) -> float:
     """Angle between two directions, atan2(|a x b|, a . b), rounded to ANGLE_DECIMALS."""
-    return round(math.atan2(_norm(_cross(a, b)), sum(p * q for p, q in zip(a, b))), ANGLE_DECIMALS)
+    return round(math.atan2(_norm(_cross(a, b)), _dot(a, b)), ANGLE_DECIMALS)
 
 
 def _markers(t: float) -> dict[str, list[float]]:
@@ -420,7 +440,7 @@ def build_projection(times: tuple[float, ...] = PROJECTION_TIMES) -> dict[str, b
             "frame_index": index, "timestamp_s": t, "center_scene": center,
             "velocity_scene_per_s": list(TARGET_VELOCITY), "markers_scene": markers,
             "range_scene": _norm(center),
-            "range_rate_scene_per_s": sum(p * q for p, q in zip(center, TARGET_VELOCITY)) / _norm(center),
+            "range_rate_scene_per_s": _dot(center, TARGET_VELOCITY) / _norm(center),
             "rays": rays,
             "angular_extent_rad": {"horizontal": _angle(rays["left"], rays["right"]),
                                    "vertical": _angle(rays["top"], rays["bottom"])},

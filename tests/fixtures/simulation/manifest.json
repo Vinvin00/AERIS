@@ -1,12 +1,12 @@
 {
  "artifacts": [
   {
-   "bytes": 18680,
+   "bytes": 18679,
    "committed": true,
    "path": "image_space/inputs/detections.jsonl",
    "records": 42,
    "role": "perception_input",
-   "sha256": "4f8c0727441aacf6f2ab4f36e4b27fd1350dc936140b13ddd53df8932b54b90d"
+   "sha256": "8c85a6aa27d165529dbf38df7cbf8d4c82ef8edad2b310b741f3261608a8f5d4"
   },
   {
    "bytes": 7389,

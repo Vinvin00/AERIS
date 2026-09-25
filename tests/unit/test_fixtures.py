@@ -4,9 +4,11 @@ Expected numbers below are computed by hand or by independent implementations (O
 closed-form geometry), not by calling the generator's own helpers.
 """
 from dataclasses import replace
+import functools
 import hashlib
 import json
 import math
+import operator
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -22,6 +25,7 @@ from aeris.data.contracts import (
     PREDICTION_HORIZONS_S, AnnotationRecord, DetectionRecord, FrameRecord, validate_sequence,
 )
 from aeris.data.validate import validate_dataset
+from aeris.simulation import fixtures
 from aeris.simulation.fixtures import (
     DEFAULT_SEED, IMAGE_SCENARIOS, PROJECTION_TIMES, SCOPE, build_fixture_set,
     build_image_space, build_projection, write_fixture_set,
@@ -399,6 +403,17 @@ class ReproducibilityTests(FixtureTestCase):
             self.assertEqual(len(rows), 42, seed)
         self.assertEqual(manifest["seed"], DEFAULT_SEED + 1)
         self.assertEqual(build_fixture_set(DEFAULT_SEED)[0], self.files)
+
+    def test_output_does_not_depend_on_float_summation_order(self):
+        # Python 3.12 changed built-in sum() over floats, which once made the committed
+        # bytes differ between CI's 3.11 and 3.12 jobs. Reversing the order sum() adds in
+        # must not change a single byte.
+        def reversed_sum(values, start=0):
+            return functools.reduce(operator.add, reversed(list(values)), start)
+
+        with patch.object(fixtures, "sum", reversed_sum, create=True):
+            files, manifest = build_fixture_set(DEFAULT_SEED)
+        self.assertEqual((files, manifest), (self.files, self.manifest))
 
     def test_synthetic_scope_is_labeled(self):
         self.assertIn("SYNTHETIC", SCOPE)
