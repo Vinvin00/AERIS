@@ -18,5 +18,11 @@ frozen ML training environment.
   commit pip recorded and the installed files' RECORD hashes are checked. Verified by a
   fresh-venv install of both Linux locks and the full test suite.
 
+- `detector-linux-x86_64-py311.txt`: hash-pinned onnxruntime 1.30.0 and onnx 1.23.0 with
+  their dependencies, for the AERIS-006 ONNX Runtime CPU path. Installed with
+  `--require-hashes` into the Linux `.venv` after the data lock. CPU torch/torchvision and
+  the YOLOX VCS pin are not locked yet: `download.pytorch.org` is denied in the
+  environment where AERIS-006 attempt 1 ran (see `docs/detection.md`).
+
 CI on Python 3.11/3.12 still resolves the ranges in pyproject.toml rather than a lock.
-The `dev` extra includes the evaluators so CI installs them.
+The `dev` extra includes the evaluators and the ONNX Runtime pins, so CI installs them.

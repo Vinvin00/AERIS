@@ -1,1 +1,2 @@
-"""Detection namespace; implementation is assigned through the task backlog."""
+"""Detection: the pretrained YOLOX-S baseline (AERIS-006, `baseline`) and its real
+sample-image fetcher (`samples`)."""

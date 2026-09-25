@@ -17,11 +17,15 @@ eval = [
     "scipy>=1.11,<2",
     "trackeval @ git+https://github.com/JonathonLuiten/TrackEval@12c8791b303e0a0b50f753af204249e622d0281a",
 ]
+# ONNX Runtime CPU path of the pretrained detector baseline (AERIS-006,
+# configs/detector/baseline.json). The PyTorch reference path is not packaged yet.
+detector = ["onnxruntime==1.30.0", "onnx==1.23.0"]
 dev = [
     "pytest>=8,<9", "ruff>=0.11,<1",
     "pycocotools==2.0.11",
     "scipy>=1.11,<2",
     "trackeval @ git+https://github.com/JonathonLuiten/TrackEval@12c8791b303e0a0b50f753af204249e622d0281a",
+    "onnxruntime==1.30.0", "onnx==1.23.0",
 ]
 
 [tool.setuptools.packages.find]

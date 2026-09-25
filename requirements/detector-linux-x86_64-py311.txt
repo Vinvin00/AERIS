@@ -1,0 +1,14 @@
+# Exact lock for the AERIS-006 ONNX runtime path on Linux x86_64, CPython 3.11.
+# Install after requirements/data-linux-x86_64-py311.txt (numpy, packaging):
+#   python -m pip install --only-binary=:all: --require-hashes -r requirements/detector-linux-x86_64-py311.txt
+# Licenses: onnxruntime MIT; onnx, ml_dtypes, flatbuffers Apache-2.0; protobuf BSD-3-Clause;
+# typing_extensions PSF-2.0.
+# The PyTorch reference path (torch, torchvision CPU wheels and the YOLOX VCS pin) is not
+# locked yet: download.pytorch.org is denied by this environment's network policy. See
+# docs/detection.md.
+onnxruntime==1.30.0 --hash=sha256:fd54b314ea385bcecac69ab431f020ba503e3878dad4ebb645fec5a24b041242
+onnx==1.23.0 --hash=sha256:f4af61ed154442b43d72a6846e5e054ecf1474375c19058d87455317192eb7fe
+ml_dtypes==0.6.0 --hash=sha256:6c8e39b53e90afda8ce52859c93de4dba3e02b76d85dcf091cc469f9184c6dae
+protobuf==7.36.2 --hash=sha256:89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2
+typing_extensions==4.16.0 --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+flatbuffers==25.12.19 --hash=sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4

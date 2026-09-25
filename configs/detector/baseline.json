@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "config_id": "aeris-detector-baseline-v1",
+  "task": "AERIS-006",
+  "scope_note": "Pretrained COCO detector used as is. No AERIS training, tuning or measured AERIS accuracy. Thresholds are the upstream COCO evaluation defaults, not validation-selected.",
+  "model": {
+    "name": "YOLOX-S",
+    "code": {
+      "repository": "https://github.com/Megvii-BaseDetection/YOLOX",
+      "commit": "6ddff4824372906469a7fae2dc3206c7aa4bbaee",
+      "commit_date": "2025-06-08",
+      "package_version": "0.3.0",
+      "license": "Apache-2.0",
+      "exp": "exps/default/yolox_s.py",
+      "exp_values": {"depth": 0.33, "width": 0.5, "num_classes": 80, "act": "silu"}
+    },
+    "weights": {
+      "path": "models/checkpoints/yolox_s.pth",
+      "url": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.pth",
+      "release_tag": "0.1.1rc0",
+      "size_bytes": 72089125,
+      "sha256": "f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30",
+      "license": "Apache-2.0: published as release assets of the Apache-2.0 repository, which states no separate weight terms",
+      "training_data": "COCO train2017 per upstream; COCO images carry per-image Flickr licences and the annotations CC BY 4.0",
+      "upstream_reported": {"coco_val2017_ap_50_95": 40.5, "input": 640, "params_m": 9.0, "gflops": 26.8, "source": "YOLOX README model table", "measured_by_aeris": false}
+    },
+    "upstream_onnx_cross_check": {
+      "path": "models/onnx/yolox_s_upstream_0.1.1rc0.onnx",
+      "url": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx",
+      "size_bytes": 35858002,
+      "sha256": "c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063",
+      "opset": 11,
+      "producer": "pytorch 1.7",
+      "role": "independent cross-check of the AERIS export only; the deliverable is the model AERIS exports itself"
+    }
+  },
+  "input": {
+    "channel_order": "BGR",
+    "source_dtype": "uint8",
+    "tensor": {"name": "images", "layout": "NCHW", "dtype": "float32", "shape": [1, 3, 640, 640], "value_range": "0 to 255, no mean/std normalisation (upstream non-legacy ValTransform)"},
+    "resize": {"method": "cv2.resize INTER_LINEAR, aspect preserving", "scale": "r = min(640 / height, 640 / width)", "resized_size": "floor(width * r) x floor(height * r)"},
+    "pad": {"value": 114, "placement": "bottom and right"},
+    "inverse": "x_original = x_input * width / resized_width, y_original = y_input * height / resized_height (edge coordinates), then clip to [0, width] x [0, height]"
+  },
+  "output": {
+    "name": "output",
+    "shape": [1, 8400, 85],
+    "channels": "0-1 grid offsets, 2-3 log size, 4 objectness probability, 5-84 class probabilities (COCO 80 contiguous classes)",
+    "strides": [8, 16, 32],
+    "anchor_order": "stride 8, 16, 32; row-major within each level (index = y * grid_width + x)",
+    "decode": "cx = (dx + x) * stride, cy = (dy + y) * stride, w = exp(lw) * stride, h = exp(lh) * stride, in padded-input pixels"
+  },
+  "postprocess": {
+    "score": "objectness * max class probability",
+    "class_selection": "argmax over the 80 classes, as upstream yolox.utils.postprocess",
+    "score_threshold": 0.01,
+    "score_threshold_rule": "keep score >= threshold",
+    "nms": {"kind": "greedy, per class", "iou_threshold": 0.65, "rule": "suppress a lower-scored box whose IoU with a kept box is > threshold", "order": "score descending, ties by anchor index"},
+    "max_detections_per_frame": null,
+    "clip_to_frame": true,
+    "drop_empty_after_clip": true,
+    "source": "yolox/exp/yolox_base.py test_conf 0.01 and nmsthre 0.65 (upstream COCO evaluation settings)",
+    "availability_reason": {"max_detections_per_frame": "upstream applies no per-frame cap; evaluators apply their own top-k budget"}
+  },
+  "class_mapping": {
+    "version": "aeris-aircraft-v1",
+    "source_taxonomy": "COCO 2017, 80 contiguous class indices",
+    "map": {"4": 0},
+    "source_names": {"4": "airplane (COCO category_id 5)"},
+    "unmapped": "every other COCO class is dropped, including bird (index 14) and kite (index 33)"
+  },
+  "export": {
+    "format": "ONNX",
+    "opset": 17,
+    "batch": 1,
+    "dynamic_axes": false,
+    "decode_in_inference": false,
+    "silu": "replaced by x * sigmoid(x) before export, as upstream tools/export_onnx.py",
+    "simplifier": "none",
+    "runtime": {"package": "onnxruntime", "version": "1.30.0", "providers": ["CPUExecutionProvider"]}
+  },
+  "parity_tolerances": {
+    "declared_before_measurement": true,
+    "raw_regression_abs": 0.001,
+    "raw_probability_abs": 0.0001,
+    "final_box_coordinate_abs_px": 0.1,
+    "final_score_abs": 0.0001,
+    "boundary_exemption": "a detection present in only one output passes only when its score is within 0.001 of the score threshold or its IoU with a box kept by the other output is within 0.001 of the NMS threshold; every other unmatched detection fails"
+  },
+  "download_budget": {
+    "owner_limit_bytes": 4000000000,
+    "declared_before_fetching": true,
+    "items": [
+      {"item": "yolox_s.pth", "source": "GitHub release 0.1.1rc0", "bytes": 72089125, "measured": "Content-Length"},
+      {"item": "yolox_s.onnx (upstream cross-check)", "source": "GitHub release 0.1.1rc0", "bytes": 35858002, "measured": "Content-Length"},
+      {"item": "YOLOX source at the pinned commit", "source": "GitHub git", "bytes": 4680000, "measured": "pack size of a blob-filtered clone"},
+      {"item": "onnxruntime 1.30.0 cp311 manylinux_2_28 x86_64", "source": "PyPI", "bytes": 23561046, "measured": "PyPI JSON"},
+      {"item": "onnx 1.23.0 cp311 manylinux x86_64", "source": "PyPI", "bytes": 8886323, "measured": "PyPI JSON"},
+      {"item": "onnx/onnxruntime dependencies (protobuf, ml_dtypes, flatbuffers, typing_extensions)", "source": "PyPI", "bytes": 10000000, "measured": "upper bound, not measured"},
+      {"item": "torch and torchvision CPU wheels", "source": "download.pytorch.org", "bytes": 300000000, "measured": "upper bound, not measured: host denied by this environment's network policy"},
+      {"item": "loguru, psutil, tabulate (YOLOX model imports)", "source": "PyPI", "bytes": 1000000, "measured": "upper bound"},
+      {"item": "real sample images (at most 12, each capped at 25 MB)", "source": "Wikimedia Commons", "bytes": 300000000, "measured": "cap enforced by the fetch tool; host denied by this environment's network policy"}
+    ],
+    "total_upper_bound_bytes": 756074496
+  }
+}
