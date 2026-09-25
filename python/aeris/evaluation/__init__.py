@@ -1,1 +1,1 @@
-"""Evaluation namespace; implementation is assigned through the task backlog."""
+"""Evaluation adapters and protocol (AERIS-005); see ``aeris.evaluation.metrics``."""

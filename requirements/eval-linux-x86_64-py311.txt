@@ -1,0 +1,10 @@
+# Exact lock for the AERIS-005 standard evaluators on Linux x86_64, CPython 3.11.
+# Install after requirements/data-linux-x86_64-py311.txt (numpy):
+#   python -m pip install --only-binary=:all: --require-hashes -r requirements/eval-linux-x86_64-py311.txt
+#   python -m pip install --no-deps "trackeval @ git+https://github.com/JonathonLuiten/TrackEval@12c8791b303e0a0b50f753af204249e622d0281a"
+# TrackEval is the official upstream at a pinned commit (MIT); pip cannot hash-check VCS
+# installs, so the git commit SHA is its integrity check, and aeris.evaluation verifies
+# the installed commit at run time. Its only runtime dependencies are numpy and scipy.
+# Licenses: pycocotools BSD-2-Clause (FreeBSD), scipy BSD-3-Clause.
+pycocotools==2.0.11 --hash=sha256:18ba75ff58cedb33a85ce2c18f1452f1fe20c9dd59925eec5300b2bf6205dbe1
+scipy==1.17.1 --hash=sha256:43af8d1f3bea642559019edfe64e9b11192a8978efbd1539d7bc2aaa23d92de4
