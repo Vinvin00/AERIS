@@ -1,0 +1,222 @@
+{
+ "artifacts": [
+  {
+   "bytes": 18680,
+   "committed": true,
+   "path": "image_space/inputs/detections.jsonl",
+   "records": 42,
+   "role": "perception_input",
+   "sha256": "4f8c0727441aacf6f2ab4f36e4b27fd1350dc936140b13ddd53df8932b54b90d"
+  },
+  {
+   "bytes": 7389,
+   "committed": true,
+   "path": "image_space/inputs/frames.jsonl",
+   "records": 21,
+   "role": "perception_input",
+   "sha256": "b3373c8c58de9ac3841e0cb3904a728418cef43a2f5c41c1592939e2233d1487"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0000.pgm",
+   "role": "perception_input",
+   "sha256": "1cf53bab95537b20abf9e0872e26dab8292c622e033b7f47446654e7dc1a7a50"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0001.pgm",
+   "role": "perception_input",
+   "sha256": "2d6ae2d8efadca9523ac5e105dde782478813b4ea4a2d5a935ced75dba1c5b7d"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0002.pgm",
+   "role": "perception_input",
+   "sha256": "9fd311860c74bc46c09e26bdd516390177430355377ce64a94e53298b94c8e4c"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0003.pgm",
+   "role": "perception_input",
+   "sha256": "68c2bffbbfb84a68cdcf2bf28cb8dc8ea784f0f7a87a4981ff210a5ea91e77fa"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0004.pgm",
+   "role": "perception_input",
+   "sha256": "31d66907cdb08d01c77d2f5e1c86da6e6d0b101c2a6cf5f3059f5065b974bb74"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0005.pgm",
+   "role": "perception_input",
+   "sha256": "a0c239879fcc35f129ac1dc28291690d5a9e6218b8797cb4390b4173530a6ccf"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0008.pgm",
+   "role": "perception_input",
+   "sha256": "58f6fb9db5455ad1d2f317e7d32d4dbe553b1f7144586c9a2a6f29949fa3d3b8"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0009.pgm",
+   "role": "perception_input",
+   "sha256": "e4ba6b7efc1228876888f94e17dc545c780edfa7513b85b45843e9a3d78479a9"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0010.pgm",
+   "role": "perception_input",
+   "sha256": "f1319ca9089cb6689969415298842672bfb3e5064e03e9742b8d10363796deaa"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0011.pgm",
+   "role": "perception_input",
+   "sha256": "4e08df56813c6d5e31b4022c915ddd839c23bf98107ca2185062a0e56e949b07"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0012.pgm",
+   "role": "perception_input",
+   "sha256": "5d2093ae3d72243ba86fe9f918d50520206dd03315c8afd2c47b3d8ca3dacd05"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0013.pgm",
+   "role": "perception_input",
+   "sha256": "3f91fccd6464e75a47125041e60e5be6ca92eac35165f68ed95e4554d0677248"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-cv-crossing_0014.pgm",
+   "role": "perception_input",
+   "sha256": "e3bfd967413df35253e44d69f939aa019320937a561d722afb08ee6fcf8377d8"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0000.pgm",
+   "role": "perception_input",
+   "sha256": "8c8a575347f4e16a8abe0cfbcf608473111163790e552e72ba6ddff26bab6a9a"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0001.pgm",
+   "role": "perception_input",
+   "sha256": "1eebd78bedef32b81ca48b6545efb273508538008b74b898407551452b736029"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0002.pgm",
+   "role": "perception_input",
+   "sha256": "707b51d20bfc049eaacdb8fe4461d1741255ae31c304c6f0bab633db91fcf034"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0003.pgm",
+   "role": "perception_input",
+   "sha256": "a27f07d07dc0185c995874995d71ad8707cc78b4a7e1bd0db20429f618cd00fa"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0004.pgm",
+   "role": "perception_input",
+   "sha256": "f3f5ee3315d36b5200a110913d56dd77f42b83df680c3d0ec96aa612e5085798"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0005.pgm",
+   "role": "perception_input",
+   "sha256": "8f79af233dd236aded548217a5d6629228f18e99d49b8aa57073547891ee8aa8"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0006.pgm",
+   "role": "perception_input",
+   "sha256": "4ddd548129f54ffd8747e518c6ad29e3601e400dbb5dc33183132776d119c9b5"
+  },
+  {
+   "bytes": 19215,
+   "committed": false,
+   "path": "image_space/inputs/images/sim-empty-birth_0007.pgm",
+   "role": "perception_input",
+   "sha256": "f17e9634a82e132f22d858ebdc18378f3019e31825964d76fdb81a5de6a62a4a"
+  },
+  {
+   "bytes": 16923,
+   "committed": true,
+   "path": "image_space/truth/annotations.jsonl",
+   "records": 21,
+   "role": "evaluator_truth",
+   "sha256": "e4c70c79d0c5ada4b750b24fb8c586b6466387f333394c63830e52cb5665ac8c"
+  },
+  {
+   "bytes": 619,
+   "committed": true,
+   "path": "image_space/truth/dataset.json",
+   "role": "evaluator_truth",
+   "sha256": "49ace3c98a1d3b8f74832d2c7f49524762f0b574e83a9aa1e1e8ec614bfd80c7"
+  },
+  {
+   "bytes": 75133,
+   "committed": true,
+   "path": "image_space/truth/expected.json",
+   "role": "evaluator_truth",
+   "sha256": "64d3069f4395d09c03482cc0af9d8909a383cb18eb9704a4b9cad0a894927135"
+  },
+  {
+   "bytes": 1427,
+   "committed": true,
+   "path": "projection/inputs/camera.json",
+   "role": "perception_input",
+   "sha256": "61ae6699b4fe89ff5545f1f466fc517288fc189e825a01820c7de689dbe69296"
+  },
+  {
+   "bytes": 4354,
+   "committed": true,
+   "path": "projection/inputs/observations.jsonl",
+   "records": 9,
+   "role": "perception_input",
+   "sha256": "3b96ab96353e4a796be6c35490aca924761f4ed7d32cb47d909abfe152dcf52f"
+  },
+  {
+   "bytes": 15621,
+   "committed": true,
+   "path": "projection/truth/truth.json",
+   "role": "evaluator_truth",
+   "sha256": "9d9b7e2cac5df2a09b6abfc07e71d63cd94be2436f6ab4a1962a2a15553df540"
+  }
+ ],
+ "fixture_set_id": "aeris-sim-fixtures-v1",
+ "generator": "python/aeris/simulation/fixtures.py",
+ "generator_version": 1,
+ "regenerate": "PYTHONPATH=python python -m aeris.simulation.fixtures tests/fixtures/simulation  # add --images OUT for rendered frames",
+ "roles": {
+  "evaluator_truth": "evaluator and tests only; never a runtime input",
+  "perception_input": "may be given to runtime code"
+ },
+ "schema_version": 1,
+ "scope": "SYNTHETIC analytic fixture: validates math and plumbing only; it is not perception, tracking, forecasting or geometry performance evidence",
+ "seed": 20260925
+}
