@@ -28,6 +28,8 @@ INDEX_KEYS = {"schema_version", "dataset_id", "class_mapping_version", "image_ro
               "unannotated_attributes", "transforms", "sequences"}
 SEQUENCE_KEYS = {"sequence_id", "group_id", "split"}
 ANNOTATABLE_ATTRIBUTES = {"ignore", "occluded", "truncated"}
+ATTRIBUTE_COUNTS = {"ignore": "ignored_objects", "occluded": "occluded_objects",
+                    "truncated": "truncated_objects"}
 # Explicit package registry: never depend on a checkout's working directory.
 CLASS_MAPPINGS = {"aeris-aircraft-v1": {0: "aircraft"}}
 DECODE_FLAGS = cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
@@ -153,15 +155,21 @@ def read_index(root: Path) -> tuple[dict | None, dict[str, dict], list[str]]:
 
 
 def read_annotations(root: Path) -> tuple[list[tuple[int, AnnotationRecord]], list[str]]:
-    """Return (line number, record) pairs and one problem per unparseable line."""
+    """Return (line number, record) pairs and one problem per unparseable line.
+
+    Lines split on \\n, \\r\\n or \\r and decode as UTF-8 one at a time, so a bad byte
+    affects only its own line.
+    """
     try:
-        lines = (root / "annotations.jsonl").read_text().splitlines()
-    except (OSError, ValueError, UnicodeDecodeError) as error:
+        lines = (root / "annotations.jsonl").read_bytes().splitlines()
+    except (OSError, ValueError) as error:
         return [], [f"annotations.jsonl: {error}"]
     records, problems = [], []
     for number, line in enumerate(lines, 1):
         try:
-            records.append((number, AnnotationRecord.from_json(line)))
+            records.append((number, AnnotationRecord.from_json(line.decode("utf-8"))))
+        except UnicodeDecodeError as error:
+            problems.append(f"annotations.jsonl:{number}: not UTF-8: {error}")
         except ContractError as error:
             problems.append(f"annotations.jsonl:{number}: {error}")
     return records, problems
@@ -241,8 +249,12 @@ def _image_problems(root, index, sequences, records) -> tuple[list[str], int]:
     return problems, within_split
 
 
-def statistics(records, sequences) -> dict:
-    """Per-split counts. Width bins count non-ignored objects by original-pixel width."""
+def statistics(records, sequences, unannotated_attributes=()) -> dict:
+    """Per-split counts. Width bins count non-ignored objects by original-pixel width.
+
+    Counts of attributes the source never annotated are null, with a reason in each
+    split's ``availability_reason``; their ``false`` flags mean "not annotated".
+    """
     splits = {}
     for _, record in records:
         frame = record.frame
@@ -272,9 +284,17 @@ def statistics(records, sequences) -> dict:
                 continue
             width = item.bbox.x_max - item.bbox.x_min
             split["width_bins"][next(name for name, upper in WIDTH_BINS if width < upper)] += 1
+    reasons = {}
+    for attribute in sorted(set(unannotated_attributes)):
+        reasons[ATTRIBUTE_COUNTS[attribute]] = (
+            f"source does not annotate {attribute} (dataset.json unannotated_attributes)"
+            + ("; width bins therefore count every object" if attribute == "ignore" else ""))
     for split in splits.values():
         for key in ("sequences", "groups", "tracks"):
             split[key] = len(split[key])
+        for key in reasons:
+            split[key] = None
+        split["availability_reason"] = dict(reasons)
     return dict(sorted(splits.items()))
 
 
@@ -291,7 +311,7 @@ def validate_dataset(dataset) -> dict:
                  + crop_frame_problems(index, records) + image_problems)
     return {"dataset": str(root), "problems": problems,
             "duplicate_images_within_split": within_split,
-            "stats": statistics(records, sequences)}
+            "stats": statistics(records, sequences, index["unannotated_attributes"])}
 
 
 def main(argv=None) -> int:
@@ -302,7 +322,11 @@ def main(argv=None) -> int:
     report = validate_dataset(args.dataset)
     text = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
-        Path(args.output).write_text(text)
+        try:
+            Path(args.output).write_text(text)
+        except OSError as error:
+            print(f"could not write report {args.output}: {error}", file=sys.stderr)
+            return 2
     else:
         sys.stdout.write(text)
     return 1 if report["problems"] else 0

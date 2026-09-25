@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,16 @@ from aeris.data.visualize import contact_sheet
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/data"
+OCCLUDED_REASON = "source does not annotate occluded (dataset.json unannotated_attributes)"
+TRUNCATED_REASON = "source does not annotate truncated (dataset.json unannotated_attributes)"
+
+
+def split_stats(*, status, width_bins, sequences=1, groups=1, **counts):
+    """Expected per-split statistics; status and width_bins are given in contract order."""
+    return {"sequences": sequences, "groups": groups,
+            "status": dict(zip(("complete", "partial", "unlabeled"), status)),
+            "width_bins": dict(zip(("[0,16)", "[16,32)", "[32,64)", "[64,inf)"), width_bins)),
+            **counts}
 
 
 class DatasetTestCase(unittest.TestCase):
@@ -68,18 +79,86 @@ class CanonicalFixtureTests(DatasetTestCase):
         report = validate_dataset(self.canonical)
         self.assertEqual(report["problems"], [])
         self.assertEqual(report["duplicate_images_within_split"], 0)
-        development, holdout = report["stats"]["development"], report["stats"]["holdout"]
-        self.assertEqual((development["frames"], development["negative_frames"],
-                          development["objects"], development["ignored_objects"],
-                          development["tracks"], development["objects_without_track"]),
-                         (4, 1, 4, 1, 1, 1))
-        self.assertEqual(development["width_bins"],
+        # truncated is listed in unannotated_attributes, so its count is unknown, not zero.
+        unknown = {"truncated_objects": TRUNCATED_REASON}
+        self.assertEqual(report["stats"], {
+            "development": split_stats(frames=4, timed_frames=4, status=(4, 0, 0), negative_frames=1,
+                                       objects=4, ignored_objects=1, occluded_objects=0,
+                                       truncated_objects=None, tracks=1, objects_without_track=1,
+                                       width_bins=(0, 0, 0, 3), availability_reason=unknown),
+            "holdout": split_stats(frames=3, timed_frames=3, status=(1, 1, 1), negative_frames=0,
+                                   objects=3, ignored_objects=0, occluded_objects=1,
+                                   truncated_objects=None, tracks=2, objects_without_track=0,
+                                   width_bins=(1, 0, 2, 0), availability_reason=unknown)})
+
+    def test_width_bin_boundaries_and_within_split_duplicates(self):
+        records = self.lines()
+        # Contract bins are half-open: widths 16, 32 and 64 open the next bin.
+        records[0]["objects"][0]["bbox"].update(x_min=4, x_max=68)
+        records[4]["objects"][0]["bbox"].update(x_min=20, x_max=36)
+        records[4]["objects"][1]["bbox"].update(x_min=80, x_max=112)
+        # Frame 1 reuses frame 0's image inside the development split: counted, not an error.
+        records[1]["frame"].update(image_path=records[0]["frame"]["image_path"],
+                                   image_checksum=records[0]["frame"]["image_checksum"])
+        self.write_lines(records)
+        report = validate_dataset(self.canonical)
+        self.assertEqual(report["problems"], [])
+        self.assertEqual(report["duplicate_images_within_split"], 1)
+        self.assertEqual(report["stats"]["development"]["width_bins"],
                          {"[0,16)": 0, "[16,32)": 0, "[32,64)": 0, "[64,inf)": 3})
-        self.assertEqual(holdout["status"], {"complete": 1, "partial": 1, "unlabeled": 1})
-        self.assertEqual((holdout["negative_frames"], holdout["tracks"], holdout["occluded_objects"]),
-                         (0, 2, 1))
-        self.assertEqual(holdout["width_bins"],
-                         {"[0,16)": 1, "[16,32)": 0, "[32,64)": 2, "[64,inf)": 0})
+        self.assertEqual(report["stats"]["holdout"]["width_bins"],
+                         {"[0,16)": 0, "[16,32)": 1, "[32,64)": 2, "[64,inf)": 0})
+        records[0]["objects"][0]["bbox"]["x_max"] = 67.5
+        self.write_lines(records)
+        self.assertEqual(validate_dataset(self.canonical)["stats"]["development"]["width_bins"],
+                         {"[0,16)": 0, "[16,32)": 0, "[32,64)": 1, "[64,inf)": 2})
+
+    def test_exif_orientation_does_not_rotate_original_frame(self):
+        pixels = cv2.imread(str(self.canonical / "images/clip-a_0000.png"))
+        ok, encoded = cv2.imencode(".jpg", pixels)
+        # EXIF Orientation 6 (rotate 90 degrees) in a minimal big-endian APP1 segment.
+        tiff = (b"MM\x00\x2a" + struct.pack(">IH", 8, 1)
+                + struct.pack(">HHIHH", 0x0112, 3, 1, 6, 0) + struct.pack(">I", 0))
+        app1 = b"Exif\x00\x00" + tiff
+        data = encoded.tobytes()
+        data = data[:2] + b"\xff\xe1" + struct.pack(">H", len(app1) + 2) + app1 + data[2:]
+        self.assertEqual(cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR).shape[:2],
+                         (128, 96), "fixture must carry an orientation OpenCV would apply")
+        self.assertEqual(decode(data).shape[:2], (96, 128))
+        (self.canonical / "images/rotated.jpg").write_bytes(data)
+        records = self.lines()
+        records[0]["frame"].update(image_path="rotated.jpg",
+                                   image_checksum=hashlib.sha256(data).hexdigest())
+        self.write_lines(records)
+        self.assertEqual(validate_dataset(self.canonical)["problems"], [])
+
+    def test_undecodable_line_is_reported_alone(self):
+        with (self.canonical / "annotations.jsonl").open("ab") as handle:
+            handle.write(b'{"frame": "\xff"}\n')
+        report = validate_dataset(self.canonical)
+        self.assertEqual(len(report["problems"]), 1, report["problems"])
+        self.assertIn("annotations.jsonl:8: not UTF-8", report["problems"][0])
+        self.assertEqual(report["stats"]["development"]["frames"], 4)
+        self.assertControlledCliProblem("annotations.jsonl:8: not UTF-8")
+
+    def test_output_write_failures_are_controlled(self):
+        environment = {**os.environ, "PYTHONPATH": str(ROOT / "python")}
+        result = subprocess.run(
+            [sys.executable, "-m", "aeris.data.validate", str(self.canonical),
+             "--output", str(self.temp / "missing/report.json")],
+            capture_output=True, text=True, check=False, env=environment)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("could not write report", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        with self.assertRaisesRegex(OSError, "could not write"):
+            contact_sheet(self.canonical, self.temp / "sheet-without-extension")
+        result = subprocess.run(
+            [sys.executable, "-m", "aeris.data.visualize", str(self.canonical),
+             "--output", str(self.temp / "sheet-without-extension")],
+            capture_output=True, text=True, check=False, env=environment)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("could not write", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_missing_corrupt_undecodable_and_resized_frames(self):
         images = self.canonical / "images"
@@ -354,8 +433,59 @@ class FgvcConversionTests(DatasetTestCase):
         self.assertEqual(index["unannotated_attributes"], ["occluded", "truncated"])
         result = validate_dataset(self.out)
         self.assertEqual(result["problems"], [])
-        self.assertEqual(result["stats"]["train"]["status"]["partial"], 2)
-        self.assertEqual(sum(split["negative_frames"] for split in result["stats"].values()), 0)
+        # FGVC never labels occlusion or truncation: those counts are unknown, not zero.
+        common = dict(timed_frames=0, negative_frames=0, ignored_objects=0, occluded_objects=None,
+                      truncated_objects=None, tracks=0, availability_reason={
+                          "occluded_objects": OCCLUDED_REASON, "truncated_objects": TRUNCATED_REASON})
+        self.assertEqual(result["stats"], {
+            "test": split_stats(frames=1, status=(0, 1, 0), objects=1, objects_without_track=1,
+                                width_bins=(0, 0, 1, 0), **common),
+            "train": split_stats(sequences=2, groups=2, frames=2, status=(0, 2, 0), objects=2,
+                                 objects_without_track=2, width_bins=(0, 0, 2, 0), **common),
+            "val": split_stats(frames=1, status=(0, 1, 0), objects=1, objects_without_track=1,
+                               width_bins=(0, 0, 0, 1), **common)})
+
+    def test_zero_coordinate_and_banner_flag_boundaries(self):
+        box_table = self.source / "images_box.txt"
+        original = box_table.read_text()
+        # 90-px frames with a 20-px banner: ymax 70 stops at the crop line, 71 enters it.
+        for fourth, reaches in (("5 5 50 70", ["0000003"]), ("5 5 50 71", ["0000003", "0000004"])):
+            with self.subTest(fourth=fourth):
+                shutil.rmtree(self.out, ignore_errors=True)
+                box_table.write_text(original.replace("0000001 11 21 70 45", "0000001 11 0 70 45")
+                                     .replace("0000004 5 5 50 30", f"0000004 {fourth}"))
+                report = convert_fgvc(self.source, self.out)
+                self.assertEqual(report["flags"], {"zero_coordinate_clamped": ["0000001", "0000002"],
+                                                   "box_reaches_banner": reaches})
+                self.assertEqual(self.converted()["fgvc-0000001"]["objects"][0]["bbox"],
+                                 {"x_min": 10, "y_min": 0, "x_max": 70, "y_max": 45})
+                self.assertEqual(self.converted()["fgvc-0000004"]["objects"][0]["bbox"]["y_max"],
+                                 int(fourth.split()[-1]))
+        box_table.write_text(original.replace("0000004 5 5 50 30", "0000004 5 5 50 91"))
+        shutil.rmtree(self.out)
+        with self.assertRaisesRegex(ContractError, "0000004: box .* outside the 120x90 image"):
+            convert_fgvc(self.source, self.out)
+        # A frame no taller than the banner would leave no model input after the crop.
+        box_table.write_text(original.replace("0000004 5 5 50 30", "0000004 5 5 50 15"))
+        ok, encoded = cv2.imencode(".jpg", np.full((20, 120, 3), 128, np.uint8))
+        (self.source / "images/0000004.jpg").write_bytes(encoded.tobytes())
+        with self.assertRaisesRegex(ContractError, "0000004: image height must exceed 20-pixel"):
+            convert_fgvc(self.source, self.out)
+        self.assertFalse(self.out.exists())
+
+    def test_split_subset_converts_only_selected_official_splits(self):
+        report = convert_fgvc(self.source, self.out, splits=("train",))
+        self.assertEqual((report["images"], report["splits"]), (2, {"train": 2}))
+        self.assertEqual(sorted(self.converted()), ["fgvc-0000001", "fgvc-0000002"])
+        result = validate_dataset(self.out)
+        self.assertEqual((result["problems"], sorted(result["stats"])), ([], ["train"]))
+        shutil.rmtree(self.out)
+        # Membership is still checked across all official splits.
+        with (self.source / "images_test.txt").open("a") as handle:
+            handle.write("0000003\n")
+        with self.assertRaisesRegex(ContractError, "0000003: listed in splits val and test"):
+            convert_fgvc(self.source, self.out, splits=("train",))
+        self.assertFalse(self.out.exists())
 
     def test_conversion_rejects_bad_sources_without_writing(self):
         cases = (
@@ -461,6 +591,40 @@ class ContactSheetTests(DatasetTestCase):
         green = (tile[:, :, 1] > 150) & (tile[:, :, 0] < 60) & (tile[:, :, 2] < 60)
         ys, xs = np.nonzero(green[29:])  # skip the label text above the box
         self.assertEqual((xs.min(), xs.max(), ys.min() + 29, ys.max() + 29), (4, 73, 30, 49))
+
+    def test_sheet_marks_crop_line_and_ignore_regions(self):
+        red, yellow = (0, 0, 230), (0, 210, 255)
+        source, converted = self.temp / "fgvc_like", self.temp / "converted"
+        shutil.copytree(FIXTURES / "fgvc_like", source)
+        convert_fgvc(source, converted)
+        output = self.temp / "fgvc.png"
+        contact_sheet(converted, output, columns=1, tile_width=120, max_frames=1)
+        sheet = cv2.imread(str(output))
+        # Scale 1.0 for the 120x90 frame: the 20-px banner crop starts at original y = 70.
+        self.assertTrue(np.all(sheet[2 + 70, 2:122] == red))
+        self.assertFalse(np.any(np.all(sheet[2 + 69, 2:122] == red, axis=1)))
+        contact_sheet(self.canonical, output, columns=3, tile_width=128, max_frames=3)
+        sheet = cv2.imread(str(output))
+        tile = sheet[2:98, 2 * 132 + 2:2 * 132 + 130]  # clip-a #2 with ignore box (100,10,112,16)
+        self.assertTrue(np.all(tile[15, 100:112] == yellow))
+        self.assertTrue(np.all(tile[10:16, 111] == yellow))
+        self.assertTrue(np.all(tile[49, 24:94] == (0, 170, 0)))  # tracked t1 stays green
+
+    def test_sheet_captions_and_attribute_tags(self):
+        output = self.temp / "sheet.png"
+        contact_sheet(self.canonical, output, columns=7, tile_width=160)
+        sheet = cv2.imread(str(output))
+        # Every tile is 120 px tall at width 160; tiles are 164 px apart with a 2 px border.
+        def tile(index):
+            return sheet[:, index * 164 + 2:index * 164 + 162]
+        # Second caption line: clip-a #4 is a complete empty frame (NEGATIVE), while
+        # clip-b #2 is an unlabeled empty frame and must keep its own status word.
+        status_word = slice(2 + 120 + 15, 2 + 120 + 29), slice(3, 40)
+        self.assertFalse(np.array_equal(tile(3)[status_word], tile(6)[status_word]))
+        # clip-b #1 at scale 1.0: the "occluded" tag extends the t2 label rightwards.
+        source = cv2.imread(str(self.canonical / "images/clip-b_0001.png"))
+        label = slice(2 + 48, 2 + 58), slice(104, 134)
+        self.assertFalse(np.array_equal(tile(5)[label], source[48:58, 104:134]))
 
 
 if __name__ == "__main__":

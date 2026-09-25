@@ -71,7 +71,9 @@ def convert_fgvc(data_dir, out_dir, dataset_id: str = "fgvc-aircraft-2013b",
                  splits: tuple[str, ...] = SPLITS) -> dict:
     """Write dataset.json, annotations.jsonl and conversion_report.json into out_dir.
 
-    Raises ContractError listing every problem; nothing is written on failure.
+    ``splits`` selects which official splits to convert; all three split files are
+    still read so every box must belong to exactly one split. Raises ContractError
+    listing every problem; nothing is written on failure.
     """
     try:
         data_dir, out_dir = Path(data_dir).resolve(), Path(out_dir).resolve()
@@ -86,7 +88,8 @@ def convert_fgvc(data_dir, out_dir, dataset_id: str = "fgvc-aircraft-2013b",
     problems: list[str] = []
     boxes = _table(data_dir / "images_box.txt", 5, problems)
     split_of: dict[str, str] = {}
-    for split in splits:
+    # Read every official split so membership is checked even when converting a subset.
+    for split in SPLITS:
         for image_id in _table(data_dir / f"images_{split}.txt", 1, problems):
             if image_id in split_of:
                 problems.append(f"{image_id}: listed in splits {split_of[image_id]} and {split}")
@@ -96,7 +99,7 @@ def convert_fgvc(data_dir, out_dir, dataset_id: str = "fgvc-aircraft-2013b",
         problems.append(f"{image_id}: needs exactly one box and one split")
 
     records, flags = [], {"zero_coordinate_clamped": [], "box_reaches_banner": []}
-    for image_id in sorted(set(boxes) & set(split_of)):
+    for image_id in sorted(i for i in set(boxes) & set(split_of) if split_of[i] in splits):
         try:
             path = image_path(images_root, f"{image_id}.jpg")
             data = path.read_bytes()

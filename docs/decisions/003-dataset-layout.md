@@ -20,8 +20,10 @@ same way everywhere.
 
 Consequences: later tasks read datasets through `aeris.data.validate.read_index` and
 `read_annotations`, or validate first. Near-duplicate thresholds wait for real data.
-Contract JSON parsing reports every parser failure (deep nesting, oversized integers,
-undecodable input) as a ContractError, so the loader reports such lines instead of
-crashing. Records that hold `availability_reason` mappings are explicitly unhashable;
-BBox stays hashable for the duplicate-box check.
+The loader decodes each annotation line as UTF-8 and parses it separately. Contract
+JSON parsing reports every parser failure (deep nesting, oversized integers,
+undecodable input) as a ContractError, so a bad line is reported with its number and
+never hides the others. Statistics report counts of unannotated attributes as null
+with an `availability_reason`, never as zero. Records that hold `availability_reason`
+mappings are explicitly unhashable; BBox stays hashable for the duplicate-box check.
 Heavy ML dependencies (AERIS-006) may still need a Python 3.11/3.12 environment.
