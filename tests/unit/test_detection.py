@@ -6,6 +6,7 @@ letterbox without any model. A tiny generated ONNX graph exercises the ONNX Runt
 wrapper. Tests marked REAL need the downloaded model and sample image and skip, with the
 reason, when those are absent. None of this measures detector quality.
 """
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -18,6 +19,7 @@ import numpy as np
 
 from aeris.data.contracts import DetectionRecord, FrameRecord
 from aeris.detection import baseline as b
+from aeris.detection import export
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = b.load_config()
@@ -74,15 +76,24 @@ class ConfigTests(unittest.TestCase):
     def test_download_budget_is_bounded(self):
         budget = CONFIG["download_budget"]
         self.assertTrue(budget["declared_before_fetching"])
-        self.assertEqual(budget["total_upper_bound_bytes"], sum(i["bytes"] for i in budget["items"]))
-        self.assertLessEqual(budget["total_upper_bound_bytes"], budget["owner_limit_bytes"])
+        for kind in ("download", "installed"):
+            total = budget[f"total_{kind}_upper_bound_bytes"]
+            self.assertEqual(total, sum(i[f"{kind}_bytes"] for i in budget["items"]))
+            self.assertLessEqual(total, budget["owner_limit_bytes"])
 
     def test_tolerances_declared(self):
         tol = CONFIG["parity_tolerances"]
         self.assertTrue(tol["declared_before_measurement"])
         for name in ("raw_regression_abs", "raw_probability_abs", "final_box_coordinate_abs_px",
-                     "final_score_abs"):
+                     "final_score_abs", "boundary_abs"):
             self.assertGreater(tol[name], 0)
+        self.assertEqual(export.tolerances_from_config(CONFIG)["boundary_abs"], 0.001)
+
+    def test_aeris_export_recorded(self):
+        record = CONFIG["export"]["aeris_export"]
+        self.assertRegex(record["sha256"], "^[0-9a-f]{64}$")
+        self.assertEqual(record["path"], str(export.AERIS_ONNX.relative_to(ROOT)))
+        self.assertEqual(CONFIG["export"]["opset"], 17)
 
     def test_unimplemented_settings_are_refused(self):
         edits = [("input", "channel_order", "RGB"), ("postprocess", "class_selection", "multi-label"),
@@ -332,6 +343,81 @@ class RecordTests(unittest.TestCase):
             b.to_records([], frame(1000, 720), letterbox, S, "test model")
 
 
+class CompareTests(unittest.TestCase):
+    """PyTorch/ONNX comparison rules on hand-built raw outputs (no model)."""
+
+    LETTERBOX = b.Letterbox(1280, 720, 640, 360)
+    TOL = export.tolerances_from_config(CONFIG)
+    PLANE = (anchor(16, 3, 2), 0.5, 0.25, 0.0, 0.0, 0.9, {AIRPLANE: 0.8})
+
+    def compare(self, ref, test):
+        return export.compare(ref, test, self.LETTERBOX, S, self.TOL)
+
+    def test_identical_outputs_pass(self):
+        raw = raw_with(self.PLANE)
+        result = self.compare(raw, raw.copy())
+        self.assertTrue(result["passed"])
+        self.assertEqual((result["matched"], result["unmatched"]), (1, []))
+        self.assertEqual(result["final_box_max_abs_px"], 0.0)
+
+    def test_raw_differences_beyond_tolerance_fail(self):
+        raw = raw_with(self.PLANE)
+        shifted = raw.copy()
+        shifted[100, 0] += 0.002  # regression channel, tolerance 0.001
+        result = self.compare(raw, shifted)
+        self.assertFalse(result["checks"]["raw_regression_abs"])
+        self.assertFalse(result["passed"])
+        probs = raw.copy()
+        probs[100, 40] += 0.0002  # probability channel, tolerance 0.0001
+        self.assertFalse(self.compare(raw, probs)["checks"]["raw_probability_abs"])
+
+    def test_box_difference_in_original_pixels(self):
+        # dx 0.5 -> 0.5005 moves the input box by 0.008 px, the original box by 0.016 px.
+        ref = raw_with(self.PLANE, dtype=np.float64)
+        test = raw_with((anchor(16, 3, 2), 0.5005, 0.25, 0.0, 0.0, 0.9, {AIRPLANE: 0.8}),
+                        dtype=np.float64)
+        result = self.compare(ref, test)
+        self.assertAlmostEqual(result["final_box_max_abs_px"], 0.016, places=9)
+        self.assertTrue(result["passed"])
+
+    def test_extra_detection_at_score_threshold_is_exempt(self):
+        # The bird scores 0.00995 (dropped) in the reference and 0.01 (kept, since >= 0.01) in
+        # the test: a raw difference of 5e-5, and the kept score is on the threshold.
+        extra = (anchor(8, 60, 30), 0.5, 0.5, 0, 0, 1.0)
+        ref = raw_with(self.PLANE, extra + ({BIRD: 0.00995},), dtype=np.float64)
+        test = raw_with(self.PLANE, extra + ({BIRD: 0.01},), dtype=np.float64)
+        result = self.compare(ref, test)
+        self.assertEqual([u["side"] for u in result["unmatched"]], ["test_only"])
+        self.assertTrue(result["unmatched"][0]["exempt"])
+        self.assertTrue(result["passed"])
+
+    def test_extra_confident_detection_fails(self):
+        ref = raw_with(self.PLANE, dtype=np.float64)
+        test = raw_with(self.PLANE, (anchor(8, 60, 30), 0.5, 0.5, 0, 0, 1.0, {BIRD: 0.5}),
+                        dtype=np.float64)
+        result = self.compare(ref, test)
+        self.assertFalse(result["unmatched"][0]["exempt"])
+        self.assertFalse(result["checks"]["unmatched_all_exempt"])
+        self.assertFalse(result["passed"])
+
+    def test_nms_boundary_is_exempt(self):
+        # Two 32 px airplane boxes one stride-8 cell apart. With the second box's dx at 0.3483
+        # the centres are 6.7864 px apart and IoU = 25.2136 / 38.7864 = 0.65006 > 0.65, so
+        # NMS removes it; at 0.3487, IoU = 0.64992 and it survives. Both are within 0.001 of
+        # the NMS threshold.
+        def pair(dx):
+            return raw_with((anchor(8, 10, 10), 0.5, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.9}),
+                            (anchor(8, 11, 10), dx, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.8}),
+                            dtype=np.float64)
+        result = self.compare(pair(0.3483), pair(0.3487))
+        self.assertEqual((result["detections_reference"], result["detections_test"]), (1, 2))
+        self.assertEqual([u["side"] for u in result["unmatched"]], ["test_only"])
+        self.assertTrue(result["unmatched"][0]["exempt"])
+        self.assertTrue(result["passed"])
+        far = self.compare(pair(0.3483), pair(0.9))  # IoU 0.61: clearly kept, not a boundary
+        self.assertFalse(far["unmatched"][0]["exempt"])
+
+
 def constant_onnx(path, raw, output_shape=None):
     """A graph whose output is `raw` plus 0 * sum(images), so it depends on its input."""
     import onnx
@@ -419,6 +505,71 @@ class RealUpstreamOnnxTests(unittest.TestCase):
         x0, y0, x1, y1 = result.letterbox.to_original(dog[None])[0]
         # The dog sits in the lower left quarter of the photo.
         self.assertTrue(x0 < 200 and x1 < 384 and y0 > 150 and y1 > 480, (x0, y0, x1, y1))
+
+
+WEIGHTS = ROOT / CONFIG["model"]["weights"]["path"]
+TORCH_READY = all(importlib.util.find_spec(m) for m in ("torch", "torchvision", "yolox"))
+
+
+@unittest.skipUnless(TORCH_READY and WEIGHTS.is_file() and DOG.is_file(),
+                     "REAL: needs torch, torchvision and YOLOX at the pinned commit "
+                     "(requirements/detector-torch-linux-x86_64-py311.txt), the weights and dog.jpg")
+class RealTorchReferenceTests(unittest.TestCase):
+    """REAL pretrained YOLOX-S in PyTorch: upstream agreement, export and ONNX parity."""
+
+    @classmethod
+    def setUpClass(cls):
+        import torch
+
+        torch.set_num_threads(1)
+        cls.model = export.TorchModel(CONFIG, S)
+        cls.tensor, cls.letterbox = b.preprocess(cv2.imread(str(DOG)), S)
+        cls.raw = cls.model(cls.tensor)
+
+    def test_reference_is_the_pinned_upstream(self):
+        versions = self.model.versions
+        self.assertEqual(versions["yolox"]["commit"], CONFIG["model"]["code"]["commit"])
+        self.assertEqual(versions["yolox"]["changed_files"], [])
+        self.assertEqual(self.raw.shape, (1, 8400, 85))
+
+    def test_numpy_decode_matches_upstream_decode(self):
+        upstream = self.model(self.tensor, decode=True)[0]
+        np.testing.assert_allclose(b.decode(self.raw, S), upstream[:, :4], rtol=1e-6, atol=1e-3)
+        np.testing.assert_array_equal(upstream[:, 4:], self.raw[0, :, 4:])
+
+    def test_postprocess_matches_upstream_postprocess(self):
+        # yolox.utils.postprocess (torchvision batched_nms) on the upstream-decoded output.
+        import torch
+        from yolox.utils import postprocess
+
+        decoded = torch.from_numpy(self.model(self.tensor, decode=True))
+        (upstream,) = postprocess(decoded, S.num_classes, S.score_threshold, S.nms_iou_threshold)
+        upstream = upstream.numpy()
+        found = b.candidates(self.raw, S)
+        self.assertEqual(len(found.scores), len(upstream))
+        np.testing.assert_array_equal(found.source_classes, upstream[:, 6].astype(int))
+        np.testing.assert_allclose(found.scores, upstream[:, 4] * upstream[:, 5], rtol=1e-6)
+        np.testing.assert_allclose(found.boxes_input, upstream[:, :4], atol=1e-3)
+
+    def test_real_photo_through_pytorch(self):
+        found = b.candidates(self.raw, S)
+        confident = {b.COCO_CLASSES[c] for c, s in zip(found.source_classes, found.scores) if s > 0.5}
+        self.assertTrue({"dog", "bicycle", "truck"} <= confident, confident)
+        self.assertEqual(b.map_candidates(found, self.letterbox, S), [])
+
+    def test_export_matches_reference_on_fixed_sample(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = export.export_onnx(self.model, Path(tmp) / "aeris.onnx", CONFIG["export"]["opset"])
+            digest = b.sha256_file(path)
+            report = export.run_parity(CONFIG, S, self.model, {"aeris_export": b.OnnxModel(path, S)},
+                                       export.parity_images(DOG))
+        self.assertTrue(report["passed"]["aeris_export"], json.dumps(report, default=str)[:3000])
+        dog = report["frames"][0]["results"]["aeris_export"]
+        self.assertGreater(dog["matched"], 10)
+        self.assertEqual(dog["matched"], dog["detections_reference"])
+        recorded = CONFIG["export"]["aeris_export"]
+        if self.model.versions["torch"] == recorded["produced_with"]["torch"]:
+            self.assertEqual(digest, recorded["sha256"])
 
 
 if __name__ == "__main__":

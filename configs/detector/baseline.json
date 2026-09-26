@@ -12,7 +12,12 @@
       "package_version": "0.3.0",
       "license": "Apache-2.0",
       "exp": "exps/default/yolox_s.py",
-      "exp_values": {"depth": 0.33, "width": 0.5, "num_classes": 80, "act": "silu"}
+      "exp_values": {
+        "depth": 0.33,
+        "width": 0.5,
+        "num_classes": 80,
+        "act": "silu"
+      }
     },
     "weights": {
       "path": "models/checkpoints/yolox_s.pth",
@@ -22,7 +27,14 @@
       "sha256": "f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30",
       "license": "Apache-2.0: published as release assets of the Apache-2.0 repository, which states no separate weight terms",
       "training_data": "COCO train2017 per upstream; COCO images carry per-image Flickr licences and the annotations CC BY 4.0",
-      "upstream_reported": {"coco_val2017_ap_50_95": 40.5, "input": 640, "params_m": 9.0, "gflops": 26.8, "source": "YOLOX README model table", "measured_by_aeris": false}
+      "upstream_reported": {
+        "coco_val2017_ap_50_95": 40.5,
+        "input": 640,
+        "params_m": 9.0,
+        "gflops": 26.8,
+        "source": "YOLOX README model table",
+        "measured_by_aeris": false
+      }
     },
     "upstream_onnx_cross_check": {
       "path": "models/onnx/yolox_s_upstream_0.1.1rc0.onnx",
@@ -37,16 +49,42 @@
   "input": {
     "channel_order": "BGR",
     "source_dtype": "uint8",
-    "tensor": {"name": "images", "layout": "NCHW", "dtype": "float32", "shape": [1, 3, 640, 640], "value_range": "0 to 255, no mean/std normalisation (upstream non-legacy ValTransform)"},
-    "resize": {"method": "cv2.resize INTER_LINEAR, aspect preserving", "scale": "r = min(640 / height, 640 / width)", "resized_size": "floor(width * r) x floor(height * r)"},
-    "pad": {"value": 114, "placement": "bottom and right"},
+    "tensor": {
+      "name": "images",
+      "layout": "NCHW",
+      "dtype": "float32",
+      "shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "value_range": "0 to 255, no mean/std normalisation (upstream non-legacy ValTransform)"
+    },
+    "resize": {
+      "method": "cv2.resize INTER_LINEAR, aspect preserving",
+      "scale": "r = min(640 / height, 640 / width)",
+      "resized_size": "floor(width * r) x floor(height * r)"
+    },
+    "pad": {
+      "value": 114,
+      "placement": "bottom and right"
+    },
     "inverse": "x_original = x_input * width / resized_width, y_original = y_input * height / resized_height (edge coordinates), then clip to [0, width] x [0, height]"
   },
   "output": {
     "name": "output",
-    "shape": [1, 8400, 85],
+    "shape": [
+      1,
+      8400,
+      85
+    ],
     "channels": "0-1 grid offsets, 2-3 log size, 4 objectness probability, 5-84 class probabilities (COCO 80 contiguous classes)",
-    "strides": [8, 16, 32],
+    "strides": [
+      8,
+      16,
+      32
+    ],
     "anchor_order": "stride 8, 16, 32; row-major within each level (index = y * grid_width + x)",
     "decode": "cx = (dx + x) * stride, cy = (dy + y) * stride, w = exp(lw) * stride, h = exp(lh) * stride, in padded-input pixels"
   },
@@ -55,18 +93,29 @@
     "class_selection": "argmax over the 80 classes, as upstream yolox.utils.postprocess",
     "score_threshold": 0.01,
     "score_threshold_rule": "keep score >= threshold",
-    "nms": {"kind": "greedy, per class", "iou_threshold": 0.65, "rule": "suppress a lower-scored box whose IoU with a kept box is > threshold", "order": "score descending, ties by anchor index"},
+    "nms": {
+      "kind": "greedy, per class",
+      "iou_threshold": 0.65,
+      "rule": "suppress a lower-scored box whose IoU with a kept box is > threshold",
+      "order": "score descending, ties by anchor index"
+    },
     "max_detections_per_frame": null,
     "clip_to_frame": true,
     "drop_empty_after_clip": true,
     "source": "yolox/exp/yolox_base.py test_conf 0.01 and nmsthre 0.65 (upstream COCO evaluation settings)",
-    "availability_reason": {"max_detections_per_frame": "upstream applies no per-frame cap; evaluators apply their own top-k budget"}
+    "availability_reason": {
+      "max_detections_per_frame": "upstream applies no per-frame cap; evaluators apply their own top-k budget"
+    }
   },
   "class_mapping": {
     "version": "aeris-aircraft-v1",
     "source_taxonomy": "COCO 2017, 80 contiguous class indices",
-    "map": {"4": 0},
-    "source_names": {"4": "airplane (COCO category_id 5)"},
+    "map": {
+      "4": 0
+    },
+    "source_names": {
+      "4": "airplane (COCO category_id 5)"
+    },
     "unmapped": "every other COCO class is dropped, including bird (index 14) and kite (index 33)"
   },
   "export": {
@@ -77,7 +126,26 @@
     "decode_in_inference": false,
     "silu": "replaced by x * sigmoid(x) before export, as upstream tools/export_onnx.py",
     "simplifier": "none",
-    "runtime": {"package": "onnxruntime", "version": "1.30.0", "providers": ["CPUExecutionProvider"]}
+    "runtime": {
+      "package": "onnxruntime",
+      "version": "1.30.0",
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "aeris_export": {
+      "path": "models/onnx/yolox_s_aeris_opset17.onnx",
+      "sha256": "e68784f4593e8fbcae404d97da7c99f06e3970c7c56b17c0f041bfdde6558aef",
+      "size_bytes": 35897112,
+      "produced_with": {
+        "torch": "2.14.0",
+        "torchvision": "0.29.0",
+        "exporter": "TorchScript-based torch.onnx.export (dynamo=False)",
+        "onnx": "1.23.0"
+      },
+      "reproducible": "a second export in the same environment was byte-identical",
+      "command": "python -m aeris.detection.export parity --out DIR"
+    }
   },
   "parity_tolerances": {
     "declared_before_measurement": true,
@@ -85,22 +153,76 @@
     "raw_probability_abs": 0.0001,
     "final_box_coordinate_abs_px": 0.1,
     "final_score_abs": 0.0001,
+    "boundary_abs": 0.001,
     "boundary_exemption": "a detection present in only one output passes only when its score is within 0.001 of the score threshold or its IoU with a box kept by the other output is within 0.001 of the NMS threshold; every other unmatched detection fails"
   },
   "download_budget": {
-    "owner_limit_bytes": 4000000000,
+    "owner_limit_bytes": 5000000000,
+    "limit_applies_to": "total download bytes and total installed/stored bytes, each",
+    "owner_decisions": [
+      "2026-09-25: 4 GB; CPU PyTorch wheel from download.pytorch.org",
+      "2026-09-26: download.pytorch.org still denied; PyTorch from PyPI without triton (the torch.compile GPU compiler, unused by CPU inference and ONNX export); limit raised to 5 GB"
+    ],
     "declared_before_fetching": true,
     "items": [
-      {"item": "yolox_s.pth", "source": "GitHub release 0.1.1rc0", "bytes": 72089125, "measured": "Content-Length"},
-      {"item": "yolox_s.onnx (upstream cross-check)", "source": "GitHub release 0.1.1rc0", "bytes": 35858002, "measured": "Content-Length"},
-      {"item": "YOLOX source at the pinned commit", "source": "GitHub git", "bytes": 4680000, "measured": "pack size of a blob-filtered clone"},
-      {"item": "onnxruntime 1.30.0 cp311 manylinux_2_28 x86_64", "source": "PyPI", "bytes": 23561046, "measured": "PyPI JSON"},
-      {"item": "onnx 1.23.0 cp311 manylinux x86_64", "source": "PyPI", "bytes": 8886323, "measured": "PyPI JSON"},
-      {"item": "onnx/onnxruntime dependencies (protobuf, ml_dtypes, flatbuffers, typing_extensions)", "source": "PyPI", "bytes": 10000000, "measured": "upper bound, not measured"},
-      {"item": "torch and torchvision CPU wheels", "source": "download.pytorch.org", "bytes": 300000000, "measured": "upper bound, not measured: host denied by this environment's network policy"},
-      {"item": "loguru, psutil, tabulate (YOLOX model imports)", "source": "PyPI", "bytes": 1000000, "measured": "upper bound"},
-      {"item": "real sample images (at most 12, each capped at 25 MB)", "source": "Wikimedia Commons", "bytes": 300000000, "measured": "cap enforced by the fetch tool; host denied by this environment's network policy"}
+      {
+        "item": "yolox_s.pth",
+        "source": "GitHub release 0.1.1rc0",
+        "download_bytes": 72089125,
+        "installed_bytes": 72089125,
+        "measured": "Content-Length; fetched 2026-09-25"
+      },
+      {
+        "item": "yolox_s.onnx (upstream cross-check)",
+        "source": "GitHub release 0.1.1rc0",
+        "download_bytes": 35858002,
+        "installed_bytes": 35858002,
+        "measured": "Content-Length; fetched 2026-09-25"
+      },
+      {
+        "item": "YOLOX source at the pinned commit (blob-filtered clone)",
+        "source": "GitHub git",
+        "download_bytes": 4680000,
+        "installed_bytes": 9955988,
+        "measured": "pack size and du; fetched 2026-09-25"
+      },
+      {
+        "item": "onnxruntime 1.30.0, onnx 1.23.0 and their dependencies",
+        "source": "PyPI",
+        "download_bytes": 42447369,
+        "installed_bytes": 98259473,
+        "measured": "PyPI JSON sizes (dependencies at most 10 MB) and du; installed 2026-09-25"
+      },
+      {
+        "item": "torch 2.14.0, torchvision 0.29.0 and 29 dependencies (CUDA 13 libraries included, triton excluded)",
+        "source": "PyPI",
+        "download_bytes": 2776101368,
+        "installed_bytes": 4599523860,
+        "measured": "PyPI JSON sizes and wheel zip central directories before fetching (estimate 4,599,513,601 installed); installed size measured from the dist RECORD files after the --no-compile install, 2026-09-26"
+      },
+      {
+        "item": "YOLOX package built from the pinned commit",
+        "source": "local build (git fetch at most 5 MB)",
+        "download_bytes": 5000000,
+        "installed_bytes": 6123885,
+        "measured": "installed files measured from the dist RECORD, 2026-09-26 (git fetch counted as at most 5 MB)"
+      },
+      {
+        "item": "AERIS ONNX export",
+        "source": "generated",
+        "download_bytes": 0,
+        "installed_bytes": 35897112,
+        "measured": "size of the generated file, 2026-09-26"
+      },
+      {
+        "item": "real sample images (at most 13 files: 12 Commons candidates and the pinned dog.jpg; each capped at 8 MB)",
+        "source": "Wikimedia Commons and pinned URLs",
+        "download_bytes": 104000000,
+        "installed_bytes": 104000000,
+        "measured": "cap enforced by the fetch tool"
+      }
     ],
-    "total_upper_bound_bytes": 756074496
+    "total_download_upper_bound_bytes": 3040175864,
+    "total_installed_upper_bound_bytes": 4961707445
   }
 }

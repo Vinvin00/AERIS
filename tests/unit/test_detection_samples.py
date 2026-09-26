@@ -67,10 +67,10 @@ class ManifestTests(unittest.TestCase):
         entries = MANIFEST["entries"]
         commons = [e for e in entries if e["source"] == "wikimedia_commons"]
         self.assertLessEqual(len(commons), 12)
-        self.assertLessEqual(MANIFEST["max_file_bytes"], 25_000_000)
+        self.assertLessEqual(MANIFEST["max_file_bytes"], 8_000_000)
         config = json.loads((ROOT / "configs/detector/baseline.json").read_text())
         budget = next(i for i in config["download_budget"]["items"] if "sample images" in i["item"])
-        self.assertGreaterEqual(budget["bytes"], len(commons) * MANIFEST["max_file_bytes"])
+        self.assertGreaterEqual(budget["download_bytes"], len(entries) * MANIFEST["max_file_bytes"])
         (dog,) = [e for e in entries if e["id"] == "yolox-dog"]
         self.assertIn(config["model"]["code"]["commit"], dog["url"])
 

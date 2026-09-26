@@ -18,5 +18,10 @@ Retrieve and check them:
     sha256sum models/checkpoints/yolox_s.pth models/onnx/yolox_s_upstream_0.1.1rc0.onnx
 
 Terms: Apache-2.0, published as release assets of the Apache-2.0 YOLOX repository; the
-upstream weights were trained on COCO train2017. The AERIS ONNX export is not produced
-yet (it needs CPU PyTorch; see docs/detection.md).
+upstream weights were trained on COCO train2017.
+
+Generated: `onnx/yolox_s_aeris_opset17.onnx` (35,897,112 bytes, SHA-256
+`e68784f4593e8fbcae404d97da7c99f06e3970c7c56b17c0f041bfdde6558aef`). It is exported
+from the weights above by `python -m aeris.detection.export parity --out DIR` with torch
+2.14.0 (requirements/detector-torch-linux-x86_64-py311.txt). A re-export in the same
+environment is byte-identical; other torch versions may produce different bytes.

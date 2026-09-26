@@ -6,7 +6,7 @@
   "selection_note": "Commons candidates were shortlisted on 2026-09-25 from web search results only, because this environment's network policy denies commons.wikimedia.org and upload.wikimedia.org. Their licence claims come from search summaries and are unverified. The fetch tool accepts a file only if the Commons API reports an allowed licence, and verifies the SHA-1 that Commons records. The fixed parity sample is chosen after fetching and viewing, and recorded by SHA-256.",
   "allowed_licenses": ["pd", "cc0", "cc-by-[0-9]*", "cc-by-sa-[0-9]*"],
   "allowed_licenses_note": "Commons licence codes, matched as shell-style patterns: public domain, CC0, CC BY and CC BY-SA of any version. NC and ND variants are refused.",
-  "max_file_bytes": 25000000,
+  "max_file_bytes": 8000000,
   "entries": [
     {
       "id": "yolox-dog",
