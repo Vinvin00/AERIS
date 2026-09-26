@@ -1,5 +1,17 @@
 {
   "schema_version": 1,
-  "note": "Hand-checked aircraft regions (xyxy, original-frame pixels) for the aircraft photos in configs/detector/baseline.json parity_sample.real. Each region is drawn by viewing the fetched photo. Test data only: not ground truth for any benchmark.",
-  "regions": {}
+  "note": "Hand-checked aircraft regions (xyxy, original-frame pixels) for the aircraft photos in configs/detector/baseline.json parity_sample.real. They were drawn on 2026-09-26 from gridded views of the fetched photos, before any detector was run on them. They are test data, not ground truth for any benchmark.",
+  "rule": "A photo is a required hit when the aircraft is whole (not cut off by the frame) and its region is at least 32 px wide in the 640 px model input (region width * min(640/H, 640/W); 32 px is COCO's small-object boundary). For a required photo, some AERIS class 0 detection must overlap the region with IoU >= 0.5. Other aircraft photos are only reported. The rule was fixed before any detection was seen.",
+  "min_input_width_px": 32,
+  "min_iou": 0.5,
+  "regions": {
+    "commons-takeoff-blue-sky": {"region": [185, 30, 1077, 890], "whole": true, "required": true, "note": "airliner from below, near the frame edges"},
+    "commons-airplanes-jets": {"region": [156, 276, 1186, 580], "whole": true, "required": true, "note": "747 freighter on approach, gear down"},
+    "commons-airplane-in-flight": {"region": [2320, 1385, 2400, 1422], "whole": true, "required": false, "note": "tiny airliner at the head of its contrails: about 13 px wide in the model input"},
+    "commons-blue-sky-with-plane": {"region": [2150, 1498, 2330, 1545], "whole": true, "required": false, "note": "small propeller aircraft: about 30 px wide in the model input"},
+    "commons-a380-blue-sky": {"region": [12, 85, 725, 383], "whole": true, "required": true, "note": "A380 climbing; 761x428 gives a non-integer resize (floor(428 r) = 359)"},
+    "commons-747-undercarriage": {"region": [0, 0, 1500, 1125], "whole": false, "required": false, "note": "extreme close-up of a 747 underside, cut off on every side"},
+    "commons-f15e-sky": {"region": [240, 216, 2869, 1556], "whole": true, "required": true, "note": "F-15E air-to-air over desert ground (not a sky background)"},
+    "commons-747-prototype": {"region": [293, 686, 3607, 1454], "whole": true, "required": true, "note": "747 prototype in profile"}
+  }
 }
