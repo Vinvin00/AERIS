@@ -20,14 +20,15 @@ MANIFEST = samples.load_manifest()
 IMAGE = cv2.imencode(".png", np.full((6, 9, 3), 200, np.uint8))[1].tobytes()
 
 
-def commons_response(title, data, licence="cc-by-sa-3.0", size=None, sha1=None):
+def commons_response(title, data, licence="cc-by-sa-3.0", size=None, sha1=None, rendition=None):
     meta = {"License": {"value": licence}, "LicenseShortName": {"value": "CC BY-SA 3.0"},
             "LicenseUrl": {"value": "https://creativecommons.org/licenses/by-sa/3.0"},
             "Artist": {"value": "<a href=\"//commons.wikimedia.org/wiki/User:J\">Jane &amp; Doe</a>"},
             "AttributionRequired": {"value": "true"}}
     name = title.removeprefix("File:").replace(" ", "_")
+    url = f"https://upload.wikimedia.org/a/ab/{name}"
     return {"query": {"pages": [{"title": title, "imageinfo": [{
-        "url": f"https://upload.wikimedia.org/a/ab/{name}",
+        "url": url, "thumburl": rendition or url, "width": 4000, "height": 3000,
         "descriptionurl": f"https://commons.wikimedia.org/wiki/File:{name}",
         "sha1": sha1 or hashlib.sha1(data).hexdigest(), "size": size or len(data),
         "mime": "image/png", "extmetadata": meta}]}]}}
@@ -58,8 +59,8 @@ COMMONS = {"id": "c1", "source": "wikimedia_commons", "title": "File:Plane test.
 
 def web_for(entry, data=IMAGE, **response):
     api = commons_response(entry["title"], data, **response)
-    url = api["query"]["pages"][0]["imageinfo"][0]["url"]
-    return FakeWeb({url: data}, {entry["title"]: api})
+    info = api["query"]["pages"][0]["imageinfo"][0]
+    return FakeWeb({info["thumburl"]: data}, {entry["title"]: api})
 
 
 class ManifestTests(unittest.TestCase):
@@ -67,7 +68,8 @@ class ManifestTests(unittest.TestCase):
         entries = MANIFEST["entries"]
         commons = [e for e in entries if e["source"] == "wikimedia_commons"]
         self.assertLessEqual(len(commons), 12)
-        self.assertLessEqual(MANIFEST["max_file_bytes"], 8_000_000)
+        self.assertLessEqual(MANIFEST["max_file_bytes"], 4_000_000)
+        self.assertEqual(MANIFEST["fetch_width"], 2048)
         config = json.loads((ROOT / "configs/detector/baseline.json").read_text())
         budget = next(i for i in config["download_budget"]["items"] if "sample images" in i["item"])
         self.assertGreaterEqual(budget["download_bytes"], len(entries) * MANIFEST["max_file_bytes"])
@@ -154,6 +156,30 @@ class FetchTests(unittest.TestCase):
             (dest / "c1.png").write_bytes(b"changed")
             local = samples.fetch_all(both, dest, web, only={"c2"})
             self.assertEqual([r["id"] for r in local["fetched"]], ["c2"])
+
+    def test_rendition_is_recorded_as_derived(self):
+        # Commons serves a 2048 px rendition: its bytes differ from the original, so the
+        # original's SHA-1 cannot be checked. It is recorded with the rendition's SHA-256.
+        rendition = "https://upload.wikimedia.org/a/thumb/ab/Plane_test.png/2048px-Plane_test.png"
+        web = web_for(COMMONS, sha1="f" * 40, rendition=rendition)
+        with tempfile.TemporaryDirectory() as tmp:
+            (record,) = samples.fetch_all(dict(manifest(COMMONS), fetch_width=2048), Path(tmp), web)["fetched"]
+        self.assertEqual((record["fetched"], record["rendition_of_sha1"]), ("commons_rendition", "f" * 40))
+        self.assertEqual(record["sha256"], hashlib.sha256(IMAGE).hexdigest())
+        self.assertIn("iiurlwidth=2048", web.calls[0])
+        self.assertEqual(web.calls[1], rendition)
+
+    def test_original_served_is_sha1_checked(self):
+        # thumburl equal to url means Commons served the original: its SHA-1 must match.
+        with tempfile.TemporaryDirectory() as tmp:
+            local = samples.fetch_all(manifest(COMMONS), Path(tmp), web_for(COMMONS))
+        self.assertEqual(local["fetched"][0]["fetched"], "original")
+        self.assertIsNone(local["fetched"][0]["rendition_of_sha1"])
+        self.assertIn("SHA-1", self.refused(COMMONS, web_for(COMMONS, sha1="0" * 40)))
+
+    def test_pinned_commons_sha256(self):
+        pinned = dict(COMMONS, sha256="0" * 64)
+        self.assertIn("SHA-256", self.refused(pinned, web_for(pinned)))
 
     def test_cli_reports_manifest_errors(self):
         with tempfile.TemporaryDirectory() as tmp:

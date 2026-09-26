@@ -3,9 +3,8 @@
 #   python -m pip install --only-binary=:all: --require-hashes -r requirements/detector-linux-x86_64-py311.txt
 # Licenses: onnxruntime MIT; onnx, ml_dtypes, flatbuffers Apache-2.0; protobuf BSD-3-Clause;
 # typing_extensions PSF-2.0.
-# The PyTorch reference path (torch, torchvision CPU wheels and the YOLOX VCS pin) is not
-# locked yet: download.pytorch.org is denied by this environment's network policy. See
-# docs/detection.md.
+# The PyTorch reference path (torch, torchvision and the YOLOX VCS pin) is locked in
+# requirements/detector-torch-linux-x86_64-py311.txt. See docs/detection.md.
 onnxruntime==1.30.0 --hash=sha256:fd54b314ea385bcecac69ab431f020ba503e3878dad4ebb645fec5a24b041242
 onnx==1.23.0 --hash=sha256:f4af61ed154442b43d72a6846e5e054ecf1474375c19058d87455317192eb7fe
 ml_dtypes==0.6.0 --hash=sha256:6c8e39b53e90afda8ce52859c93de4dba3e02b76d85dcf091cc469f9184c6dae

@@ -208,6 +208,13 @@
         "measured": "installed files measured from the dist RECORD, 2026-09-26 (git fetch counted as at most 5 MB)"
       },
       {
+        "item": "bytecode Python writes on import for the torch path (--no-compile defers it)",
+        "source": "generated",
+        "download_bytes": 0,
+        "installed_bytes": 60000000,
+        "measured": "allowance; 48,717,539 bytes measured on 2026-09-26 after every AERIS-006 code path had run (reviewer finding, attempt 1). The ONNX Runtime path was byte-compiled at install and its bytecode is already counted in its measured size"
+      },
+      {
         "item": "AERIS ONNX export",
         "source": "generated",
         "download_bytes": 0,
@@ -215,14 +222,24 @@
         "measured": "size of the generated file, 2026-09-26"
       },
       {
-        "item": "real sample images (at most 13 files: 12 Commons candidates and the pinned dog.jpg; each capped at 8 MB)",
+        "item": "real sample images (at most 13 files: 12 Commons candidates fetched as 2048 px renditions or smaller originals, and the pinned dog.jpg; each capped at 4 MB)",
         "source": "Wikimedia Commons and pinned URLs",
-        "download_bytes": 104000000,
-        "installed_bytes": 104000000,
+        "download_bytes": 52000000,
+        "installed_bytes": 52000000,
         "measured": "cap enforced by the fetch tool"
       }
     ],
-    "total_download_upper_bound_bytes": 3040175864,
-    "total_installed_upper_bound_bytes": 4961707445
+    "total_download_upper_bound_bytes": 2988175864,
+    "total_installed_upper_bound_bytes": 4969707445
+  },
+  "parity_sample": {
+    "note": "Real photos are pinned by SHA-256 and read from data/raw/detector_samples/ via the fetch manifest. aeris.detection.export.parity_images adds one real-derived frame (yolox-dog rows 144-431 resized to 1000x333) and two synthetic frames (uniform 114; uniform noise from numpy default_rng(6)), all 1280x720 or smaller.",
+    "real": [
+      {
+        "id": "yolox-dog",
+        "sha256": "5a9522051c3cec2bbd2f6323fccba32e8fbf3ddcc2b3e2fd46b04c720bc6f866",
+        "aircraft": false
+      }
+    ]
   }
 }

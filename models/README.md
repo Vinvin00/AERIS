@@ -22,6 +22,10 @@ upstream weights were trained on COCO train2017.
 
 Generated: `onnx/yolox_s_aeris_opset17.onnx` (35,897,112 bytes, SHA-256
 `e68784f4593e8fbcae404d97da7c99f06e3970c7c56b17c0f041bfdde6558aef`). It is exported
-from the weights above by `python -m aeris.detection.export parity --out DIR` with torch
-2.14.0 (requirements/detector-torch-linux-x86_64-py311.txt). A re-export in the same
-environment is byte-identical; other torch versions may produce different bytes.
+from the weights above with torch 2.14.0 (requirements/detector-torch-linux-x86_64-py311.txt):
+
+    python -m aeris.detection.export parity --out DIR --onnx models/onnx/yolox_s_aeris_opset17.onnx
+
+The command refuses to overwrite an existing file. Its report states whether the export's
+SHA-256 matches the one recorded in configs/detector/baseline.json. A re-export in the
+same environment is byte-identical; other torch versions may produce different bytes.

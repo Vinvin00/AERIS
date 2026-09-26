@@ -6,9 +6,11 @@ letterbox without any model. A tiny generated ONNX graph exercises the ONNX Runt
 wrapper. Tests marked REAL need the downloaded model and sample image and skip, with the
 reason, when those are absent. None of this measures detector quality.
 """
+import ast
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import random
 import tempfile
@@ -58,6 +60,11 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(S.num_classes, 80)
         self.assertEqual((S.score_threshold, S.nms_iou_threshold), (0.01, 0.65))
         self.assertEqual(S.class_map, {AIRPLANE: 0})
+
+    def test_mapped_source_classes_are_airplane(self):
+        self.assertEqual({b.COCO_CLASSES[k] for k in S.class_map}, {"airplane"})
+        self.assertEqual(set(S.class_map.values()), {0})
+        self.assertEqual(len(b.COCO_CLASSES), S.num_classes)
 
     def test_class_mapping_version_matches_dataset_manifest(self):
         manifest = json.loads((ROOT / "configs/data/source_manifest.json").read_text())
@@ -334,6 +341,7 @@ class RecordTests(unittest.TestCase):
         record.validate_frame(still)
         self.assertEqual((record.bbox.x_min, record.bbox.y_max), (96.0, 88.0))
         self.assertEqual(record.class_mapping_version, "aeris-aircraft-v1")
+        self.assertEqual(record.class_id, 0)  # AERIS aircraft, not the COCO index 4
         self.assertEqual(dict(record.availability_reason), {"timestamp_s": "still image"})
         self.assertEqual(DetectionRecord.from_json(record.to_json()), record)
         timed = frame(1280, 720, timestamp=0.5)
@@ -417,6 +425,76 @@ class CompareTests(unittest.TestCase):
         far = self.compare(pair(0.3483), pair(0.9))  # IoU 0.61: clearly kept, not a boundary
         self.assertFalse(far["unmatched"][0]["exempt"])
 
+    def test_boundary_window_is_exactly_the_declared_width(self):
+        # IoU 0.652 is 0.002 from the NMS threshold: outside the 0.001 window. The reference
+        # suppresses B (IoU(A, B) = 0.652). The test shifts A so B survives, and B's IoU with
+        # the reference's kept A is still 0.652. Widths 32: sep = 32 * 0.348 / 1.652 = 6.7409 px,
+        # so dx_B = 6.7409 / 8 - 0.5 = 0.34261; the test's A at dx 0.464563 gives sep 7.0244
+        # and IoU 0.64.
+        def boxes(dx_a):
+            return raw_with((anchor(8, 10, 10), dx_a, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.9}),
+                            (anchor(8, 11, 10), 0.34261, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.8}),
+                            dtype=np.float64)
+        result = self.compare(boxes(0.5), boxes(0.464563))
+        self.assertEqual([u["side"] for u in result["unmatched"]], ["test_only"])
+        self.assertFalse(result["unmatched"][0]["exempt"])
+        extra = (anchor(8, 60, 30), 0.5, 0.5, 0, 0, 1.0)
+        for score, exempt in ((0.0115, False), (0.0105, True)):
+            outcome = self.compare(raw_with(self.PLANE, dtype=np.float64),
+                                   raw_with(self.PLANE, extra + ({BIRD: score},), dtype=np.float64))
+            self.assertEqual(outcome["unmatched"][0]["exempt"], exempt, score)
+
+    def test_nms_boundary_counts_only_same_class_boxes(self):
+        # A bird at IoU 0.65006 with the reference's airplane is not an NMS boundary case:
+        # per-class NMS never compares the two.
+        ref = raw_with((anchor(8, 10, 10), 0.5, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.9}),
+                       dtype=np.float64)
+        test = raw_with((anchor(8, 10, 10), 0.5, 0.5, math.log(4), math.log(4), 1.0, {AIRPLANE: 0.9}),
+                        (anchor(8, 11, 10), 0.3483, 0.5, math.log(4), math.log(4), 1.0, {BIRD: 0.8}),
+                        dtype=np.float64)
+        result = self.compare(ref, test)
+        self.assertEqual([(u["side"], u["source_class"]) for u in result["unmatched"]], [("test_only", BIRD)])
+        self.assertFalse(result["unmatched"][0]["exempt"])
+
+    def test_objectness_is_a_probability_channel(self):
+        raw = raw_with(self.PLANE, dtype=np.float64)
+        changed = raw.copy()
+        changed[anchor(16, 3, 2), 4] += 0.0002
+        self.assertFalse(self.compare(raw, changed)["checks"]["raw_probability_abs"])
+
+    def test_final_score_difference_is_checked(self):
+        # Objectness and class probability each move by 9e-5 (within the 1e-4 raw
+        # tolerance), but the score 0.9 * 0.9 moves by 0.90009^2 - 0.81 = 1.62e-4 > 1e-4.
+        ref = raw_with((anchor(16, 3, 2), 0.5, 0.25, 0.0, 0.0, 0.9, {AIRPLANE: 0.9}), dtype=np.float64)
+        test = raw_with((anchor(16, 3, 2), 0.5, 0.25, 0.0, 0.0, 0.90009, {AIRPLANE: 0.90009}),
+                        dtype=np.float64)
+        result = self.compare(ref, test)
+        self.assertTrue(result["checks"]["raw_probability_abs"])
+        self.assertAlmostEqual(result["final_score_max_abs"], 0.90009 ** 2 - 0.81, places=12)
+        self.assertFalse(result["checks"]["final_score_abs"])
+        self.assertFalse(result["passed"])
+
+    def test_run_parity_compares_the_onnx_output(self):
+        base = raw_with(self.PLANE)
+
+        class Fixed:
+            versions = {"torch": "stub"}
+
+            def __init__(self, raw):
+                self.raw = raw
+
+            def __call__(self, tensor):
+                return self.raw[None]
+
+        shifted = base.copy()
+        shifted[anchor(16, 3, 2), 0] += 0.01
+        images = [("synthetic", np.zeros((64, 64, 3), np.uint8), "zeros")]
+        report = export.run_parity(CONFIG, S, Fixed(base), {"same": Fixed(base.copy()),
+                                                           "shifted": Fixed(shifted)}, images)
+        self.assertEqual(report["passed"], {"same": True, "shifted": False})
+        result = report["frames"][0]["results"]["shifted"]
+        self.assertAlmostEqual(result["raw_regression_max_abs"], 0.01, places=6)
+
 
 def constant_onnx(path, raw, output_shape=None):
     """A graph whose output is `raw` plus 0 * sum(images), so it depends on its input."""
@@ -473,13 +551,34 @@ class OnnxRuntimeTests(unittest.TestCase):
 
 
 UPSTREAM_ONNX = ROOT / CONFIG["model"]["upstream_onnx_cross_check"]["path"]
+AERIS_ONNX = ROOT / CONFIG["export"]["aeris_export"]["path"]
 DOG = ROOT / "data/raw/detector_samples/yolox-dog.jpg"
 DOG_SHA256 = "5a9522051c3cec2bbd2f6323fccba32e8fbf3ddcc2b3e2fd46b04c720bc6f866"
+WEIGHTS = ROOT / CONFIG["model"]["weights"]["path"]
+TORCH_READY = all(importlib.util.find_spec(m) for m in ("torch", "torchvision", "yolox"))
+AIRCRAFT = [e for e in CONFIG["parity_sample"]["real"] if e["aircraft"]]
+REGIONS = json.loads((ROOT / "tests/fixtures/detection/aircraft_regions.json").read_text())["regions"]
+# REAL tests skip where their artifacts are absent (as in CI). Setting this variable turns
+# every such skip into a failure, so a run that must carry REAL evidence cannot pass
+# silently without it.
+STRICT = os.environ.get("AERIS_REQUIRE_REAL_DETECTOR") == "1"
 
 
-@unittest.skipUnless(UPSTREAM_ONNX.is_file(), f"REAL: {UPSTREAM_ONNX} not downloaded")
+def real(ready: bool, reason: str):
+    """Skip (or, under AERIS_REQUIRE_REAL_DETECTOR=1, fail) when REAL inputs are missing."""
+    if ready:
+        return
+    if STRICT:
+        raise AssertionError(f"REAL evidence required but unavailable: {reason}")
+    raise unittest.SkipTest(f"REAL: {reason}")
+
+
 class RealUpstreamOnnxTests(unittest.TestCase):
     """REAL pretrained weights (upstream ONNX export) through the AERIS pipeline."""
+
+    @classmethod
+    def setUpClass(cls):
+        real(UPSTREAM_ONNX.is_file(), f"{UPSTREAM_ONNX} not downloaded")
 
     def test_upstream_export_loads_under_the_declared_io(self):
         path = b.require_artifact(UPSTREAM_ONNX, CONFIG["model"]["upstream_onnx_cross_check"]["sha256"])
@@ -488,10 +587,10 @@ class RealUpstreamOnnxTests(unittest.TestCase):
         self.assertEqual(result.raw.shape, (1, 8400, 85))
         self.assertTrue(((result.raw[0, :, 4:] >= 0) & (result.raw[0, :, 4:] <= 1)).all())
 
-    @unittest.skipUnless(DOG.is_file(), f"REAL: {DOG} not fetched (python -m aeris.detection.samples fetch)")
     def test_real_photo_without_aircraft(self):
         # The YOLOX demo photo (768x576) shows a dog, a bicycle and a pickup truck. The
         # pretrained model must find them in original-frame pixels, and none maps to aircraft.
+        real(DOG.is_file(), f"{DOG} not fetched (python -m aeris.detection.samples fetch)")
         model = b.OnnxModel(UPSTREAM_ONNX, S)
         image = cv2.imread(str(b.require_artifact(DOG, DOG_SHA256)))
         result = b.detect(model, image, S)
@@ -507,18 +606,47 @@ class RealUpstreamOnnxTests(unittest.TestCase):
         self.assertTrue(x0 < 200 and x1 < 384 and y0 > 150 and y1 > 480, (x0, y0, x1, y1))
 
 
-WEIGHTS = ROOT / CONFIG["model"]["weights"]["path"]
-TORCH_READY = all(importlib.util.find_spec(m) for m in ("torch", "torchvision", "yolox"))
+class RealAircraftTests(unittest.TestCase):
+    """REAL aircraft photos: the pretrained airplane class becomes AERIS class 0 records on
+    the aircraft, in original-frame pixels (AERIS export on ONNX Runtime)."""
+
+    @classmethod
+    def setUpClass(cls):
+        real(bool(AIRCRAFT), "no aircraft photo in the parity sample (Commons hosts denied)")
+        real(AERIS_ONNX.is_file(), f"{AERIS_ONNX} not exported")
+        cls.model = b.OnnxModel(b.require_artifact(AERIS_ONNX, CONFIG["export"]["aeris_export"]["sha256"]), S)
+
+    def test_every_aircraft_photo_has_a_region(self):
+        self.assertEqual(sorted(REGIONS), sorted(e["id"] for e in AIRCRAFT))
+
+    def test_airplane_maps_to_aeris_class_on_the_aircraft(self):
+        label = b.provenance(CONFIG, "test")
+        for entry in AIRCRAFT:
+            with self.subTest(photo=entry["id"]):
+                path = export.sample_path(entry["id"], entry["sha256"])
+                image = cv2.imread(str(path))
+                result = b.detect(self.model, image, S)
+                records = b.to_records(result.detections, b.still_frame(path, image),
+                                       result.letterbox, S, label)
+                region = np.array(REGIONS[entry["id"]]["region"], float)
+                hits = [(d, r) for d, r in zip(result.detections, records)
+                        if b.box_iou(region, np.array([d.bbox]))[0] >= 0.5]
+                self.assertTrue(hits, [(d.bbox, d.score) for d in result.detections])
+                detection, record = max(hits, key=lambda hit: hit[0].score)
+                self.assertEqual((detection.source_class, detection.class_id), (AIRPLANE, 0))
+                self.assertEqual((record.class_id, record.class_mapping_version), (0, "aeris-aircraft-v1"))
+                self.assertLessEqual(record.bbox.x_max, image.shape[1])
+                self.assertLessEqual(record.bbox.y_max, image.shape[0])
 
 
-@unittest.skipUnless(TORCH_READY and WEIGHTS.is_file() and DOG.is_file(),
-                     "REAL: needs torch, torchvision and YOLOX at the pinned commit "
-                     "(requirements/detector-torch-linux-x86_64-py311.txt), the weights and dog.jpg")
 class RealTorchReferenceTests(unittest.TestCase):
     """REAL pretrained YOLOX-S in PyTorch: upstream agreement, export and ONNX parity."""
 
     @classmethod
     def setUpClass(cls):
+        real(TORCH_READY and WEIGHTS.is_file() and DOG.is_file(),
+             "needs torch, torchvision and YOLOX at the pinned commit "
+             "(requirements/detector-torch-linux-x86_64-py311.txt), the weights and dog.jpg")
         import torch
 
         torch.set_num_threads(1)
@@ -531,6 +659,15 @@ class RealTorchReferenceTests(unittest.TestCase):
         self.assertEqual(versions["yolox"]["commit"], CONFIG["model"]["code"]["commit"])
         self.assertEqual(versions["yolox"]["changed_files"], [])
         self.assertEqual(self.raw.shape, (1, 8400, 85))
+
+    def test_class_names_match_pinned_upstream(self):
+        # Parsed, not imported: importing yolox.data needs tqdm, which is not locked.
+        spec = importlib.util.find_spec("yolox")
+        source = Path(spec.submodule_search_locations[0]) / "data/datasets/coco_classes.py"
+        tree = ast.parse(source.read_text())
+        (value,) = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                    and node.targets[0].id == "COCO_CLASSES"]
+        self.assertEqual(tuple(ast.literal_eval(value)), b.COCO_CLASSES)
 
     def test_numpy_decode_matches_upstream_decode(self):
         upstream = self.model(self.tensor, decode=True)[0]
@@ -562,9 +699,15 @@ class RealTorchReferenceTests(unittest.TestCase):
             path = export.export_onnx(self.model, Path(tmp) / "aeris.onnx", CONFIG["export"]["opset"])
             digest = b.sha256_file(path)
             report = export.run_parity(CONFIG, S, self.model, {"aeris_export": b.OnnxModel(path, S)},
-                                       export.parity_images(DOG))
+                                       export.parity_images(CONFIG))
         self.assertTrue(report["passed"]["aeris_export"], json.dumps(report, default=str)[:3000])
-        dog = report["frames"][0]["results"]["aeris_export"]
+        ids = [f["id"] for f in report["frames"]]
+        self.assertEqual(ids, [e["id"] for e in CONFIG["parity_sample"]["real"]]
+                         + ["yolox-dog-wide", "gray-720p", "noise-720p"])
+        for frame in report["frames"]:
+            # A comparison of PyTorch with itself would give exact zeros.
+            self.assertGreater(frame["results"]["aeris_export"]["raw_regression_max_abs"], 0, frame["id"])
+        dog = report["frames"][ids.index("yolox-dog")]["results"]["aeris_export"]
         self.assertGreater(dog["matched"], 10)
         self.assertEqual(dog["matched"], dog["detections_reference"])
         recorded = CONFIG["export"]["aeris_export"]

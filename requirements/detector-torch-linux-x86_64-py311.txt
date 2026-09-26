@@ -3,11 +3,13 @@
 # denied in this environment. PyPI's Linux wheel requires the CUDA 13 libraries below. CPU
 # inference and ONNX export do not use them, but torch does not import without them.
 # triton (the torch.compile GPU compiler) is deliberately left out, so the install uses
-# --no-deps:
-#   python -m pip install --no-deps --no-compile --only-binary=:all: --require-hashes #       -r requirements/detector-torch-linux-x86_64-py311.txt
+# --no-deps. Install after the data and detector locks, with this one line:
+#   python -m pip install --no-deps --no-compile --only-binary=:all: --require-hashes -r requirements/detector-torch-linux-x86_64-py311.txt
 # Download 2,776,101,368 bytes; installed 4,599,523,860 bytes measured (configs/detector/baseline.json).
-# Then build YOLOX from the pinned commit (needs torch and a C++ compiler):
-#   python -m pip install --no-deps --no-build-isolation --no-compile #       "yolox @ git+https://github.com/Megvii-BaseDetection/YOLOX@6ddff4824372906469a7fae2dc3206c7aa4bbaee"
+# Then build YOLOX from the pinned commit (needs torch and a C++ compiler), one line:
+#   python -m pip install --no-deps --no-build-isolation --no-compile "yolox @ git+https://github.com/Megvii-BaseDetection/YOLOX@6ddff4824372906469a7fae2dc3206c7aa4bbaee"
+# Python writes bytecode for imported modules later (about 49 MB measured; 60 MB allowed in
+# the budget).
 # Licenses: torch Apache-2.0/BSD-3-Clause family; torchvision BSD-3-Clause; the nvidia-*
 # CUDA libraries are NVIDIA proprietary (redistributable runtime terms); loguru, psutil,
 # tabulate MIT/BSD-3-Clause. None of these wheels is committed.

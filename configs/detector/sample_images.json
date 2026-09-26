@@ -3,10 +3,12 @@
   "manifest_id": "aeris-detector-samples-v1",
   "task": "AERIS-006",
   "scope_note": "Real images for the detector smoke check (AC1) and the PyTorch/ONNX parity sample (AC3). Not a benchmark: no ground truth, no split, a handful of hand-picked photographs. Images are never committed; python -m aeris.detection.samples fetch downloads them to data/raw/detector_samples/ and writes the verified provenance there.",
-  "selection_note": "Commons candidates were shortlisted on 2026-09-25 from web search results only, because this environment's network policy denies commons.wikimedia.org and upload.wikimedia.org. Their licence claims come from search summaries and are unverified. The fetch tool accepts a file only if the Commons API reports an allowed licence, and verifies the SHA-1 that Commons records. The fixed parity sample is chosen after fetching and viewing, and recorded by SHA-256.",
+  "selection_note": "Commons candidates were shortlisted on 2026-09-25 from web search results only, because this environment's network policy denies commons.wikimedia.org and upload.wikimedia.org. Their licence claims come from search summaries and are unverified. The fetch tool accepts a file only if the Commons API reports an allowed licence. It verifies the SHA-1 Commons records when the original is served; otherwise it records Commons' 2048 px rendition by SHA-256, next to the original's SHA-1. The fixed parity sample is chosen after fetching and viewing, and recorded by SHA-256.",
   "allowed_licenses": ["pd", "cc0", "cc-by-[0-9]*", "cc-by-sa-[0-9]*"],
   "allowed_licenses_note": "Commons licence codes, matched as shell-style patterns: public domain, CC0, CC BY and CC BY-SA of any version. NC and ND variants are refused.",
-  "max_file_bytes": 8000000,
+  "max_file_bytes": 4000000,
+  "fetch_width": 2048,
+  "fetch_width_note": "Commons serves its own scaled rendition when the original is wider than 2048 px. The detector letterboxes to 640 px, so 2048 px keeps the full input detail at a few MB per file.",
   "entries": [
     {
       "id": "yolox-dog",

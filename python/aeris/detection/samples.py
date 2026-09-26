@@ -3,8 +3,12 @@
 Images are never committed. Entries come from `configs/detector/sample_images.json`:
 
 - `wikimedia_commons`: the Commons API is asked for the file's licence, author, size and
-  SHA-1 at fetch time. A file is kept only if its licence code is allowed, it is within
-  the size cap and its bytes match the SHA-1 that Commons records.
+  SHA-1 at fetch time, and for a rendition `fetch_width` pixels wide. A file is kept only
+  if its licence code is allowed and the downloaded bytes are within the size cap. When
+  Commons serves the original (it is no wider than `fetch_width`), the bytes must match
+  the SHA-1 it records. Otherwise the file is Commons' own scaled rendition of that
+  original: its SHA-256 is recorded with the original's SHA-1 and the rendition URL, and
+  later runs pin it by SHA-256.
 - `pinned_url`: the bytes must match the recorded SHA-256.
 
 The verified record for every kept file (source, author, licence, hashes, dimensions) is
@@ -80,19 +84,24 @@ def _plain(value: str | None) -> str | None:
     return " ".join(text.split()) or None
 
 
-def commons_info(title: str, get=http_get) -> dict:
-    """URL, SHA-1, size, MIME type and licence metadata of one Commons file."""
-    query = urllib.parse.urlencode({
+def commons_info(title: str, get=http_get, width: int | None = None) -> dict:
+    """URL, SHA-1, size, MIME type, licence metadata and (optionally) a scaled rendition."""
+    params = {
         "action": "query", "format": "json", "formatversion": "2", "prop": "imageinfo",
         "titles": title, "iiprop": "url|sha1|size|mime|extmetadata",
         "iiextmetadatafilter": "License|LicenseShortName|LicenseUrl|Artist|Credit|"
-                               "AttributionRequired|UsageTerms"})
+                               "AttributionRequired|UsageTerms"}
+    if width is not None:
+        params["iiurlwidth"] = str(width)
+    query = urllib.parse.urlencode(params)
     try:
         pages = json.loads(get(f"{COMMONS_API}?{query}", MAX_API_BYTES))["query"]["pages"]
         info = pages[0]["imageinfo"][0]
         meta = {key: value.get("value") for key, value in info.get("extmetadata", {}).items()}
         return {"title": pages[0]["title"], "url": info["url"], "page_url": info["descriptionurl"],
                 "sha1": info["sha1"], "size_bytes": info["size"], "mime": info["mime"],
+                "original_width": info.get("width"), "original_height": info.get("height"),
+                "rendition_url": info.get("thumburl"),
                 "license_code": (meta.get("License") or "").strip().lower() or None,
                 "license_name": _plain(meta.get("LicenseShortName")),
                 "license_url": _plain(meta.get("LicenseUrl")),
@@ -121,19 +130,25 @@ def fetch_entry(entry: dict, manifest: dict, dest: Path, get=http_get) -> dict:
             raise SampleError(f"{entry['id']}: SHA-256 {facts['sha256']} != recorded {entry['sha256']}")
         record = {"source": "pinned_url", "url": entry["url"], "license_note": entry["license_note"]}
     else:
-        info = commons_info(entry["title"], get)
+        info = commons_info(entry["title"], get, manifest.get("fetch_width"))
         if not info["license_code"] or not licence_allowed(info["license_code"],
                                                            manifest["allowed_licenses"]):
             raise SampleError(f"{entry['id']}: licence {info['license_code']!r} "
                               f"({info['license_name']}) is not allowed")
-        if info["size_bytes"] > cap:
+        rendition = info["rendition_url"] and info["rendition_url"] != info["url"]
+        if not rendition and info["size_bytes"] > cap:
             raise SampleError(f"{entry['id']}: {info['size_bytes']} bytes exceeds the cap")
-        data = get(info["url"], cap)
-        if hashlib.sha1(data).hexdigest() != info["sha1"]:
+        data = get(info["rendition_url"] if rendition else info["url"], cap)
+        if not rendition and hashlib.sha1(data).hexdigest() != info["sha1"]:
             raise SampleError(f"{entry['id']}: bytes do not match the SHA-1 Commons records")
         facts = _image_facts(data)
-        record = {"source": "wikimedia_commons", **info}
-    suffix = Path(urllib.parse.urlparse(record["url"]).path).suffix.lower() or ".img"
+        if entry.get("sha256") and facts["sha256"] != entry["sha256"]:
+            raise SampleError(f"{entry['id']}: SHA-256 {facts['sha256']} != recorded {entry['sha256']}")
+        record = {"source": "wikimedia_commons", **info,
+                  "fetched": "commons_rendition" if rendition else "original",
+                  "rendition_of_sha1": info["sha1"] if rendition else None}
+    fetched_url = record.get("rendition_url") if record.get("fetched") == "commons_rendition" else record["url"]
+    suffix = Path(urllib.parse.urlparse(fetched_url).path).suffix.lower() or ".img"
     name = f"{entry['id']}{suffix}"
     dest.mkdir(parents=True, exist_ok=True)
     (dest / name).write_bytes(data)

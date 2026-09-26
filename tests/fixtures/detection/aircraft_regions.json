@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "note": "Hand-checked aircraft regions (xyxy, original-frame pixels) for the aircraft photos in configs/detector/baseline.json parity_sample.real. Each region is drawn by viewing the fetched photo. Test data only: not ground truth for any benchmark.",
+  "regions": {}
+}

@@ -1,15 +1,22 @@
 # Pretrained detector baseline (AERIS-006)
 
-Status: **attempt 1, not accepted yet.** Implemented and tested:
+Status: **attempt 2 in progress, not accepted.**
+
+The independent review of attempt 1 escalated:
+- AC2 and AC3 passed;
+- AC1 failed because no real aircraft photo was available;
+- six minor findings were raised, all fixed in attempt 2.
+
+Implemented and tested:
 - preprocessing, postprocessing, class mapping, provenance and the download budget;
 - the ONNX Runtime path;
 - the PyTorch reference;
 - the AERIS ONNX export;
 - the PyTorch/ONNX parity check, which passes on the fixed sample.
 
-No real aircraft photo has been processed. This environment's network policy denies the
-Commons image hosts, so the real sample is one non-aircraft photo plus derived and
-synthetic frames. See "Open work".
+Still missing is AC1's real aircraft evidence. The owner chose on 2026-09-26 to allow
+the Commons image hosts, but they are still denied from this environment. See
+"Open work".
 
 Nothing here is trained or tuned on AERIS data, and nothing here measures detector
 quality on aircraft. The config (`configs/detector/baseline.json`) is the single source of
@@ -105,7 +112,8 @@ runtime.
 The budget is declared in `configs/detector/baseline.json`, and every item was recorded
 before it was fetched. The owner's limit rose from 4 GB (2026-09-25) to 5 GB (2026-09-26).
 It applies separately to total downloads and to total installed or stored bytes. The
-current upper bounds are 3,040,175,864 bytes downloaded and 4,961,707,445 bytes installed.
+current upper bounds are 2,988,175,864 bytes downloaded and 4,969,707,445 bytes installed.
+That leaves 30 MB of installed headroom.
 
 | Item | Downloaded | Installed / stored | Fetched |
 |---|---|---|---|
@@ -115,13 +123,17 @@ current upper bounds are 3,040,175,864 bytes downloaded and 4,961,707,445 bytes 
 | onnxruntime + onnx and their dependencies | at most 42.4 MB | 98,259,473 | yes |
 | torch + torchvision + 29 dependencies (no triton) | 2,776,101,368 | 4,599,523,860 | yes |
 | YOLOX package (local build) | at most 5 MB | 6,123,885 | yes |
+| bytecode Python writes on import (torch path) | 0 | at most 60,000,000 (48,717,539 measured) | generated |
 | AERIS ONNX export | 0 | 35,897,112 | generated |
-| sample images (at most 13, each at most 8 MB) | at most 104 MB | at most 104 MB | only `dog.jpg` (163,759) |
+| sample images (at most 13, each at most 4 MB, 2048 px renditions) | at most 52 MB | at most 52 MB | only `dog.jpg` (163,759) |
 
 The torch sizes were measured before fetching: download sizes from PyPI, and installed
 sizes from each wheel's zip central directory (estimate 4,599,513,601). The installed
 size was re-measured afterwards from the dist RECORD files. Its extra 10,259 bytes are
-pip's metadata files.
+pip's metadata files. `--no-compile` only defers bytecode, which Python writes when a
+module is first imported. Attempt 1's bound left it out, so the attempt-1 review found
+the true upper bound was 5,010,424,984 bytes, above the limit. Attempt 2 counts bytecode
+with a 60 MB allowance and cuts the image allowance to thumbnail-sized files.
 
 Artifacts live in Git-ignored `models/checkpoints/`, `models/onnx/` and
 `data/raw/detector_samples/`. To retrieve them, see `models/README.md`.
@@ -130,9 +142,17 @@ Artifacts live in Git-ignored `models/checkpoints/`, `models/onnx/` and
 
 `configs/detector/sample_images.json` lists the sample. `python -m aeris.detection.samples
 fetch` downloads it to `data/raw/detector_samples/` and writes a verified `manifest.json`
-there. Commons files are accepted only if the Commons API reports public domain, CC0,
-CC BY or CC BY-SA (not NC or ND), within 8 MB, with bytes matching Commons' SHA-1. The
-record keeps author, licence, source page and hashes. Pinned URLs must match their SHA-256.
+there. A Commons file is accepted only if the Commons API reports public domain, CC0,
+CC BY or CC BY-SA (not NC or ND). The fetcher asks for Commons' own 2048 px rendition,
+which is enough, because the detector letterboxes to 640 px:
+- if Commons serves the original (no wider than 2048 px), its bytes must match the SHA-1
+  Commons records;
+- otherwise the rendition's SHA-256 is recorded, together with the original's SHA-1 and
+  the rendition URL.
+
+Files are capped at 4 MB. The record keeps author, licence, source page and hashes.
+Pinned URLs must match their SHA-256. Once fetched, the aircraft photos join
+`parity_sample.real` in `configs/detector/baseline.json`, pinned by SHA-256.
 
 - `yolox-dog`: the YOLOX demo photo at the pinned commit (dog, bicycle, truck). It has
   been fetched and verified. The repository does not name the photographer.
@@ -158,9 +178,12 @@ record keeps author, licence, source page and hashes. Pinned URLs must match the
   - final detections: both raw outputs go through the same NumPy postprocessing. The
     detections are matched by (anchor, class) in clipped original-frame pixels. Unmatched
     detections pass only at the declared score or NMS boundary (`boundary_abs` 0.001).
-- `python -m aeris.detection.export parity --out DIR` exports the model, runs the fixed
-  sample through PyTorch, the AERIS export and the upstream export, and writes
-  `parity.json`.
+- `python -m aeris.detection.export parity --out DIR [--onnx NEW_PATH]` does four things:
+  - exports the model to a temporary file, or to `NEW_PATH` if given; it refuses to
+    overwrite an existing file, including the recorded artifact;
+  - runs the fixed sample through PyTorch, the AERIS export and the upstream export;
+  - reports whether the export's SHA-256 matches the recorded one;
+  - writes `parity.json`.
 
 **Fixed parity sample.** One real photo, one real-derived frame and two synthetic frames:
 
@@ -195,8 +218,8 @@ on the real photo:
 
 ## Evidence so far
 
-- `tests/unit/test_detection.py` (44 tests):
-  - config;
+- `tests/unit/test_detection.py` (51 tests):
+  - config, including the mapped-class names and the record class id;
   - byte equality of preprocessing with upstream;
   - the edge-convention inverse;
   - decoding;
@@ -204,13 +227,22 @@ on the real photo:
   - argmax class mapping and clipping;
   - records;
   - the ONNX Runtime wrapper;
-  - the comparison rules;
-  - REAL tests: upstream ONNX, the PyTorch reference, upstream agreement, and export
-    parity with the recorded export hash.
+  - the comparison rules; each loosening the attempt-1 review showed would survive now
+    fails a test (boundary width, cross-class exemption, objectness, final score, and
+    ONNX actually compared);
+  - REAL tests: upstream ONNX, the PyTorch reference, class names against the pinned
+    upstream file, upstream decode/postprocess agreement, export parity (nonzero
+    differences, recorded hash), and `RealAircraftTests`.
 
-  The REAL tests skip in CI, which has neither torch nor the weights.
-- `tests/unit/test_detection_samples.py` (8 tests): offline fetch checks with a fake HTTP
-  layer.
+  `RealAircraftTests` requires, for each aircraft photo, an AERIS class 0 record from COCO
+  `airplane` whose box overlaps a hand-checked region by IoU of at least 0.5. The regions
+  are in `tests/fixtures/detection/aircraft_regions.json`.
+
+  The REAL tests skip where their inputs are absent, as in CI. With
+  `AERIS_REQUIRE_REAL_DETECTOR=1` every such skip fails instead. The gate itself does not
+  set this variable; changing the gate is outside this task's scope.
+- `tests/unit/test_detection_samples.py` (11 tests): offline fetch checks with a fake HTTP
+  layer, including the rendition path.
 - REAL runs, through PyTorch and both ONNX exports:
   - on `dog.jpg`, the pretrained model finds the dog (0.91), bicycle (0.95) and truck
     (0.61) at their places in the 768 x 576 photo, and nothing maps to aircraft;
@@ -218,15 +250,16 @@ on the real photo:
 
   This shows that the runtime paths and the inverse work. It does not show aircraft
   detection.
-- The attempt's evidence folder (`orchestration/runs/AERIS-006/attempt-01/evidence/`,
-  Git-ignored) holds `parity.json` and the `dog.jpg` detections, candidates and overlay.
+- The attempt evidence folders (`orchestration/runs/AERIS-006/attempt-0N/evidence/`,
+  Git-ignored) hold `parity.json` and the `dog.jpg` detections, candidates and overlay.
 
 ## Open work
 
-1. **Aircraft photos (AC1).** The owner allows `commons.wikimedia.org` and
-   `upload.wikimedia.org`. Then fetch the Commons candidates, view them, add the fetched
-   aircraft photos to the parity sample by SHA-256, and record aircraft detections and
-   overlays. The class mapping to AERIS class 0 has so far been exercised only on
-   hand-built outputs and in the negative, on the dog photo.
+1. **Aircraft photos (AC1).** The owner has approved `commons.wikimedia.org` and
+   `upload.wikimedia.org`, but they are still denied here. Once they are reachable:
+   - fetch the Commons candidates and view them;
+   - add the aircraft photos to `parity_sample.real` by SHA-256 (`aircraft: true`), with
+     hand-checked regions in `tests/fixtures/detection/aircraft_regions.json`;
+   - re-run parity and `RealAircraftTests`, and keep detections and overlays as evidence.
 2. The legacy TorchScript exporter is deprecated in PyTorch 2.9 and later. Moving to the
    `torch.export` exporter would need onnxscript and a new parity run.

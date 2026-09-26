@@ -6,7 +6,11 @@ live in `aeris.detection.baseline`, which both paths share: preprocessing, decod
 class mapping and the inverse letterbox. So parity is measured on raw head outputs and on
 the final detections that the same postprocessing makes from each.
 
-    python -m aeris.detection.export parity --out DIR
+    python -m aeris.detection.export parity --out DIR [--onnx NEW_PATH]
+
+The export goes to a temporary file unless --onnx names a new path, and the report says
+whether its SHA-256 matches the recorded export. The recorded artifact is never
+overwritten.
 """
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ import hashlib
 import importlib.metadata
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -110,21 +115,38 @@ def export_onnx(model: TorchModel, path: Path | str, opset: int) -> Path:
     return path
 
 
-def parity_images(dog_path: Path) -> list[tuple[str, np.ndarray, str]]:
-    """The fixed parity sample: (id, BGR image, provenance)."""
-    dog = cv2.imread(str(dog_path), cv2.IMREAD_COLOR)
-    if dog is None:
-        raise b.DetectorError(f"cannot read {dog_path}")
+def sample_path(sample_id: str, sha256: str, sample_dir: Path = SAMPLE_DIR) -> Path:
+    """A fetched real sample (by id, via the fetch manifest), checked against its SHA-256."""
+    manifest = sample_dir / "manifest.json"
+    if not manifest.is_file():
+        raise b.DetectorError(f"no fetch manifest in {sample_dir}; run aeris.detection.samples fetch")
+    files = {r["id"]: r["file"] for r in json.loads(manifest.read_text())["fetched"]}
+    if sample_id not in files:
+        raise b.DetectorError(f"sample {sample_id} not fetched")
+    return b.require_artifact(sample_dir / files[sample_id], sha256)
+
+
+def parity_images(config: dict, sample_dir: Path = SAMPLE_DIR) -> list[tuple[str, np.ndarray, str]]:
+    """The fixed parity sample: (id, BGR image, provenance), in configured order."""
+    images = []
+    for entry in config["parity_sample"]["real"]:
+        path = sample_path(entry["id"], entry["sha256"], sample_dir)
+        image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        if image is None:
+            raise b.DetectorError(f"cannot read {path}")
+        images.append((entry["id"], image, f"real photo, SHA-256 {entry['sha256']}"))
+    dog = images[[i for i, e in enumerate(config["parity_sample"]["real"])
+                  if e["id"] == "yolox-dog"][0]][1]
     rng = np.random.default_rng(6)
-    wide = cv2.resize(dog[144:432], (1000, 333), interpolation=cv2.INTER_AREA)
-    return [
-        ("yolox-dog", dog, f"real photo, SHA-256 {b.sha256_file(dog_path)}"),
-        ("yolox-dog-wide", wide, "rows 144-431 of yolox-dog resized to 1000x333 (INTER_AREA): "
-                                 "floor(333 r) is not an integer multiple"),
+    images += [
+        ("yolox-dog-wide", cv2.resize(dog[144:432], (1000, 333), interpolation=cv2.INTER_AREA),
+         "rows 144-431 of yolox-dog resized to 1000x333 (INTER_AREA): floor(333 r) is not an "
+         "integer multiple"),
         ("gray-720p", np.full((720, 1280, 3), 114, np.uint8), "uniform 114, 1280x720"),
         ("noise-720p", rng.integers(0, 256, (720, 1280, 3), dtype=np.uint8),
          "uniform noise, numpy default_rng(6), 1280x720"),
     ]
+    return images
 
 
 def _detections(found: b.Candidates, letterbox: b.Letterbox) -> dict:
@@ -212,7 +234,8 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("parity", help="export, then compare PyTorch and ONNX Runtime")
     run.add_argument("--out", type=Path, required=True, help="report directory (not in Git)")
-    run.add_argument("--onnx", type=Path, default=AERIS_ONNX)
+    run.add_argument("--onnx", type=Path, default=None,
+                     help="keep the export at this new path (default: a temporary file)")
     run.add_argument("--threads", type=int, default=1)
     args = parser.parse_args(argv)
     import torch
@@ -220,24 +243,33 @@ def main(argv=None) -> int:
     torch.set_num_threads(args.threads)
     config = b.load_config()
     settings = b.settings_from_config(config)
-    try:
-        model = TorchModel(config, settings)
-        path = export_onnx(model, args.onnx, config["export"]["opset"])
-        upstream = config["model"]["upstream_onnx_cross_check"]
-        onnx_models = {
-            "aeris_export": b.OnnxModel(path, settings, threads=args.threads),
-            "upstream_export": b.OnnxModel(b.require_artifact(b.ROOT / upstream["path"],
-                                                              upstream["sha256"]),
-                                           settings, threads=args.threads)}
-        images = parity_images(b.require_artifact(SAMPLE_DIR / "yolox-dog.jpg",
-                                                  "5a9522051c3cec2bbd2f6323fccba32e8fbf3ddcc2b3e2fd46b04c720bc6f866"))
-    except b.DetectorError as exc:
-        print(exc, file=sys.stderr)
+    if args.onnx is not None and args.onnx.exists():
+        print(f"{args.onnx} exists; refusing to overwrite it", file=sys.stderr)
         return 2
-    report = run_parity(config, settings, model, onnx_models, images)
-    report["aeris_export"] = {"path": str(path.relative_to(b.ROOT)), "sha256": b.sha256_file(path),
-                              "size_bytes": path.stat().st_size,
-                              "onnxruntime": onnx_models["aeris_export"].version}
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            model = TorchModel(config, settings)
+            path = export_onnx(model, args.onnx or Path(tmp) / AERIS_ONNX.name,
+                               config["export"]["opset"])
+            upstream = config["model"]["upstream_onnx_cross_check"]
+            onnx_models = {
+                "aeris_export": b.OnnxModel(path, settings, threads=args.threads),
+                "upstream_export": b.OnnxModel(b.require_artifact(b.ROOT / upstream["path"],
+                                                                  upstream["sha256"]),
+                                               settings, threads=args.threads)}
+            images = parity_images(config)
+        except b.DetectorError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        report = run_parity(config, settings, model, onnx_models, images)
+        recorded = config["export"]["aeris_export"]
+        digest = b.sha256_file(path)
+        report["aeris_export"] = {
+            "path": str(path.resolve()) if args.onnx else None,
+            "kept": args.onnx is not None, "sha256": digest, "size_bytes": path.stat().st_size,
+            "recorded_sha256": recorded["sha256"],
+            "matches_recorded_sha256": digest == recorded["sha256"],
+            "onnxruntime": onnx_models["aeris_export"].version}
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "parity.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     for frame in report["frames"]:
@@ -246,6 +278,7 @@ def main(argv=None) -> int:
                   f"prob {result['raw_probability_max_abs']:.2e} box {result['final_box_max_abs_px']:.2e} "
                   f"det {result['matched']}/{result['detections_reference']} "
                   f"{'PASS' if result['passed'] else 'FAIL'}")
+    print(f"export sha256 {digest} matches recorded: {report['aeris_export']['matches_recorded_sha256']}")
     return 0 if report["passed"]["aeris_export"] else 1
 
 
