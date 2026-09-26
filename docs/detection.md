@@ -1,22 +1,16 @@
 # Pretrained detector baseline (AERIS-006)
 
-Status: **attempt 2 in progress, not accepted.**
+Status: **attempt 2, awaiting independent review.**
 
-The independent review of attempt 1 escalated:
+The review of attempt 1 escalated:
 - AC2 and AC3 passed;
 - AC1 failed because no real aircraft photo was available;
-- six minor findings were raised, all fixed in attempt 2.
+- six minor findings were raised.
 
-Implemented and tested:
-- preprocessing, postprocessing, class mapping, provenance and the download budget;
-- the ONNX Runtime path;
-- the PyTorch reference;
-- the AERIS ONNX export;
-- the PyTorch/ONNX parity check, which passes on the fixed sample.
-
-Still missing is AC1's real aircraft evidence. The owner chose on 2026-09-26 to allow
-the Commons image hosts, but they are still denied from this environment. See
-"Open work".
+Attempt 2 fixes the findings. It also adds real aircraft evidence, since the owner
+allowed the Commons hosts on 2026-09-26: the pretrained model finds every required
+aircraft photo, and each detection maps to an AERIS class 0 record on the aircraft. See
+"Real aircraft results".
 
 Nothing here is trained or tuned on AERIS data, and nothing here measures detector
 quality on aircraft. The config (`configs/detector/baseline.json`) is the single source of
@@ -125,7 +119,7 @@ That leaves 30 MB of installed headroom.
 | YOLOX package (local build) | at most 5 MB | 6,123,885 | yes |
 | bytecode Python writes on import (torch path) | 0 | at most 60,000,000 (48,717,539 measured) | generated |
 | AERIS ONNX export | 0 | 35,897,112 | generated |
-| sample images (at most 13, each at most 4 MB, 2048 px renditions) | at most 52 MB | at most 52 MB | only `dog.jpg` (163,759) |
+| sample images (at most 13, each at most 4 MB) | at most 52 MB | at most 52 MB | 10 files, 9,152,580 bytes |
 
 The torch sizes were measured before fetching: download sizes from PyPI, and installed
 sizes from each wheel's zip central directory (estimate 4,599,513,601). The installed
@@ -154,11 +148,62 @@ Files are capped at 4 MB. The record keeps author, licence, source page and hash
 Pinned URLs must match their SHA-256. Once fetched, the aircraft photos join
 `parity_sample.real` in `configs/detector/baseline.json`, pinned by SHA-256.
 
-- `yolox-dog`: the YOLOX demo photo at the pinned commit (dog, bicycle, truck). It has
-  been fetched and verified. The repository does not name the photographer.
-- Twelve Commons candidates (aircraft in flight, contrails, final approach, and birds as a
-  hard negative). They were shortlisted from web search results only, so their licence
-  claims are unverified. They cannot be fetched from this environment (policy 403).
+Fetched on 2026-09-26 (10 of 13 entries). The licences and authors are as the Commons
+API reported them:
+
+| Id | Licence | Author | Stored as | Size |
+|---|---|---|---|---|
+| yolox-dog | Apache-2.0 repository (photographer not named) | YOLOX repository | pinned URL | 768 x 576 |
+| commons-takeoff-blue-sky | public domain | Rosendahl | original, SHA-1 checked | 1280 x 915 |
+| commons-airplanes-jets | public domain | Jon Sullivan | original | 1280 x 961 |
+| commons-airplane-in-flight | CC BY 3.0 | Fitrah 9131 | original | 3060 x 4080 |
+| commons-blue-sky-with-plane | CC BY 2.0 | Bradley Gordon | Commons rendition | 3840 x 2560 |
+| commons-a380-blue-sky | CC BY 2.0 | Flickr user Axwel | original | 761 x 428 |
+| commons-747-undercarriage | public domain | Arpingstone | original | 1500 x 1125 |
+| commons-f15e-sky | public domain | U.S. Air Force photo / Staff Sgt. Aaron Allmon | original | 3000 x 1996 |
+| commons-747-prototype | public domain | unknown author | Commons rendition | 3840 x 2321 |
+| commons-birds-sky | CC BY-SA 3.0 | Augustus Binu / dreamsparrow.net | original | 3604 x 2158 |
+
+Notes:
+- Wikimedia snapped the requested 2048 px rendition width to its standard 3840 px size.
+  Both renditions are about 1.0–1.6 MB, and a second fetch returned identical bytes.
+- Three candidates (777 contrails, C-141 contrail, DCA final approach) were refused
+  because upload.wikimedia.org rate-limited the original downloads (HTTP 429). They were
+  not retried further.
+- The fetcher paces requests and honours `Retry-After`. Wikimedia rate-limits by client
+  IP, and this environment's egress IP is shared.
+- The stored images total 9,152,580 bytes.
+
+## Real aircraft results
+
+**Hand-drawn regions first.** The aircraft regions in
+`tests/fixtures/detection/aircraft_regions.json` were drawn from gridded views of the
+photos and committed (`88cb3ca`) before any detector ran on them. So was the rule that
+decides which photos must produce a detection: the aircraft is whole, and its region is
+at least 32 px wide in the 640 px model input, COCO's small-object boundary. Such a
+photo must yield an AERIS class 0 record, from COCO `airplane`, whose box has IoU ≥ 0.5
+with the region (`RealAircraftTests`).
+
+AERIS export on ONNX Runtime, 2026-09-26 (evidence: `attempt-02/evidence/*.overlay.jpg`
+and `*.detections.jsonl`):
+
+| Photo | Required | AERIS aircraft records | Best score | IoU with region |
+|---|---|---|---|---|
+| commons-takeoff-blue-sky | yes | 1 | 0.958 | 0.970 |
+| commons-airplanes-jets | yes | 1 | 0.904 | 0.909 |
+| commons-a380-blue-sky (non-integer resize) | yes | 1 | 0.904 | 0.939 |
+| commons-f15e-sky (desert ground behind) | yes | 1 | 0.912 | 0.879 |
+| commons-747-prototype | yes | 2 | 0.883 | 0.973 |
+| commons-747-undercarriage (cut off by the frame) | no | 3 | 0.919 | 0.875 |
+| commons-blue-sky-with-plane (about 30 px in the input) | no | 0 | – | – |
+| commons-airplane-in-flight (about 13 px in the input) | no | 0 | – | – |
+| commons-birds-sky (no aircraft; 207 bird detections) | no | 0 | – | – |
+| yolox-dog (no aircraft) | no | 0 | – | – |
+
+All five required photos pass. The two small aircraft are missed at the 640 px input.
+That is the expected small-target weakness this project has to address later (for
+example AERIS-017); it is not a defect of this task. The bird photo produces no false
+aircraft here. That is one photo, not a false-positive rate.
 
 ## PyTorch reference, export and parity
 
@@ -185,30 +230,29 @@ Pinned URLs must match their SHA-256. Once fetched, the aircraft photos join
   - reports whether the export's SHA-256 matches the recorded one;
   - writes `parity.json`.
 
-**Fixed parity sample.** One real photo, one real-derived frame and two synthetic frames:
-
-| Frame | Kind | Content |
-|---|---|---|
-| `yolox-dog` | real | 768 x 576 photo |
-| `yolox-dog-wide` | real-derived | its rows 144–431 resized to 1000 x 333, a non-integer resize |
-| `gray-720p` | synthetic | uniform value 114 |
-| `noise-720p` | synthetic | uniform noise, seed 6 |
+**Fixed parity sample.** 13 frames:
+- the 10 real photos above, pinned by SHA-256 in `parity_sample.real`, 8 of them with
+  aircraft;
+- one real-derived frame: `yolox-dog` rows 144–431 resized to 1000 x 333, a non-integer
+  resize;
+- two synthetic frames: uniform value 114, and uniform noise with seed 6.
 
 Every frame's input hash is recorded in the report.
 
-**Measured on 2026-09-26** (single thread; torch 2.14.0 CPU vs ONNX Runtime 1.30.0 CPU):
+**Measured on 2026-09-26** (single thread; torch 2.14.0 CPU vs ONNX Runtime 1.30.0 CPU).
+The maxima over the 13 frames:
 
-| Frame | Raw regression max | Raw probability max | Final box max | Matched |
-|---|---|---|---|---|
-| yolox-dog | 1.31e-4 | 6.91e-6 | 1.25e-4 px | 22 / 22 |
-| yolox-dog-wide | 1.36e-4 | 8.52e-6 | 2.28e-4 px | 13 / 13 |
-| gray-720p | 1.24e-4 | 8.55e-6 | – (no detections) | 0 / 0 |
-| noise-720p | 1.62e-4 | 8.29e-6 | – (no detections) | 0 / 0 |
-| declared tolerance | 1e-3 | 1e-4 | 0.1 px | unmatched only at boundaries |
+| Measure | Max | Declared tolerance |
+|---|---|---|
+| raw regression | 1.75e-4 | 1e-3 |
+| raw probability | 1.18e-5 | 1e-4 |
+| final box | 5.58e-4 px | 0.1 px |
+| final score | 1.41e-6 | 1e-4 |
+| detections | 277 / 277 matched, 0 unmatched | unmatched only at boundaries |
 
-All frames pass, with no unmatched detections. The upstream opset-11 export gives
-bit-identical ONNX Runtime outputs to the AERIS export on these frames. Two frames have
-no detections, so they check raw outputs only.
+All 13 frames pass, including every frame with aircraft. The upstream opset-11 export
+also passes. The re-export's SHA-256 matches the recorded export. The per-frame results
+are in `attempt-02/evidence/parity.json`.
 
 **Upstream agreement.** Two REAL tests compare the NumPy postprocessing with YOLOX itself
 on the real photo:
@@ -218,7 +262,7 @@ on the real photo:
 
 ## Evidence so far
 
-- `tests/unit/test_detection.py` (51 tests):
+- `tests/unit/test_detection.py` (54 tests):
   - config, including the mapped-class names and the record class id;
   - byte equality of preprocessing with upstream;
   - the edge-convention inverse;
@@ -241,25 +285,24 @@ on the real photo:
   The REAL tests skip where their inputs are absent, as in CI. With
   `AERIS_REQUIRE_REAL_DETECTOR=1` every such skip fails instead. The gate itself does not
   set this variable; changing the gate is outside this task's scope.
-- `tests/unit/test_detection_samples.py` (11 tests): offline fetch checks with a fake HTTP
-  layer, including the rendition path.
+- `tests/unit/test_detection_samples.py` (15 tests): offline fetch checks with a fake HTTP
+  layer. They cover the rendition path, tracked original URLs and `Retry-After`
+  handling.
 - REAL runs, through PyTorch and both ONNX exports:
   - on `dog.jpg`, the pretrained model finds the dog (0.91), bicycle (0.95) and truck
     (0.61) at their places in the 768 x 576 photo, and nothing maps to aircraft;
   - an overlay shows the boxes on the objects.
 
-  This shows that the runtime paths and the inverse work. It does not show aircraft
-  detection.
+  This shows that the runtime paths and the inverse work.
+- REAL aircraft runs: see "Real aircraft results".
 - The attempt evidence folders (`orchestration/runs/AERIS-006/attempt-0N/evidence/`,
   Git-ignored) hold `parity.json` and the `dog.jpg` detections, candidates and overlay.
 
 ## Open work
 
-1. **Aircraft photos (AC1).** The owner has approved `commons.wikimedia.org` and
-   `upload.wikimedia.org`, but they are still denied here. Once they are reachable:
-   - fetch the Commons candidates and view them;
-   - add the aircraft photos to `parity_sample.real` by SHA-256 (`aircraft: true`), with
-     hand-checked regions in `tests/fixtures/detection/aircraft_regions.json`;
-   - re-run parity and `RealAircraftTests`, and keep detections and overlays as evidence.
-2. The legacy TorchScript exporter is deprecated in PyTorch 2.9 and later. Moving to the
+1. A gate change (a separate task): the `detection` check should set
+   `AERIS_REQUIRE_REAL_DETECTOR=1`, so REAL skips cannot pass silently.
+2. Small aircraft (below about 32 px in the 640 px input) are missed. Tiling or a higher
+   input resolution is future work, not a defect of this task.
+3. The legacy TorchScript exporter is deprecated in PyTorch 2.9 and later. Moving to the
    `torch.export` exporter would need onnxscript and a new parity run.

@@ -7,7 +7,10 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import email.message
 import unittest
+from unittest import mock
+import urllib.error
 import urllib.parse
 
 import cv2
@@ -60,7 +63,54 @@ COMMONS = {"id": "c1", "source": "wikimedia_commons", "title": "File:Plane test.
 def web_for(entry, data=IMAGE, **response):
     api = commons_response(entry["title"], data, **response)
     info = api["query"]["pages"][0]["imageinfo"][0]
-    return FakeWeb({info["thumburl"]: data}, {entry["title"]: api})
+    return FakeWeb({info["thumburl"]: data, info["url"]: data}, {entry["title"]: api})
+
+
+class Response:
+    def __init__(self, data):
+        self.data = data
+
+    def read(self, n):
+        return self.data[:n]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def http_error(code, retry_after=None):
+    headers = email.message.Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+    return urllib.error.HTTPError("https://example.org/x", code, "error", headers, None)
+
+
+class HttpTests(unittest.TestCase):
+    def get(self, outcomes):
+        waits = []
+        with mock.patch.object(urllib.request, "urlopen", side_effect=outcomes):
+            data = samples.http_get("https://example.org/x", 100, sleep=waits.append, clock=lambda: 0.0)
+        return data, [w for w in waits if w > 0]
+
+    def test_retries_rate_limits_after_the_requested_delay(self):
+        data, waits = self.get([http_error(429, "7"), http_error(503), Response(b"ok")])
+        self.assertEqual(data, b"ok")
+        self.assertIn(7.0, waits)  # Retry-After honoured
+        self.assertIn(5.0, waits)  # default when absent
+
+    def test_other_errors_and_exhausted_retries_raise(self):
+        with self.assertRaises(urllib.error.HTTPError):
+            self.get([http_error(404)])
+        with self.assertRaises(urllib.error.HTTPError):
+            self.get([http_error(429, "1")] * (samples.MAX_RETRIES + 1))
+        _, waits = self.get([http_error(429, "3600"), Response(b"ok")])
+        self.assertIn(samples.MAX_RETRY_WAIT_S, waits)  # waits are capped
+
+    def test_size_cap(self):
+        with self.assertRaises(samples.SampleError):
+            self.get([Response(b"x" * 101)])
 
 
 class ManifestTests(unittest.TestCase):
@@ -161,13 +211,15 @@ class FetchTests(unittest.TestCase):
         # Commons serves a 2048 px rendition: its bytes differ from the original, so the
         # original's SHA-1 cannot be checked. It is recorded with the rendition's SHA-256.
         rendition = "https://upload.wikimedia.org/a/thumb/ab/Plane_test.png/2048px-Plane_test.png"
-        web = web_for(COMMONS, sha1="f" * 40, rendition=rendition)
+        web = web_for(COMMONS, sha1="f" * 40, rendition=rendition, size=5_000_000)
         with tempfile.TemporaryDirectory() as tmp:
             (record,) = samples.fetch_all(dict(manifest(COMMONS), fetch_width=2048), Path(tmp), web)["fetched"]
         self.assertEqual((record["fetched"], record["rendition_of_sha1"]), ("commons_rendition", "f" * 40))
         self.assertEqual(record["sha256"], hashlib.sha256(IMAGE).hexdigest())
+        self.assertEqual(record["size_bytes"], len(IMAGE))  # the stored rendition
+        self.assertEqual(record["original_size_bytes"], 5_000_000)  # larger than the cap
         self.assertIn("iiurlwidth=2048", web.calls[0])
-        self.assertEqual(web.calls[1], rendition)
+        self.assertEqual(web.calls[1], rendition)  # the rendition, not the original
 
     def test_original_served_is_sha1_checked(self):
         # thumburl equal to url means Commons served the original: its SHA-1 must match.
@@ -176,6 +228,16 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(local["fetched"][0]["fetched"], "original")
         self.assertIsNone(local["fetched"][0]["rendition_of_sha1"])
         self.assertIn("SHA-1", self.refused(COMMONS, web_for(COMMONS, sha1="0" * 40)))
+
+    def test_original_with_tracking_query_is_sha1_checked(self):
+        # For a file no wider than the requested width, Commons returns the original URL
+        # plus utm_* parameters as the "rendition": that is still the original.
+        name = COMMONS["title"].removeprefix("File:").replace(" ", "_")
+        tracked = f"https://upload.wikimedia.org/a/ab/{name}?utm_source=commons.wikimedia.org"
+        with tempfile.TemporaryDirectory() as tmp:
+            local = samples.fetch_all(manifest(COMMONS), Path(tmp), web_for(COMMONS, rendition=tracked))
+        self.assertEqual(local["fetched"][0]["fetched"], "original")
+        self.assertIn("SHA-1", self.refused(COMMONS, web_for(COMMONS, rendition=tracked, sha1="0" * 40)))
 
     def test_pinned_commons_sha256(self):
         pinned = dict(COMMONS, sha256="0" * 64)

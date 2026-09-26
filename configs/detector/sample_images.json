@@ -3,8 +3,13 @@
   "manifest_id": "aeris-detector-samples-v1",
   "task": "AERIS-006",
   "scope_note": "Real images for the detector smoke check (AC1) and the PyTorch/ONNX parity sample (AC3). Not a benchmark: no ground truth, no split, a handful of hand-picked photographs. Images are never committed; python -m aeris.detection.samples fetch downloads them to data/raw/detector_samples/ and writes the verified provenance there.",
-  "selection_note": "Commons candidates were shortlisted on 2026-09-25 from web search results only, because this environment's network policy denies commons.wikimedia.org and upload.wikimedia.org. Their licence claims come from search summaries and are unverified. The fetch tool accepts a file only if the Commons API reports an allowed licence. It verifies the SHA-1 Commons records when the original is served; otherwise it records Commons' 2048 px rendition by SHA-256, next to the original's SHA-1. The fixed parity sample is chosen after fetching and viewing, and recorded by SHA-256.",
-  "allowed_licenses": ["pd", "cc0", "cc-by-[0-9]*", "cc-by-sa-[0-9]*"],
+  "selection_note": "Commons candidates were shortlisted on 2026-09-25 from web search results. They were fetched on 2026-09-26, after the owner allowed the Commons hosts. For each fetched file the Commons API reported an allowed licence, recorded under license_verified. Originals were checked against Commons' SHA-1; renditions are pinned by SHA-256 here. Three candidates were refused because Wikimedia rate-limited the original download (HTTP 429). The fetched photos form parity_sample.real in configs/detector/baseline.json.",
+  "allowed_licenses": [
+    "pd",
+    "cc0",
+    "cc-by-[0-9]*",
+    "cc-by-sa-[0-9]*"
+  ],
   "allowed_licenses_note": "Commons licence codes, matched as shell-style patterns: public domain, CC0, CC BY and CC BY-SA of any version. NC and ND variants are refused.",
   "max_file_bytes": 4000000,
   "fetch_width": 2048,
@@ -19,17 +24,119 @@
       "license_note": "Shipped in the Apache-2.0 YOLOX repository at the pinned commit; the repository does not name the photographer or give separate terms. Used locally only, not redistributed.",
       "role": "real non-aircraft photo (dog, bicycle, truck): class-mapping negative and parity sample"
     },
-    {"id": "commons-takeoff-blue-sky", "source": "wikimedia_commons", "title": "File:Airplane takeoff on blue sky.jpg", "license_claim": "public domain (search summary)", "role": "airliner against sky"},
-    {"id": "commons-airplanes-jets", "source": "wikimedia_commons", "title": "File:Airplanes jets.jpg", "license_claim": "public domain (search summary)", "role": "jet aircraft in flight"},
-    {"id": "commons-airplane-in-flight", "source": "wikimedia_commons", "title": "File:Airplane in flight.jpg", "license_claim": "CC BY 3.0 (search summary)", "role": "aircraft in flight"},
-    {"id": "commons-blue-sky-with-plane", "source": "wikimedia_commons", "title": "File:Blue Sky With Plane.jpg", "license_claim": "unknown", "role": "small aircraft in a large sky"},
-    {"id": "commons-a380-blue-sky", "source": "wikimedia_commons", "title": "File:Airbus A380 blue sky.jpg", "license_claim": "unknown", "role": "airliner against sky"},
-    {"id": "commons-777-contrails", "source": "wikimedia_commons", "title": "File:Boeing 777 with contrails.jpg", "license_claim": "unknown", "role": "high-altitude airliner with contrails"},
-    {"id": "commons-c141-contrail", "source": "wikimedia_commons", "title": "File:C-141 Starlifter contrail.jpg", "license_claim": "unknown (US Air Force subject)", "role": "aircraft with contrail"},
-    {"id": "commons-dca-final-approach", "source": "wikimedia_commons", "title": "File:Final Approach DCA Airport (8110827526).jpg", "license_claim": "unknown", "role": "airliner on final approach"},
-    {"id": "commons-747-undercarriage", "source": "wikimedia_commons", "title": "File:Undercarriage.b747.arp.jpg", "license_claim": "public domain (search summary)", "role": "large airliner seen from below"},
-    {"id": "commons-f15e-sky", "source": "wikimedia_commons", "title": "File:F-15E - Controlling The Sky.JPG", "license_claim": "unknown (US Air Force subject)", "role": "military jet in flight"},
-    {"id": "commons-747-prototype", "source": "wikimedia_commons", "title": "File:Boeing 747 prototype photographed in flight (cropped, retouched).jpg", "license_claim": "unknown", "role": "airliner in flight"},
-    {"id": "commons-birds-sky", "source": "wikimedia_commons", "title": "File:Birds flying at Sky 2.JPG", "license_claim": "CC BY-SA 3.0 (search summary)", "role": "birds, no aircraft: hard negative for the airplane mapping"}
+    {
+      "id": "commons-takeoff-blue-sky",
+      "source": "wikimedia_commons",
+      "title": "File:Airplane takeoff on blue sky.jpg",
+      "license_claim": "public domain (search summary)",
+      "role": "airliner against sky",
+      "sha256": "50dffb09a01dd5c6e6f72dc278de6ff9b405dbf8bbcbd8bf9dcfd545d563217f",
+      "license_verified": "Public domain (pd), author: Rosendahl; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-airplanes-jets",
+      "source": "wikimedia_commons",
+      "title": "File:Airplanes jets.jpg",
+      "license_claim": "public domain (search summary)",
+      "role": "jet aircraft in flight",
+      "sha256": "4a1cab5261d8a653133a565b8e0ca8e467936b73b7f611452169b00700e202fa",
+      "license_verified": "Public domain (pd), author: Jon Sullivan; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-airplane-in-flight",
+      "source": "wikimedia_commons",
+      "title": "File:Airplane in flight.jpg",
+      "license_claim": "CC BY 3.0 (search summary)",
+      "role": "aircraft in flight",
+      "sha256": "4016f6aaaa325f7955807dc420e2312437ef3cb9c856a708c79288191de3e2da",
+      "license_verified": "CC BY 3.0 (cc-by-3.0), author: Fitrah 9131; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-blue-sky-with-plane",
+      "source": "wikimedia_commons",
+      "title": "File:Blue Sky With Plane.jpg",
+      "license_claim": "unknown",
+      "role": "small aircraft in a large sky",
+      "sha256": "14489ad6679faff3fb3630e8782d71b997fe308131701516ce1f6478d99d40c9",
+      "license_verified": "CC BY 2.0 (cc-by-2.0), author: Bradley Gordon; Commons API, fetched 2026-09-26",
+      "fetched_as": "commons_rendition"
+    },
+    {
+      "id": "commons-a380-blue-sky",
+      "source": "wikimedia_commons",
+      "title": "File:Airbus A380 blue sky.jpg",
+      "license_claim": "unknown",
+      "role": "airliner against sky",
+      "sha256": "88cf72900655def88b46bd20c739f05a513e3e1501ab2657e095a7ebb39009b2",
+      "license_verified": "CC BY 2.0 (cc-by-2.0), author: Flickr user Axwel; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-777-contrails",
+      "source": "wikimedia_commons",
+      "title": "File:Boeing 777 with contrails.jpg",
+      "license_claim": "unknown",
+      "role": "high-altitude airliner with contrails",
+      "not_fetched": "refused on 2026-09-26: upload.wikimedia.org rate limit (HTTP 429) on the original file; not retried"
+    },
+    {
+      "id": "commons-c141-contrail",
+      "source": "wikimedia_commons",
+      "title": "File:C-141 Starlifter contrail.jpg",
+      "license_claim": "unknown (US Air Force subject)",
+      "role": "aircraft with contrail",
+      "not_fetched": "refused on 2026-09-26: upload.wikimedia.org rate limit (HTTP 429) on the original file; not retried"
+    },
+    {
+      "id": "commons-dca-final-approach",
+      "source": "wikimedia_commons",
+      "title": "File:Final Approach DCA Airport (8110827526).jpg",
+      "license_claim": "unknown",
+      "role": "airliner on final approach",
+      "not_fetched": "refused on 2026-09-26: upload.wikimedia.org rate limit (HTTP 429) on the original file; not retried"
+    },
+    {
+      "id": "commons-747-undercarriage",
+      "source": "wikimedia_commons",
+      "title": "File:Undercarriage.b747.arp.jpg",
+      "license_claim": "public domain (search summary)",
+      "role": "large airliner seen from below",
+      "sha256": "126038ca024acd85065510ff53732a43d0f7b79aa60a82c115b1bd6fb208c5f2",
+      "license_verified": "Public domain (pd), author: Arpingstone; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-f15e-sky",
+      "source": "wikimedia_commons",
+      "title": "File:F-15E - Controlling The Sky.JPG",
+      "license_claim": "unknown (US Air Force subject)",
+      "role": "military jet in flight",
+      "sha256": "12e909053cffe9f22f0eea8166a8065d31940490a8d01a11a480be38655bae11",
+      "license_verified": "Public domain (pd), author: U.S. Air Force photo/Staff Sgt. Aaron Allmon; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    },
+    {
+      "id": "commons-747-prototype",
+      "source": "wikimedia_commons",
+      "title": "File:Boeing 747 prototype photographed in flight (cropped, retouched).jpg",
+      "license_claim": "unknown",
+      "role": "airliner in flight",
+      "sha256": "8d130e7aad68c3fb1a21218c92f677b78840a7ce4c9ff2da416a5b9e32cb6ddd",
+      "license_verified": "Public domain (pd), author: Unknown author Unknown author; Commons API, fetched 2026-09-26",
+      "fetched_as": "commons_rendition"
+    },
+    {
+      "id": "commons-birds-sky",
+      "source": "wikimedia_commons",
+      "title": "File:Birds flying at Sky 2.JPG",
+      "license_claim": "CC BY-SA 3.0 (search summary)",
+      "role": "birds, no aircraft: hard negative for the airplane mapping",
+      "sha256": "92e8a6af82dbf93283801ade9e038cfa860d920907e130fb0c57300b80ed196a",
+      "license_verified": "CC BY-SA 3.0 (cc-by-sa-3.0), author: Augustus Binu / www.dreamsparrow.net / facebook; Commons API, fetched 2026-09-26",
+      "fetched_as": "original"
+    }
   ]
 }

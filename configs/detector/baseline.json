@@ -239,6 +239,51 @@
         "id": "yolox-dog",
         "sha256": "5a9522051c3cec2bbd2f6323fccba32e8fbf3ddcc2b3e2fd46b04c720bc6f866",
         "aircraft": false
+      },
+      {
+        "id": "commons-takeoff-blue-sky",
+        "sha256": "50dffb09a01dd5c6e6f72dc278de6ff9b405dbf8bbcbd8bf9dcfd545d563217f",
+        "aircraft": true
+      },
+      {
+        "id": "commons-airplanes-jets",
+        "sha256": "4a1cab5261d8a653133a565b8e0ca8e467936b73b7f611452169b00700e202fa",
+        "aircraft": true
+      },
+      {
+        "id": "commons-airplane-in-flight",
+        "sha256": "4016f6aaaa325f7955807dc420e2312437ef3cb9c856a708c79288191de3e2da",
+        "aircraft": true
+      },
+      {
+        "id": "commons-blue-sky-with-plane",
+        "sha256": "14489ad6679faff3fb3630e8782d71b997fe308131701516ce1f6478d99d40c9",
+        "aircraft": true
+      },
+      {
+        "id": "commons-a380-blue-sky",
+        "sha256": "88cf72900655def88b46bd20c739f05a513e3e1501ab2657e095a7ebb39009b2",
+        "aircraft": true
+      },
+      {
+        "id": "commons-747-undercarriage",
+        "sha256": "126038ca024acd85065510ff53732a43d0f7b79aa60a82c115b1bd6fb208c5f2",
+        "aircraft": true
+      },
+      {
+        "id": "commons-f15e-sky",
+        "sha256": "12e909053cffe9f22f0eea8166a8065d31940490a8d01a11a480be38655bae11",
+        "aircraft": true
+      },
+      {
+        "id": "commons-747-prototype",
+        "sha256": "8d130e7aad68c3fb1a21218c92f677b78840a7ce4c9ff2da416a5b9e32cb6ddd",
+        "aircraft": true
+      },
+      {
+        "id": "commons-birds-sky",
+        "sha256": "92e8a6af82dbf93283801ade9e038cfa860d920907e130fb0c57300b80ed196a",
+        "aircraft": false
       }
     ]
   }

@@ -557,7 +557,8 @@ DOG_SHA256 = "5a9522051c3cec2bbd2f6323fccba32e8fbf3ddcc2b3e2fd46b04c720bc6f866"
 WEIGHTS = ROOT / CONFIG["model"]["weights"]["path"]
 TORCH_READY = all(importlib.util.find_spec(m) for m in ("torch", "torchvision", "yolox"))
 AIRCRAFT = [e for e in CONFIG["parity_sample"]["real"] if e["aircraft"]]
-REGIONS = json.loads((ROOT / "tests/fixtures/detection/aircraft_regions.json").read_text())["regions"]
+REGION_DOC = json.loads((ROOT / "tests/fixtures/detection/aircraft_regions.json").read_text())
+REGIONS = REGION_DOC["regions"]
 # REAL tests skip where their artifacts are absent (as in CI). Setting this variable turns
 # every such skip into a failure, so a run that must carry REAL evidence cannot pass
 # silently without it.
@@ -619,9 +620,22 @@ class RealAircraftTests(unittest.TestCase):
     def test_every_aircraft_photo_has_a_region(self):
         self.assertEqual(sorted(REGIONS), sorted(e["id"] for e in AIRCRAFT))
 
+    def test_required_flags_follow_the_declared_rule(self):
+        # Required = whole aircraft and region width >= 32 px in the 640 px model input.
+        for entry in AIRCRAFT:
+            with self.subTest(photo=entry["id"]):
+                height, width = cv2.imread(str(export.sample_path(entry["id"], entry["sha256"]))).shape[:2]
+                region = REGIONS[entry["id"]]
+                x0, y0, x1, y1 = region["region"]
+                self.assertTrue(0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height)
+                ratio = min(S.input_height / height, S.input_width / width)
+                expected = region["whole"] and (x1 - x0) * ratio >= REGION_DOC["min_input_width_px"]
+                self.assertEqual(region["required"], expected)
+        self.assertGreaterEqual(sum(REGIONS[e["id"]]["required"] for e in AIRCRAFT), 1)
+
     def test_airplane_maps_to_aeris_class_on_the_aircraft(self):
         label = b.provenance(CONFIG, "test")
-        for entry in AIRCRAFT:
+        for entry in [e for e in AIRCRAFT if REGIONS[e["id"]]["required"]]:
             with self.subTest(photo=entry["id"]):
                 path = export.sample_path(entry["id"], entry["sha256"])
                 image = cv2.imread(str(path))
@@ -630,7 +644,7 @@ class RealAircraftTests(unittest.TestCase):
                                        result.letterbox, S, label)
                 region = np.array(REGIONS[entry["id"]]["region"], float)
                 hits = [(d, r) for d, r in zip(result.detections, records)
-                        if b.box_iou(region, np.array([d.bbox]))[0] >= 0.5]
+                        if b.box_iou(region, np.array([d.bbox]))[0] >= REGION_DOC["min_iou"]]
                 self.assertTrue(hits, [(d.bbox, d.score) for d in result.detections])
                 detection, record = max(hits, key=lambda hit: hit[0].score)
                 self.assertEqual((detection.source_class, detection.class_id), (AIRPLANE, 0))

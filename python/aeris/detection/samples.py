@@ -27,6 +27,8 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -41,19 +43,48 @@ COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 USER_AGENT = os.environ.get(
     "AERIS_HTTP_USER_AGENT", "AERIS-detector-sample-fetch/0.1 (one-off research download)")
 MAX_API_BYTES = 1_000_000
+# Wikimedia rate-limits by client IP (this environment's egress is shared) and answers 429
+# with Retry-After. Requests are paced, and a rate-limit reply is retried a few times after
+# the delay the server asks for.
+MIN_INTERVAL_S = 1.0
+MAX_RETRIES = 5
+MAX_RETRY_WAIT_S = 30.0
+_last_request = [0.0]
 
 
 class SampleError(ValueError):
     """An entry cannot be fetched or does not meet the recorded requirements."""
 
 
-def http_get(url: str, limit: int) -> bytes:
+def http_get(url: str, limit: int, sleep=time.sleep, clock=time.monotonic) -> bytes:
+    """GET with pacing, bounded Retry-After handling for 429/503, and a size cap."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        data = response.read(limit + 1)
+    for attempt in range(MAX_RETRIES + 1):
+        sleep(max(0.0, _last_request[0] + MIN_INTERVAL_S - clock()))
+        _last_request[0] = clock()
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                data = response.read(limit + 1)
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 503) or attempt == MAX_RETRIES:
+                raise
+            try:
+                wait = float(exc.headers.get("Retry-After", "5"))
+            except (TypeError, ValueError):
+                wait = 5.0
+            sleep(min(max(wait, 1.0), MAX_RETRY_WAIT_S))
     if len(data) > limit:
         raise SampleError(f"{url}: larger than the {limit}-byte cap")
     return data
+
+
+def _same_file(url_a: str | None, url_b: str) -> bool:
+    """True when two Commons URLs name the same file (tracking query strings ignored)."""
+    if not url_a:
+        return True
+    a, b = urllib.parse.urlparse(url_a), urllib.parse.urlparse(url_b)
+    return (a.netloc, a.path) == (b.netloc, b.path)
 
 
 def load_manifest(path: Path | str = MANIFEST_PATH) -> dict:
@@ -135,7 +166,7 @@ def fetch_entry(entry: dict, manifest: dict, dest: Path, get=http_get) -> dict:
                                                            manifest["allowed_licenses"]):
             raise SampleError(f"{entry['id']}: licence {info['license_code']!r} "
                               f"({info['license_name']}) is not allowed")
-        rendition = info["rendition_url"] and info["rendition_url"] != info["url"]
+        rendition = not _same_file(info["rendition_url"], info["url"])
         if not rendition and info["size_bytes"] > cap:
             raise SampleError(f"{entry['id']}: {info['size_bytes']} bytes exceeds the cap")
         data = get(info["rendition_url"] if rendition else info["url"], cap)
@@ -144,7 +175,9 @@ def fetch_entry(entry: dict, manifest: dict, dest: Path, get=http_get) -> dict:
         facts = _image_facts(data)
         if entry.get("sha256") and facts["sha256"] != entry["sha256"]:
             raise SampleError(f"{entry['id']}: SHA-256 {facts['sha256']} != recorded {entry['sha256']}")
-        record = {"source": "wikimedia_commons", **info,
+        record = {"source": "wikimedia_commons",
+                  **{key: value for key, value in info.items() if key != "size_bytes"},
+                  "original_size_bytes": info["size_bytes"],
                   "fetched": "commons_rendition" if rendition else "original",
                   "rendition_of_sha1": info["sha1"] if rendition else None}
     fetched_url = record.get("rendition_url") if record.get("fetched") == "commons_rendition" else record["url"]
@@ -152,7 +185,8 @@ def fetch_entry(entry: dict, manifest: dict, dest: Path, get=http_get) -> dict:
     name = f"{entry['id']}{suffix}"
     dest.mkdir(parents=True, exist_ok=True)
     (dest / name).write_bytes(data)
-    return {"id": entry["id"], "file": name, "role": entry["role"], **facts, **record}
+    # Facts about the stored bytes (size, SHA-256, dimensions) come last so they win.
+    return {"id": entry["id"], "file": name, "role": entry["role"], **record, **facts}
 
 
 def _still_valid(dest: Path, record: dict) -> bool:

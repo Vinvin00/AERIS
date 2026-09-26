@@ -1,6 +1,6 @@
 # ADR 006 — Pretrained detector baseline and CPU ONNX path
 
-Status: proposed for AERIS-006 attempt 1 review. Dates: 2026-09-25 and 2026-09-26.
+Status: proposed for AERIS-006 attempt 2 review. Dates: 2026-09-25 and 2026-09-26.
 
 Decision:
 
@@ -31,8 +31,9 @@ Decision:
     checked at run time.
   - The AERIS export uses the TorchScript-based exporter, as upstream does, and is
     byte-reproducible in the same environment.
-  - It passes parity on the fixed sample. The largest differences were 1.6e-4 in raw
-    regression, 8.6e-6 in probabilities and 2.3e-4 px in final boxes, and all detections
+  - It passes parity on the fixed 13-frame sample (10 photos, 8 of them with aircraft,
+    one resized crop of a photo and two synthetic frames). The largest differences were 1.75e-4 in raw regression,
+    1.18e-5 in probabilities and 5.58e-4 px in final boxes, and all 277 detections
     matched.
 
 Alternatives rejected:
@@ -53,8 +54,10 @@ Consequences:
 - The PyPI torch wheel carries about 2.3 GB of CUDA libraries that CPU work does not use.
   A later environment with `download.pytorch.org` can switch to the CPU wheel. It must
   then re-run parity and record the new export hash.
-- Real aircraft photos need the Commons hosts, which are denied here. So far the class
-  mapping to AERIS 0 is exercised only on hand-built outputs.
+- Real aircraft photos come from Wikimedia Commons, licence-checked through its API
+  (public domain, CC BY, CC BY-SA). On every required aircraft photo the pretrained
+  airplane class maps to AERIS 0 records on the aircraft. Small aircraft (below about
+  32 px in the 640 px input) are missed; later tasks address that.
 - The TorchScript exporter is deprecated upstream in PyTorch. Moving to the
   `torch.export` exporter is a later, separate change.
 - Upstream reports COCO numbers only. AERIS-007 measures aircraft performance and selects
