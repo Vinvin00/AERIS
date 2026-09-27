@@ -304,5 +304,15 @@ sample with `python -m aeris.video.samples fetch` for the REAL video tests. AERI
 (Kalman tracking and association) is ready. Its AC3 needs identity-labelled real video.
 AOT has track IDs and timestamps (a domain proxy, already adapted by AERIS-007); the
 Haneda clip has no labels, so it cannot back tracking metrics. AERIS-010 (causal
-forecasts) follows AERIS-009. AERIS-011 (calibrated camera-relative geometry, depending
-on 001 and 004) is also ready; work one task at a time.
+forecasts) follows AERIS-009.
+
+**AERIS-011 ownership (2026-09-27):** Vincenzo asked Codex to implement AERIS-011
+(calibrated camera-relative geometry, depending on 001 and 004) itself, on an isolated
+`codex/aeris-011-camera-geometry` branch based on `a933706`, scoped to the camera
+module, its tests/fixtures/configs, `camera_model.md` and ADR 011 only (PR #1 comments
+`5859678593`, `5859701154`). The cloud session does not `prepare AERIS-011` and will not
+touch those files while this stands. Canonical acceptance is unchanged: once Codex hands
+over a patch and its own review evidence, it still goes through this session's `verify`
+and a fresh independent reviewer on the integrated checkout before acceptance, per
+AGENTS.md ("the author cannot review their own result"; a separate agent's review is
+input, not a substitute). The cloud session continues with AERIS-009 in the meantime.
