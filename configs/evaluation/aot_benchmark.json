@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "benchmark_id": "aeris-007-aot-v1",
+  "benchmark_id": "aeris-007-aot-v2",
   "frozen_at": "2026-09-27",
-  "frozen_note": "Selection, class policy, threshold rule and tolerance rule were fixed and committed before the detector ran on any AOT frame. Changing any value here creates a new benchmark_id.",
+  "frozen_note": "Selection, class policy, threshold rule and tolerance rule were fixed and committed before the detector ran on any AOT frame (v1, 3985a8f). Changing any value here creates a new benchmark_id.",
   "source": {
     "name": "Airborne Object Tracking (AOT) dataset, training set",
     "publisher": "Amazon Prime Air",
@@ -54,13 +54,14 @@
       "BIrd",
       "Flock"
     ],
-    "nominal_box_rule": "An aircraft box whose larger side is at most 16 px and which has a side of exactly 6 or 16 px is a nominal marker, not an extent; the aircraft becomes an ignore region.",
+    "nominal_box_rule": "An aircraft box whose larger side is at most 16 px and which has a side of 6 or 16 px (within 1e-6 px) is a nominal marker, not an extent; the aircraft becomes an ignore region. Sides that differ from 6 or 16 px by more than 1e-6 px (52 sides by 1e-6 to 1e-3 px, 2,330 by 1e-3 to 0.05 px in the full ground truth) are treated as measured.",
     "nominal_sides_px": [
       6.0,
       16.0
     ],
     "nominal_max_side_px": 16.0,
-    "annotation_status": "complete"
+    "annotation_status": "complete",
+    "nominal_tolerance_px": 1e-06
   },
   "split": {
     "unit": "capture day of the flight: UTC date of its earliest ground-truth timestamp over all its cameras, so both cameras of a flight always share a split",
@@ -135,7 +136,10 @@
       "count_metric_reason": "A single object or detection changing state is the smallest real change on a fixed frame set."
     },
     "support_rule": "A width bin with fewer than 30 scored objects, or a negative-frame metric with fewer than 30 negative frames, is reported as not gated (unavailable), never as a pass.",
-    "interval_note": "Day-bootstrap intervals are reported as context for what the set can resolve; they are not the tolerance."
+    "interval_note": "Day-bootstrap intervals are reported as context for what the set can resolve; they are not the tolerance.",
+    "comparison": "A candidate fails a gated metric when it is worse than the baseline by more than tolerance_abs x (1 + 1e-9); the 1e-9 relative margin only absorbs floating-point rounding, so exactly one count worse passes a one-count tolerance.",
+    "environment_scope": "Tolerances are measured by re-running the baseline in the gating environment. Before gating a candidate in a different environment (host, ONNX Runtime, OpenCV or NumPy build), re-run the baseline there; if its detections are not bit-identical to the recorded ones, re-measure repeatability there and record it before comparing any candidate.",
+    "candidate_protocol": "Candidates are scored on the development frames with the same evaluator, IoU 0.5 and the frozen score threshold recorded in regression.json; they do not re-select a threshold. A candidate that needs its own threshold is a different protocol and needs a reviewed change."
   },
   "budget": {
     "owner_decision": "2026-09-27: the owner asked for labelled data found online and approved more budget if needed. No paid compute.",
@@ -143,5 +147,15 @@
     "retained_disk_bytes_max": 7000000000,
     "cpu_wall_time_max_s": 7200,
     "per_frame_bytes_max": 8000000
-  }
+  },
+  "revisions": [
+    {
+      "benchmark_id": "aeris-007-aot-v2",
+      "date": "2026-09-27",
+      "after_results_seen": true,
+      "change": "Nominal-marker sides are compared within 1e-6 px instead of exactly. The CSV derives right = left + width in floating point, so 7,697 marker boxes (e.g. width 16.000000000000114) were scored as measured aircraft in v1.",
+      "found_by": "independent review of AERIS-007 attempt 1 (finding F1)",
+      "unchanged": "split salt and allocation, sequence and frame caps, threshold rule, tolerance rule, evaluator, IoU, detector"
+    }
+  ]
 }

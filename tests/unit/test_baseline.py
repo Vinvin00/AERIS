@@ -71,6 +71,15 @@ class CategoryTests(unittest.TestCase):
         for w, h in ((6.0, 20.0), (17.0, 17.0), (14.6, 15.0), (10.0, 12.0)):
             self.assertFalse(aot.is_nominal(w, h), (w, h))
 
+    def test_nominal_rule_absorbs_float_noise_only(self):
+        # The CSV derives right = left + width in floating point: 1024.4 - 1008.4 is
+        # 16.000000000000114 and 1024.1 - 1008.1 is 15.999999999999886 (review finding F1).
+        self.assertTrue(aot.is_nominal(1024.4 - 1008.4, 1024.1 - 1008.1))
+        self.assertTrue(aot.is_nominal(6.0 + 1e-12, 3.0))
+        # Beyond 1e-6 px the side is treated as measured (e.g. 16.0009 x 9.95 in the real data).
+        self.assertFalse(aot.is_nominal(16.000903, 9.950986))
+        self.assertFalse(aot.is_nominal(16.0 + 2e-6, 16.0 + 2e-6))
+
 
 class ReaderTests(unittest.TestCase):
     def test_both_column_orders_parse_the_same(self):
@@ -194,6 +203,16 @@ class AnnotationTests(unittest.TestCase):
         (obj,) = self.record(D, 0, first).objects
         self.assertFalse(obj.ignore)
         self.assertEqual(obj.bbox, BBox(2400.0, 2000.0, 2448.0, 2048.0))
+
+    def test_float_noise_marker_becomes_ignore_region(self):
+        # Fixture part2, flight B frame 30: Helicopter2 at (1008.4, 1008.1, 1024.4, 1024.1).
+        frames = frames_of("part2", [B])
+        first = aot.sequence_index(FIX)[f"{B}-camera0"]["first_time_ns"]
+        rec = aot.annotation(frames[(B, 30)], first_time_ns=first, image_path="x.png",
+                             image_sha256="0" * 64)
+        (obj,) = rec.objects
+        self.assertEqual((obj.annotation_id, obj.ignore), ("Helicopter2", True))
+        self.assertEqual(aot.frame_kind(frames[(B, 30)]), "other")
 
     def test_frame_kinds(self):
         self.assertEqual(aot.frame_kind(self.frames[(A, 10)]), "scored")
@@ -443,6 +462,11 @@ class GateTests(unittest.TestCase):
         self.assertEqual(bl.gate_check(gate, more_fp)["status"], "fail")
         better = dict(values, false_positives_per_negative_frame=0.0, recall=0.9)
         self.assertEqual(bl.gate_check(gate, better)["status"], "pass")
+        # Exactly one count worse is within a one-count tolerance despite float rounding:
+        # 0.6 - 0.59 is 0.010000000000000009 > 1/100 (review finding F2).
+        one_worse = dict(values, recall=59 / 100)
+        self.assertEqual(bl.gate_check(gate, one_worse)["status"], "pass")
+        self.assertEqual(bl.gate_check(gate, dict(values, recall=58 / 100))["status"], "fail")
         missing = dict(values, recall=None)
         self.assertEqual(bl.gate_check(gate, missing)["status"], "blocked")
         # An ungated bin never fails or blocks, whatever its value.
@@ -588,6 +612,40 @@ class CommittedArtifactTests(unittest.TestCase):
                 self.assertIsNone(entry["tolerance_abs"])
         # The baseline passes its own gate.
         self.assertEqual(bl.gate_check(REGRESSION, REGRESSION["baseline"])["status"], "pass")
+        for entry in REGRESSION["gates"]:
+            if entry["gated"] and entry["baseline"] == 0 and entry["direction"] == "higher_is_better":
+                self.assertIn("cannot fail", entry["note"])
+
+    def test_gate_boundaries_on_the_frozen_gate(self):
+        # Candidates built from counts, as a real candidate's metrics would be: exactly one
+        # count (or 0.001 AP) worse passes; two counts (or 0.0011 AP) worse fails.
+        dev = MANIFEST["results"]["development"]
+        base = REGRESSION["baseline"]
+        tp, fp = dev["true_positives"], dev["false_positives"]
+        support = dev["support"]["ground_truth"]
+        neg = dev["negative_frames"]["count"]
+        neg_fp = round(dev["negative_frames"]["false_positives_per_negative_frame"] * neg)
+        worse = {"recall": lambda k: (tp - k) / support,
+                 "precision": lambda k: (tp - k) / (tp + fp),
+                 "false_positives_per_negative_frame": lambda k: (neg_fp + k) / neg,
+                 "ap50": lambda k: base["ap50"] - (0.001 if k == 1 else 0.0011),
+                 "ap_50_95": lambda k: base["ap_50_95"] - (0.001 if k == 1 else 0.0011)}
+        for name, _ in bl.WIDTH_BINS:
+            n = dev["width_bins"][name]["support"]
+            matched = round(dev["width_bins"][name]["recall"] * n)
+            if matched >= 2:
+                worse[f"width_bin_recall {name}"] = (lambda k, m=matched, n=n: (m - k) / n)
+        checked = 0
+        for metric, value in worse.items():
+            entry = next(e for e in REGRESSION["gates"] if e["metric"] == metric)
+            if not entry["gated"]:
+                continue
+            checked += 1
+            self.assertEqual(bl.gate_check(REGRESSION, dict(base, **{metric: value(1)}))["status"],
+                             "pass", metric)
+            self.assertEqual(bl.gate_check(REGRESSION, dict(base, **{metric: value(2)}))["status"],
+                             "fail", metric)
+        self.assertGreaterEqual(checked, 6)
 
 
 # ------------------------------------------------------------------ REAL (AOT frames, run outputs)

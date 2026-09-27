@@ -42,6 +42,7 @@ RUNS_DIR = ROOT / "benchmarks" / "runs" / "aeris-007"
 SPLITS = ("development", "validation", "holdout")
 EVALUATED = ("development", "validation")
 GRID = tuple(round(0.01 * i, 2) for i in range(1, 100))
+COMPARISON_EPSILON = 1e-9  # relative; absorbs floating-point rounding in gate comparisons only
 LOOSE_IOU = (0.2,)  # post-hoc diagnostic only; the gate uses the frozen IoU 0.5
 LOCKS = ("requirements/data-linux-x86_64-py311.txt", "requirements/eval-linux-x86_64-py311.txt",
          "requirements/detector-linux-x86_64-py311.txt")
@@ -516,6 +517,8 @@ def tolerance(metric: str, baseline: dict, repeat_delta: float, floors: dict,
         return entry
     entry.update(gated=True, repeat_delta_abs=repeat_delta, resolution_floor=floor,
                  tolerance_abs=max(2 * repeat_delta, floor))
+    if baseline[metric] == 0 and not lower_is_better:
+        entry["note"] = "baseline is 0, so this gate cannot fail; it records the value only"
     return entry
 
 
@@ -531,7 +534,7 @@ def gate_check(gate: dict, candidate: dict) -> dict:
             continue
         worse = (value - entry["baseline"] if entry["direction"] == "lower_is_better"
                  else entry["baseline"] - value)
-        if worse > entry["tolerance_abs"]:
+        if worse > entry["tolerance_abs"] * (1 + COMPARISON_EPSILON):
             failures.append({"metric": entry["metric"], "baseline": entry["baseline"],
                              "candidate": value, "worse_by": worse,
                              "tolerance_abs": entry["tolerance_abs"]})
@@ -816,6 +819,11 @@ def build_regression(config, threshold, values, gates, intervals, manifest) -> d
                                + rule["resolution_floor"]["count_metric_reason"] + " " + rule["support_rule"],
         "intervals_development": {k: [v["low"], v["high"]] for k, v in intervals.items()},
         "interval_note": rule["interval_note"],
+        "comparison": rule["comparison"],
+        "candidate_protocol": rule["candidate_protocol"],
+        "environment_scope": rule["environment_scope"],
+        "measured_environment": {k: manifest["environment"][k]
+                                 for k in ("cpu", "platform", "python", "numpy", "opencv", "onnxruntime")},
         "holdout": {"sealed": True, "frames_digest": manifest["splits"]["holdout"]["frames_digest"],
                     "policy": config["split"]["holdout_policy"]},
     }

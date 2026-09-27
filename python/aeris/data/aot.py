@@ -15,10 +15,14 @@ used unchanged as contract half-open `xyxy`.
 Class policy (mapping `aeris-aircraft-v1`, one class `0 aircraft`):
 
 - `Airplane`, `Helicopter`: aircraft. A box with a measured extent is scored. Most small
-  targets carry a *nominal* marker box instead, exactly 6 x 6 or 16 x 16 px (a side
-  of 6 or 16 with the other side no larger than 16 also counts, for markers cut by the
-  frame edge). A nominal box is not an extent, so the object becomes an `ignore`
-  region: a detection on it is neither a true nor a false positive.
+  targets carry a *nominal* marker box instead, 6 x 6 or 16 x 16 px (a side of 6 or 16
+  with the other side no larger than 16 also counts, for markers cut by the frame edge).
+  Sides are compared within 1e-6 px because the CSV derives `right = left + width` in
+  floating point (16.000000000000114, not 16). A nominal box is not an extent, so the
+  object becomes an `ignore` region (a COCO crowd region). A detection matched to it is
+  neither a true nor a false positive. COCO crowd matching uses intersection over the
+  *detection's* area, so a detection much larger than the marker (above about twice its
+  area at IoU 0.5) is not matched and counts as a false positive.
 - `Airborne` (unidentified) and `Drone`: `ignore` regions.
 - `Bird`, `Flock` (and the one-off spelling `BIrd`): not aircraft and left out, so a
   detection on one is a false positive.
@@ -57,6 +61,7 @@ NOT_AIRCRAFT = frozenset({"Bird", "Flock"})
 ALIASES = {"BIrd": "Bird"}
 NOMINAL_SIDES_PX = (6.0, 16.0)
 NOMINAL_MAX_SIDE_PX = 16.0
+NOMINAL_TOLERANCE_PX = 1e-6  # absorbs double-precision noise from right = left + width
 COLUMNS = ("", "time", "flight_id", "img_name", "frame", "id", "range_distance_m",
            "is_above_horizon", "size_width", "size_height", "gt_left", "gt_top",
            "gt_right", "gt_bottom")
@@ -128,8 +133,9 @@ def object_category(object_id: str) -> str:
 
 
 def is_nominal(width: float, height: float) -> bool:
-    return (max(width, height) <= NOMINAL_MAX_SIDE_PX
-            and (width in NOMINAL_SIDES_PX or height in NOMINAL_SIDES_PX))
+    def near(value: float) -> bool:
+        return any(abs(value - side) <= NOMINAL_TOLERANCE_PX for side in NOMINAL_SIDES_PX)
+    return max(width, height) <= NOMINAL_MAX_SIDE_PX + NOMINAL_TOLERANCE_PX and (near(width) or near(height))
 
 
 def _float(value: str, name: str, line: int) -> float:
