@@ -1,6 +1,6 @@
 # ADR 008 — Timestamp-aware video pipeline on OpenCV's FFmpeg backend
 
-Status: proposed for AERIS-008 attempt 1 review. Date: 2026-09-27.
+Status: proposed for AERIS-008 attempt 2 review. Date: 2026-09-27.
 
 Context: AERIS-008 connects recorded video to the AERIS-006 detector. Frame times must
 come from the container's presentation timestamps, or from an explicitly marked
@@ -14,13 +14,20 @@ Decision:
   FFmpeg is distributed under LGPL-2.1 (the wheel's `LICENSE-3RD-PARTY.txt`) and
   includes no x264 or x265. No new dependency is added.
 - **Timestamps.** After each `read()`, `CAP_PROP_POS_MSEC` gives FFmpeg's best-effort
-  presentation timestamp of that frame: the frame's PTS when the stream has one.
+  presentation timestamp of that frame. It is a real per-frame time only when the
+  container stores one.
+  - `pts` mode therefore accepts only Matroska/WebM, MP4/QuickTime and MPEG-TS,
+    identified by magic bytes.
+  - It refuses AVI (index × rate), Ogg (frame-count granules), raw elementary streams and
+    unknown files, with the `inferred_fps` hint. The attempt-1 review showed FFmpeg
+    inventing 25 fps times for a raw MJPEG stream.
   - Frame time is (that value − the first frame's value) / 1000 s. The records label it
     `decode_pts`.
   - A missing, non-finite or negative value fails, and so does a zero or negative
-    delta (`TimestampError`). OpenCV reports 0 for a frame without a timestamp, so such
-    a stream fails at its second frame. Every decoded frame is checked, including
-    frames skipped by stride.
+    delta (`TimestampError`). Every decoded frame is checked, including frames skipped
+    by stride.
+  - On the real clip, every frame time equals the Matroska block time read without
+    FFmpeg.
   - The only fallback is explicit: `--timestamps inferred_fps --fps F` gives
     `frame_index / F`, labelled `inferred_fps`. An fps is never used silently in PTS
     mode.
@@ -28,7 +35,11 @@ Decision:
   and `det.postprocess`, so each stage is timed. A test checks that this split gives
   byte-identical records to the accepted `det.detect` on the same frames.
   - Per processed frame, the pipeline records decode, preprocess, inference,
-    postprocess, render and total wall time (`time.perf_counter`).
+    postprocess and render wall time (`time.perf_counter`).
+  - `total` is one span from the start of the frame's decode to the end of its
+    processing. `other` is the rest: timestamp check, pixel hash and record building,
+    which attempt 1 left untimed.
+  - Throughput is processed frames over the loop's wall time.
   - Summaries give count, mean, P50, P95, P99 and max, excluding one warm-up frame by
     default. Decode time is also summarised over every decoded frame.
   - Frames decoded but not processed are counted by reason (`stride`), and stopping at
@@ -71,6 +82,8 @@ Consequences:
 
 - Time precision follows the container's time base (1 ms for the WebM sample), as
   reported by OpenCV in milliseconds.
+- AVI and other containers without per-frame times need the explicit `inferred_fps`
+  mode. That is a deliberate refusal to label a derived time as a presentation time.
 - OpenCV's `VideoWriter` cannot write variable-frame-rate files. VFR, duplicate,
   backward and missing timestamps are therefore tested through the timestamp policy and
   a fake capture, and on the real clip's uneven deltas, rather than through synthetic
