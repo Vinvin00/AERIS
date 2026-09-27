@@ -151,31 +151,36 @@ For each processed frame, `timings.json` records wall-clock seconds
 The file is Git-ignored and never committed.
 
 **Full-clip run** (2026-09-27, ONNX detector, 1 thread, `--render`, clean tree at
-`dea38e5`, shared 4-core Xeon VM; evidence in
-`orchestration/runs/AERIS-008/attempt-02/evidence/haneda-onnx-full/`, not in Git):
+`767f056`, shared 4-core Xeon VM; evidence in
+`orchestration/runs/AERIS-008/attempt-03/evidence/haneda-onnx-full/`, not in Git):
 
-- **Counts:** 392 frames decoded and processed, none skipped; `decode_pts` timestamps
-  (Matroska); no warnings.
+- **Counts:** 392 frames decoded and processed, none skipped; `decode_pts` timestamps,
+  every one checked against the stored Matroska block time; no warnings.
 - **Detections:** 4,111 detection records at or above the detector's 0.01 floor. Every
   frame has at least one aircraft detection scoring ≥ 0.3 (maximum 0.93). This is not a
   labelled evaluation.
 - **Overlay:** 1920 x 1080, 392 frames.
+- **Unchanged outputs:** `frames.jsonl`, `detections.jsonl` and `overlay.mp4` are
+  byte-identical to the attempt-2 run at `dea38e5` (same SHA-256 in both `run.json`
+  files); only the timings differ.
 
 Stage times in ms per frame, 391 frames after warm-up:
 
 | Stage | P50 | P95 | P99 | Max |
 |---|---|---|---|---|
-| decode | 2.0 | 3.7 | 5.7 | 25.5 |
-| preprocess | 1.8 | 2.3 | 2.9 | 3.9 |
-| inference | 228.2 | 259.7 | 273.6 | 295.6 |
-| postprocess | 3.5 | 4.7 | 5.1 | 9.3 |
-| render | 14.7 | 21.0 | 24.6 | 34.5 |
-| other | 17.7 | 23.4 | 27.9 | 29.4 |
-| total | 270.0 | 306.3 | 323.2 | 339.2 |
+| decode | 2.6 | 4.2 | 6.1 | 7.2 |
+| preprocess | 1.8 | 2.3 | 3.6 | 3.9 |
+| inference | 231.7 | 258.5 | 273.8 | 322.8 |
+| postprocess | 3.5 | 4.8 | 5.5 | 9.9 |
+| render | 14.8 | 20.1 | 22.7 | 24.3 |
+| other | 20.1 | 26.6 | 39.5 | 55.6 |
+| total | 277.3 | 307.0 | 321.2 | 376.5 |
 
-The loop took 107.8 s for 392 frames: 3.64 processed frames per second, far below real
-time at 29.97 fps. The `other` row (mostly the 1080p pixel hash) was untimed in attempt
-1, whose 3.9 fps figure was overstated. These are records from a shared VM, not a
+The loop took 110.0 s for 392 frames: 3.56 processed frames per second, far below real
+time at 29.97 fps. The attempt-2 run of the same code path gave 270.0 ms total P50 and
+3.64 frames/s; the difference is within what a shared VM varies by and is not
+attributed. The `other` row (mostly the 1080p pixel hash) was untimed in attempt 1,
+whose 3.9 fps figure was overstated. These are records from a shared VM, not a
 performance claim (AERIS-016).
 
 ## Tests (`tests/unit/test_video.py`)
@@ -258,7 +263,8 @@ temporary directory; nothing is committed. They cover:
     only to OpenCV's millisecond reporting and within 0.001 ms. Laced, invisible and
     multi-video-track files are refused rather than mapped.
   - MP4/QuickTime times are FFmpeg's reading of the sample tables. AERIS does not
-    re-parse `stts`/`ctts`/edit lists, and no real MP4 file was checked, only
+    re-parse `stts`/`ctts`, edit lists or fragmented-MP4 `trun`/`tfhd` defaults (which
+    ISO BMFF defines as those samples' timing). No real MP4 file was checked, only
     OpenCV-written synthetic ones at constant rate.
   - The container check uses magic bytes. For MP4 and the other containers a damaged file
     that starts correctly is caught only by the open, decode or delta checks.
