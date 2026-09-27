@@ -15,7 +15,7 @@
   "comparison": "A candidate fails a gated metric when it is worse than the baseline by more than tolerance_abs x (1 + 1e-9); the 1e-9 relative margin only absorbs floating-point rounding, so exactly one count worse passes a one-count tolerance.",
   "development_frames_digest": "788926d2984c388d8faaeaf6e1be7dda08fe4d4665a83bf560bbfeed36e5dbf8",
   "environment_scope": "Tolerances are measured by re-running the baseline in the gating environment. Before gating a candidate in a different environment (host, ONNX Runtime, OpenCV or NumPy build), re-run the baseline there; if its detections are not bit-identical to the recorded ones, re-measure repeatability there and record it before comparing any candidate.",
-  "frozen_at": "2026-09-27T12:17:52+00:00",
+  "frozen_at": "2026-09-27T12:42:57+00:00",
   "frozen_before_candidates": "Set from the baseline and its repeat run only; no candidate model had been evaluated when this file was written.",
   "gates": [
     {
@@ -170,7 +170,7 @@
     "score_threshold": 0.16,
     "score_threshold_source": "validation split, On the validation split only: the score threshold with the highest F1 at IoU 0.5 on the grid 0.01, 0.02, ..., 0.99; ties go to the higher threshold. If no grid value gives a true positive, the threshold is null and the gate is blocked."
   },
-  "regression_id": "aeris-007-regression-v1",
+  "regression_id": "aeris-007-aot-v2-gate",
   "schema_version": 1,
   "split": "development",
   "tolerance_rationale": "For each gated metric: max(2 x the largest absolute difference observed between the baseline run and the repeat run, the metric's resolution floor). A candidate fails when it is worse than the baseline by more than the tolerance. COCO reports AP to three decimals; smaller differences are below reporting resolution. A single object or detection changing state is the smallest real change on a fixed frame set. A width bin with fewer than 30 scored objects, or a negative-frame metric with fewer than 30 negative frames, is reported as not gated (unavailable), never as a pass."
