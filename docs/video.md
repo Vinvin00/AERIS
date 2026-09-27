@@ -89,8 +89,8 @@ checked against the Commons SHA-1. A later fetch hit HTTP 429, and the tool then
 the verified copy by its pinned SHA-256.
 
 **Full-clip run** (2026-09-27, ONNX detector, 1 thread, `--render`, shared 4-core Xeon VM;
-evidence in `orchestration/runs/AERIS-008/attempt-01/evidence/haneda-onnx-full/`, not
-in Git):
+clean tree at `c4c2843`; evidence in
+`orchestration/runs/AERIS-008/attempt-01/evidence/haneda-onnx-full/`, not in Git):
 
 - **Counts:** 392 frames decoded and processed, none skipped; `decode_pts` timestamps
   with deltas 33–34 ms; no warnings.
@@ -103,12 +103,12 @@ Stage times in ms per frame, 391 frames after warm-up:
 
 | Stage | P50 | P95 | P99 | Max |
 |---|---|---|---|---|
-| decode | 2.1 | 3.4 | 5.0 | 6.1 |
-| preprocess | 1.8 | 2.4 | 3.1 | 5.5 |
-| inference | 229.4 | 257.5 | 275.5 | 287.0 |
-| postprocess | 3.5 | 4.7 | 5.7 | 8.9 |
-| render | 14.8 | 19.9 | 22.5 | 26.8 |
-| total | 253.2 | 280.0 | 303.4 | 319.4 |
+| decode | 2.5 | 4.7 | 6.2 | 6.7 |
+| preprocess | 1.8 | 2.4 | 2.8 | 6.1 |
+| inference | 229.6 | 264.4 | 280.1 | 302.7 |
+| postprocess | 3.4 | 4.8 | 5.6 | 6.6 |
+| render | 15.7 | 21.8 | 25.1 | 28.9 |
+| total | 254.0 | 288.4 | 304.1 | 326.8 |
 
 That is about 3.9 processed frames per second, far below real time at 29.97 fps. These
 are records from a shared VM, not a performance claim (AERIS-016).
