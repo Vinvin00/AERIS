@@ -1,6 +1,6 @@
 # Measured baseline and development gate (AERIS-007)
 
-Status: attempt 1, awaiting independent review.
+Status: attempt 2 (benchmark `aeris-007-aot-v2`), awaiting independent review.
 
 This is the first measurement of the AERIS-006 detector (pretrained YOLOX-S, COCO
 `airplane` → AERIS class 0, ONNX Runtime CPU) on real labelled aircraft video. It also
@@ -29,10 +29,13 @@ Measured facts from the pinned ground truth (2026-09-27):
   flight and a camera.
 - The parts order their CSV columns differently (part 2 puts `id` second). The reader
   matches columns by name and requires exactly the same set.
-- Of 2,013,970 airplane and helicopter boxes, 805,174 are exactly 16 x 16 and 798,357
-  exactly 6 x 6. A further 17,239 have a 6 or 16 px side, with the other side no larger
-  than 16. These are nominal markers around point-like targets, not extents. 393,200
-  boxes have measured extents: median width 25.8 px, and 45,946 are at least 64 px wide.
+- Of 2,013,970 airplane and helicopter boxes, 1,628,467 (81 %) are nominal markers
+  around point-like targets, not extents. They have a side of 6 or 16 px, with the other
+  side no larger than 16. Of those, 7,697 are off by floating-point noise below 1e-6 px:
+  the CSV computes `right = left + width`, giving widths like 16.000000000000114. The
+  remaining 385,503 boxes have measured extents: median width 26.2 px, and 45,946 are
+  at least 64 px wide. A further 52 box sides differ from 6 or 16 px by 1e-6 to 1e-3 px,
+  and 2,330 by 1e-3 to 0.05 px. Those count as measured.
 - No box lies outside the frame or is empty.
 
 ## Class policy (`aeris-aircraft-v1`)
@@ -45,7 +48,10 @@ Measured facts from the pinned ground truth (2026-09-27):
 | `Bird`, `BIrd`, `Flock` | left out, so a detection on one is a false positive |
 
 An `ignore` region is a COCO crowd region: a detection matched to it is neither a true
-nor a false positive. AOT labels no occlusion or truncation, so those contract flags are
+nor a false positive. COCO matches crowd regions by intersection over the *detection's*
+area, so at IoU 0.5 a detection more than about twice the marker's area is not matched.
+It counts as a false positive. On this baseline no detection at the threshold overlaps
+an ignore region, but a future tiny-target candidate could be charged this way. AOT labels no occlusion or truncation, so those contract flags are
 `false`, meaning "not labelled". Every frame is `complete`. The dataset labels every
 airborne object annotators found, planned or not, but its documentation makes no
 completeness guarantee (see limitations). Timestamps are AOT capture times in seconds
@@ -53,8 +59,16 @@ from the sequence's first frame (`timestamp_source = "provided"`).
 
 ## Splits and frame selection (frozen before any detector run)
 
-The definition is `configs/evaluation/aot_benchmark.json`, committed in `3985a8f` before
-the detector ran on any AOT frame.
+The definition is `configs/evaluation/aot_benchmark.json`. Version v1 was committed in
+`3985a8f` before the detector ran on any AOT frame.
+
+**Revision v2.** It was made after the v1 results were seen, prompted by the attempt-1
+review's finding F1. v1 compared marker sides exactly, so markers with float-noise sides
+were scored as aircraft: 16 in development, 11 in validation and 19 in the holdout, all
+16–32 px wide. v2 compares within 1e-6 px; nothing else in the definition changed. The
+frames were reselected and every step re-run. The v1 outputs are kept in
+`benchmarks/runs/aeris-007-v1/` (not in Git). The v1 figures are in the attempt-1 report
+and are superseded.
 
 - **Unit.** The capture day of a flight: the UTC date of its earliest timestamp over both
   cameras. Days are ordered by `sha256("aeris-007-aot-split-v1:" + day)`. The first

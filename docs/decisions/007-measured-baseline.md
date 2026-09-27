@@ -1,6 +1,6 @@
 # ADR 007 — Measured baseline on AOT and the frozen development gate
 
-Status: proposed for AERIS-007 review. Date: 2026-09-27.
+Status: proposed for AERIS-007 attempt 2 review. Date: 2026-09-27.
 
 Context: AERIS-006 fixed a pretrained YOLOX-S detector and its CPU ONNX path. AERIS-007
 must measure it on real labelled data, freeze a development regression split, and set
@@ -24,11 +24,12 @@ Decision:
     and no small, distant aircraft.
 - **Sequences.** AOT parts 1–2 are camera 0 and part 3 is camera 1 of the same flights.
   A sequence is a flight and a camera.
-- **Class policy.** `Airplane` and `Helicopter` map to AERIS class 0. About 80 % of AOT
+- **Class policy.** `Airplane` and `Helicopter` map to AERIS class 0. About 81 % of AOT
   aircraft boxes are nominal 6 x 6 or 16 x 16 markers around point-like targets, not
-  extents. Those aircraft, and `Airborne` (unidentified) and `Drone` objects, become
-  ignore regions. Birds and flocks are left out, so a detection on one is a false
-  positive. Frames are `complete`.
+  extents. Sides are compared within 1e-6 px, because the CSV's `right = left + width`
+  carries floating-point noise. Those aircraft, and `Airborne` (unidentified) and `Drone`
+  objects, become ignore regions (COCO crowd regions). Birds and flocks are left out, so
+  a detection on one is a false positive. Frames are `complete`.
 - **Splits.** The unit is the capture day of a flight (both cameras share it). Days are
   ordered by a salted SHA-256: a quarter holdout, a quarter validation, the rest
   development.
@@ -51,9 +52,24 @@ Decision:
     than 30 frames, are not gated. They are reported as unavailable, never as passing.
   - Capture-day bootstrap intervals are reported as context, not used as tolerances.
 - **Freezing.** The selection, class policy, threshold rule and tolerance rule were
-  committed (`3985a8f`) before the detector ran on any AOT frame. The measured threshold,
-  baseline values and tolerances are frozen in `configs/evaluation/regression.json`
-  before any candidate is evaluated.
+  committed (`3985a8f`, benchmark v1) before the detector ran on any AOT frame. The
+  measured threshold, baseline values and tolerances are frozen in
+  `configs/evaluation/regression.json` before any candidate is evaluated.
+- **Revision v2 (after v1 results were seen).** The attempt-1 review found that v1
+  compared marker sides exactly, so 7,697 markers with sides like 16.000000000000114 px
+  were scored as aircraft. Of those, 16 were in development, 11 in validation and 19 in
+  the holdout.
+  - v2 compares within 1e-6 px. Nothing else in the definition changed: split, caps,
+    threshold rule, tolerance rule, evaluator, IoU and detector.
+  - The frames were reselected and the pipeline re-run.
+  - The v1 outputs are kept in `benchmarks/runs/aeris-007-v1/` (not in Git).
+  - The same review found that `gate_check` failed exactly one-count-worse candidates
+    through floating-point rounding. It now uses a 1e-9 relative margin.
+- **Candidate protocol.** A candidate is scored on the development frames with the same
+  evaluator, IoU 0.5 and the frozen score threshold from `regression.json`. It does not
+  re-select a threshold; one that needs its own threshold is a different protocol
+  needing a reviewed change. Tolerances hold in the measured environment. Elsewhere, the
+  baseline is re-run first, and repeatability is re-measured if its detections differ.
 
 Consequences:
 
@@ -76,5 +92,8 @@ Consequences:
   pixels needs point-based evaluation, which is not a standard COCO metric and is not
   claimed here.
 - A candidate model or setting (AERIS-015, AERIS-017) must use the same frames,
-  evaluator, IoU and threshold rule, and pass `configs/evaluation/regression.json`. The
-  holdout stays sealed until release evaluation.
+  evaluator, IoU and frozen threshold, and pass `configs/evaluation/regression.json`.
+  The holdout stays sealed until release evaluation.
+- COCO crowd matching divides by the detection's area. A future tiny-target candidate
+  that boxes a marked aircraft much more loosely than the marker (above about twice its
+  area) is charged a false positive. AERIS-017 must account for this.
