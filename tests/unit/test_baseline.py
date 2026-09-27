@@ -12,6 +12,7 @@ Tests marked REAL need the downloaded AOT frames and the baseline run outputs (G
 and skip, with the reason, when they are absent; AERIS_REQUIRE_REAL_BASELINE=1 turns those
 skips into failures.
 """
+import concurrent.futures
 import copy
 import hashlib
 import io
@@ -483,3 +484,186 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(bl.digest({"b": 1, "a": [1, 2]}), bl.digest({"a": [1, 2], "b": 1}))
         with self.assertRaises(ValueError):
             bl.digest({"x": float("nan")})
+
+
+# ------------------------------------------------------------------ committed artifacts
+
+MANIFEST = bl.load_json(bl.MANIFEST_PATH) if bl.MANIFEST_PATH.is_file() else None
+REGRESSION = bl.load_json(bl.REGRESSION_PATH) if bl.REGRESSION_PATH.is_file() else None
+CONFIG = bl.load_json(bl.CONFIG_PATH)
+
+
+class CommittedArtifactTests(unittest.TestCase):
+    """benchmarks/baseline_manifest.json and configs/evaluation/regression.json agree."""
+
+    def setUp(self):
+        self.assertIsNotNone(MANIFEST, "benchmarks/baseline_manifest.json is required")
+        self.assertIsNotNone(REGRESSION, "configs/evaluation/regression.json is required")
+
+    def test_definition_and_source_pinned(self):
+        self.assertEqual(MANIFEST["definition"]["sha256"], sha256(bl.CONFIG_PATH))
+        self.assertEqual(MANIFEST["source"], CONFIG["source"])
+        self.assertEqual(MANIFEST["benchmark_id"], CONFIG["benchmark_id"])
+        self.assertEqual(REGRESSION["benchmark_id"], CONFIG["benchmark_id"])
+
+    def test_model_digests_match_detector_config(self):
+        detector = bl.load_json(ROOT / "configs/detector/baseline.json")
+        self.assertEqual(MANIFEST["model"]["onnx"], detector["export"]["aeris_export"])
+        self.assertEqual(MANIFEST["model"]["weights_sha256"], detector["model"]["weights"]["sha256"])
+        self.assertEqual(MANIFEST["model"]["detector_config"]["sha256"],
+                         sha256(ROOT / "configs/detector/baseline.json"))
+        for run in MANIFEST["runs"].values():
+            self.assertIn(detector["model"]["weights"]["sha256"], run["model_provenance"])
+
+    def test_splits_are_disjoint_and_holdout_sealed(self):
+        splits = MANIFEST["splits"]
+        days = {s: set(v["days"]) for s, v in splits.items()}
+        flights = {s: {q.rsplit("-", 1)[0] for q in v["sequences"]} for s, v in splits.items()}
+        for a, b in (("development", "validation"), ("development", "holdout"),
+                     ("validation", "holdout")):
+            self.assertFalse(days[a] & days[b], (a, b))
+            self.assertFalse(flights[a] & flights[b], (a, b))
+        self.assertTrue(MANIFEST["holdout"]["sealed"])
+        self.assertFalse(MANIFEST["holdout"]["frames_downloaded"])
+        for row in MANIFEST["frames"]["holdout"]:
+            self.assertNotIn("sha256", row)  # never fetched
+        self.assertEqual(REGRESSION["holdout"]["frames_digest"], splits["holdout"]["frames_digest"])
+        self.assertEqual(REGRESSION["development_frames_digest"], splits["development"]["frames_digest"])
+
+    def test_frame_rows(self):
+        for split in ("development", "validation"):
+            rows = MANIFEST["frames"][split]
+            self.assertEqual(len(rows), MANIFEST["splits"][split]["frames"])
+            self.assertEqual(len(MANIFEST["splits"][split]["sequences"]),
+                             MANIFEST["splits"][split]["sequence_count"])
+            self.assertEqual(len({r["key"] for r in rows}), len(rows))
+            for row in rows:
+                self.assertRegex(row["sha256"], "^[0-9a-f]{64}$")
+                self.assertRegex(row["md5"], "^[0-9a-f]{32}$")
+                self.assertGreater(row["size"], 0)
+                self.assertIn(row["sequence_id"], MANIFEST["splits"][split]["sequences"])
+                self.assertTrue(row["key"].startswith(("part1/Images/", "part2/Images/", "part3/Images/")))
+
+    def test_budget(self):
+        downloaded = (sum(r["size"] for s in ("development", "validation") for r in MANIFEST["frames"][s])
+                      + sum(v["size_bytes"] for v in CONFIG["source"]["groundtruth"].values()))
+        self.assertLessEqual(downloaded, CONFIG["budget"]["download_bytes_max"])
+        for split in ("development", "validation"):
+            self.assertLessEqual(max(r["size"] for r in MANIFEST["frames"][split]),
+                                 CONFIG["budget"]["per_frame_bytes_max"])
+
+    def test_evaluator_counts_match_selection(self):
+        # The evaluator's support must equal the label-only selection's counts.
+        for split in ("development", "validation"):
+            summary, head = MANIFEST["splits"][split], MANIFEST["results"][split]
+            self.assertEqual(head["support"]["ground_truth"], summary["scored_aircraft"])
+            self.assertEqual(head["support"]["ignored_ground_truth"],
+                             summary.get("nominal_aircraft_ignored", 0) + summary.get("unknown_objects_ignored", 0))
+            self.assertEqual(head["frames"]["complete"], summary["frames"])
+            for name, _ in bl.WIDTH_BINS:
+                self.assertEqual(head["width_bins"][name]["support"], summary.get(f"scored_width_{name}", 0))
+
+    def test_regression_matches_manifest(self):
+        threshold = MANIFEST["results"]["validation_threshold"]
+        self.assertEqual(REGRESSION["protocol"]["score_threshold"], threshold)
+        self.assertTrue(0 < threshold < 1)
+        self.assertEqual(REGRESSION["protocol"]["iou_threshold"], CONFIG["evaluation"]["iou_threshold"])
+        self.assertEqual(REGRESSION["baseline"], bl.gated_metrics(MANIFEST["results"]["development"]))
+        self.assertGreaterEqual(REGRESSION["frozen_at"][:10], CONFIG["frozen_at"])
+
+    def test_gate_entries_follow_the_frozen_rule(self):
+        rule = CONFIG["regression_rule"]
+        dev = MANIFEST["results"]["development"]
+        deltas = MANIFEST["results"]["repeatability"]["development_metric_abs_differences"]
+        expected = [bl.tolerance(m, REGRESSION["baseline"], deltas[m], rule["resolution_floor"], dev,
+                                 rule["min_support"]) for m in bl.gated_metrics(dev)]
+        self.assertEqual({g["metric"]: g for g in REGRESSION["gates"]},
+                         {g["metric"]: g for g in expected})
+        self.assertEqual([g["metric"] for g in REGRESSION["gates"]], list(bl.gated_metrics(dev)))
+        for entry in REGRESSION["gates"]:
+            if entry["gated"]:
+                self.assertGreaterEqual(entry["tolerance_abs"], entry["resolution_floor"])
+                self.assertGreaterEqual(entry["tolerance_abs"], 2 * entry["repeat_delta_abs"])
+            else:
+                self.assertIsNone(entry["tolerance_abs"])
+        # The baseline passes its own gate.
+        self.assertEqual(bl.gate_check(REGRESSION, REGRESSION["baseline"])["status"], "pass")
+
+
+# ------------------------------------------------------------------ REAL (AOT frames, run outputs)
+
+RUNS = bl.RUNS_DIR
+HAVE_RUNS = all((RUNS / p).is_file() for p in ("selection.json", "fetched.json", "results.json",
+                                               "baseline/run.json", "repeat/run.json"))
+
+
+class RealBaselineTests(unittest.TestCase):
+    """Re-derive the committed numbers from the Git-ignored frames and run outputs."""
+
+    def setUp(self):
+        real(MANIFEST is not None and HAVE_RUNS, f"AERIS-007 run outputs missing under {RUNS}")
+
+    def test_frames_on_disk_match_manifest(self):
+        for split in ("development", "validation"):
+            rows = MANIFEST["frames"][split]
+            missing = [r["key"] for r in rows if not (bl.DATA_DIR / "images" / r["key"]).is_file()]
+            real(not missing, f"{len(missing)} {split} frames not downloaded")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                digests = list(pool.map(lambda r: bl.file_sha256(bl.DATA_DIR / "images" / r["key"]), rows))
+            for row, digest in zip(rows, digests):
+                self.assertEqual(digest, row["sha256"], row["key"])
+
+    def test_selection_and_annotations_reproduce(self):
+        selection = bl.load_json(RUNS / "selection.json")
+        fetched = bl.load_json(RUNS / "fetched.json")
+        for split in bl.SPLITS:
+            self.assertEqual(bl.digest(selection["frames"][split]),
+                             MANIFEST["splits"][split]["frames_digest"], split)
+        for split in ("development", "validation"):
+            records = bl.annotations(selection["frames"][split], selection, fetched)
+            text = "".join(r.to_json() + "\n" for r in records)
+            digest = hashlib.sha256(text.encode()).hexdigest()
+            for run in MANIFEST["runs"].values():
+                self.assertEqual(run["splits"][split]["annotations_sha256"], digest)
+
+    def test_run_outputs_match_manifest(self):
+        for run_id, run in MANIFEST["runs"].items():
+            for split in ("development", "validation"):
+                recorded = run["splits"][split]
+                self.assertEqual(sha256(RUNS / run_id / f"{split}.detections.jsonl"),
+                                 recorded["detections_sha256"])
+                self.assertEqual(sha256(RUNS / run_id / f"{split}.unmapped.jsonl"),
+                                 recorded["unmapped_sha256"])
+        self.assertEqual(sha256(RUNS / "results.json"), MANIFEST["results"]["sha256"])
+
+    def test_metrics_recompute_from_recorded_detections(self):
+        threshold = REGRESSION["protocol"]["score_threshold"]
+        truth = bl._truth("development")
+        detections, _ = bl._load_run("baseline", "development")
+        report = bl.evaluate_detection(truth, detections, score_threshold=threshold)
+        self.assertEqual(bl.gated_metrics(report), REGRESSION["baseline"])
+        self.assertEqual(bl._headline(report), MANIFEST["results"]["development"])
+
+    def test_validation_threshold_recomputes(self):
+        truth = bl._truth("validation")
+        detections, _ = bl._load_run("baseline", "validation")
+        threshold, _ = bl.select_threshold(truth, detections)
+        self.assertEqual(threshold, REGRESSION["protocol"]["score_threshold"])
+
+    def test_detector_reproduces_sample_frames(self):
+        # Re-run the ONNX detector on a fixed sample of development frames and compare with
+        # the recorded baseline detections exactly (same environment, one thread).
+        selection = bl.load_json(RUNS / "selection.json")
+        entries = selection["frames"]["development"]
+        truth = bl._truth("development")
+        recorded, _ = bl._load_run("baseline", "development")
+        by_frame = bl._by_frame(recorded)
+        keys = sorted(by_frame, key=lambda k: -max(d.score for d in by_frame[k]))[:3]
+        keys += [(r.frame.sequence_id, r.frame.frame_index) for r in truth if r.is_negative][:2]
+        index = {(r.frame.sequence_id, r.frame.frame_index): i for i, r in enumerate(truth)}
+        chosen = [index[k] for k in keys]
+        detections, _, meta = bl.run_detector([entries[i] for i in chosen], [truth[i] for i in chosen],
+                                              bl.DATA_DIR, threads=1)
+        self.assertEqual(meta["providers"], ["CPUExecutionProvider"])
+        expected = [d for k in keys for d in by_frame.get(k, [])]
+        self.assertEqual([d.to_json() for d in detections], [d.to_json() for d in expected])

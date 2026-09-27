@@ -42,6 +42,7 @@ RUNS_DIR = ROOT / "benchmarks" / "runs" / "aeris-007"
 SPLITS = ("development", "validation", "holdout")
 EVALUATED = ("development", "validation")
 GRID = tuple(round(0.01 * i, 2) for i in range(1, 100))
+LOOSE_IOU = (0.2,)  # post-hoc diagnostic only; the gate uses the frozen IoU 0.5
 LOCKS = ("requirements/data-linux-x86_64-py311.txt", "requirements/eval-linux-x86_64-py311.txt",
          "requirements/detector-linux-x86_64-py311.txt")
 
@@ -206,9 +207,9 @@ def selection_summary(selection: dict) -> dict:
                 else:
                     counts["not_aircraft_left_out"] += 1
         sequences = selection["sequences"][split]
-        summary[split] = {"sequences": len(sequences),
-                          "flights": len({q.rsplit("-", 1)[0] for q in sequences}),
-                          "days": len({selection["sequence_day"][q] for q in sequences}),
+        summary[split] = {"sequence_count": len(sequences),
+                          "flight_count": len({q.rsplit("-", 1)[0] for q in sequences}),
+                          "day_count": len({selection["sequence_day"][q] for q in sequences}),
                           "frames_digest": digest(entries), **dict(sorted(counts.items()))}
     return summary
 
@@ -374,6 +375,41 @@ def missed_with_other_class(truth, detections, unmapped, threshold: float, iou: 
                           "frozen threshold; covered = an unmapped COCO class candidate at or above the "
                           "threshold overlaps it at IoU >= 0.5 (most frequent class counted)",
             "missed": missed, "covered_by_unmapped_class": dict(covered.most_common())}
+
+
+def false_positive_breakdown(truth, detections, threshold: float, iou: float = 0.5) -> dict:
+    """Diagnostic: where detections at or above the threshold with no scored aircraft at
+    IoU >= 0.5 lie (simple per-box IoU, not COCO's greedy matching)."""
+    by = _by_frame([d for d in detections if d.score >= threshold])
+    counts: Counter = Counter()
+    for record in truth:
+        scored = [_box(o.bbox) for o in record.objects if not o.ignore]
+        ignored = [_box(o.bbox) for o in record.objects if o.ignore]
+        for d in by.get((record.frame.sequence_id, record.frame.frame_index), []):
+            box = _box(d.bbox)
+            if any(_iou(box, s) >= iou for s in scored):
+                continue
+            counts["unmatched"] += 1
+            counts["unmatched_width_ge_64_px"] += box[2] - box[0] >= 64
+            if any(_overlaps(box, s) for s in scored):
+                counts["overlapping_a_scored_aircraft"] += 1
+            elif any(_overlaps(box, s) for s in ignored):
+                counts["overlapping_an_ignore_region"] += 1
+            elif record.is_negative:
+                counts["on_a_negative_frame"] += 1
+            else:
+                counts["elsewhere_on_a_frame_with_objects"] += 1
+    return {"definition": "detections at or above the frozen threshold with no scored aircraft at "
+                          "IoU >= 0.5, by what they overlap (first matching category)",
+            **dict(sorted(counts.items()))}
+
+
+def _box(bbox) -> tuple[float, float, float, float]:
+    return (bbox.x_min, bbox.y_min, bbox.x_max, bbox.y_max)
+
+
+def _overlaps(a, b) -> bool:
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
 
 
 def per_frame_counts(truth, detections, threshold: float) -> dict[tuple, dict]:
@@ -647,7 +683,25 @@ def cmd_report(config: dict) -> dict:
         per_category[name] = {"support": restricted["support"]["ground_truth"],
                               "recall": restricted["recall"], "ap50": restricted["ap50"],
                               "width_bins": restricted["width_bins"]}
-    diagnostics = {"missed_aircraft": missed_with_other_class(
+    loose = {}
+    for iou in LOOSE_IOU:
+        loose_report = evaluate_detection(truth["development"], base["development"][0],
+                                          iou_threshold=iou, score_threshold=threshold,
+                                          max_detections_per_frame=ev["max_detections_per_frame"],
+                                          check_versions=False)
+        loose[str(iou)] = {k: loose_report[k] for k in ("precision", "recall", "f1", "true_positives",
+                                                        "false_positives", "false_negatives")}
+        loose[str(iou)]["width_bins"] = {k: v["recall"] for k, v in loose_report["width_bins"].items()}
+        loose[str(iou)]["false_positives_per_negative_frame"] = \
+            loose_report["negative_frames"]["false_positives_per_negative_frame"]
+    diagnostics = {"post_hoc_note": "false_positive_breakdown and loose_iou were added after the "
+                                    "baseline results were first seen (visual inspection showed "
+                                    "detections that include rotors and tails around fuselage-only "
+                                    "labels). They are diagnostics; the frozen gate is unchanged.",
+                   "false_positive_breakdown": false_positive_breakdown(
+                       truth["development"], base["development"][0], threshold),
+                   "loose_iou_threshold_metrics": loose,
+                   "missed_aircraft": missed_with_other_class(
         truth["development"], base["development"][0], base["development"][1], threshold),
         "per_category_development": per_category,
         "negative_frames_with_birds_left_out": sum(

@@ -72,4 +72,174 @@ the detector ran on any AOT frame.
 - **Holdout.** Sealed. Its frame list is frozen by digest in the manifest. Its frames
   were not downloaded or evaluated, and it never drives thresholds.
 
-RESULTS_PLACEHOLDER
+## Selected frames
+
+| Split | Days | Sequences | Frames | Scored aircraft (airplane / helicopter) | Empty frames | Ignored objects |
+|---|---|---|---|---|---|---|
+| Development | 31 | 90 | 1,114 | 544 (193 / 351) | 351 | 280 |
+| Validation | 15 | 60 | 775 | 395 (247 / 148) | 235 | 304 |
+| Holdout (sealed) | 15 | 90 | 1,039 | 482 by label count (not evaluated) | 325 | — |
+
+Scored aircraft by width in original pixels:
+
+| Split | [0,16) | [16,32) | [32,64) | [64,inf) |
+|---|---|---|---|---|
+| Development | 47 | 282 | 144 | 71 |
+| Validation | 19 | 181 | 117 | 78 |
+
+The development set also has 22 frames whose only labelled objects are birds. They count
+as negative frames: 351 empty frames plus these 22 give the evaluator's 373.
+
+Downloaded: 1,889 frames (4,682,154,560 bytes) plus the three ground-truth CSVs
+(946,656,956 bytes). That is within the task budget of 8 GB. The holdout was not
+downloaded.
+
+## Protocol
+
+- **Detector.** `configs/detector/baseline.json` as accepted in AERIS-006, unchanged:
+  the AERIS opset-17 ONNX export (SHA-256 `e68784f4…`), ONNX Runtime 1.30.0
+  `CPUExecutionProvider`, score floor 0.01 and per-class NMS at IoU 0.65. Grayscale PNGs
+  are decoded as three equal BGR channels.
+- **Evaluator.** `evaluate_detection` (pycocotools 2.0.11), IoU 0.5, at most 100
+  detections per frame.
+- **Threshold.** Chosen on validation only: the grid value (0.01–0.99) with the highest
+  F1, ties to the higher value. The result is **0.16** (validation F1 0.199). The
+  development split was scored once at 0.16.
+- **Runs.**
+  - The baseline ran with 1 thread from a clean tree at `773e899`.
+  - The repeat ran with 4 intra-op threads, in a fresh process, from a clean tree at
+    `2f249e5`, which differs only in documentation.
+  - Median wall time per frame, including PNG decode, was 0.28 s and 0.14 s on a shared
+    4-core Xeon VM. These are timings for the budget, not performance claims.
+
+## Results (measured 2026-09-27)
+
+Development split, frozen threshold 0.16, IoU 0.5:
+
+| Metric | Value | Day-bootstrap 95 % interval (31 days) |
+|---|---|---|
+| AP50 | 0.065 | 0.035 – 0.104 (200 resamples) |
+| AP@[.50:.95] | 0.027 | 0.014 – 0.047 (200 resamples) |
+| Precision | 0.361 (44 TP, 78 FP) | 0.200 – 0.535 |
+| Recall | 0.081 (44 of 544) | 0.048 – 0.117 |
+| False positives per negative frame | 0.067 (373 frames, 12 with a false positive) | 0.005 – 0.174 |
+| Recall, width [0,16) | 0.000 (support 47) | 0.000 – 0.000 |
+| Recall, width [16,32) | 0.007 (support 282) | 0.000 – 0.018 |
+| Recall, width [32,64) | 0.069 (support 144) | 0.020 – 0.135 |
+| Recall, width [64,inf) | 0.451 (support 71) | 0.281 – 0.631 |
+
+Validation split, for reference (it chose the threshold, so it is not an independent
+estimate): AP50 0.119, AP@[.50:.95] 0.072, precision 0.603, recall 0.119 (47 of 395),
+0.027 false positives per negative frame (255 frames). Recall at [64,inf) is 0.551
+(support 78).
+
+**Repeatability.** Both runs gave bit-identical detections on both splits:
+1,451 + 885 detections, no frame with a different count, and a maximum score and box
+difference of 0.0. The repeat run's validation threshold is also 0.16. Every
+development metric difference is therefore 0.
+
+## Diagnostics
+
+These are not COCO metrics and are not gated.
+
+- **Per category** (development, the other category as ignore regions):
+  - airplanes: recall 0.078 (193), AP50 0.047;
+  - helicopters: recall 0.083 (351), AP50 0.057.
+
+  COCO has no helicopter class. The detector still finds some helicopters as `airplane`.
+- **Missed aircraft covered by another COCO class.** Of the 500 scored aircraft with no
+  aircraft detection at IoU ≥ 0.5 and score ≥ 0.16, an unmapped class at or above 0.16
+  covers 15: `person` 7, `kite` 5, `bird` 3. The argmax class rule (follow-up 006 A2 F1)
+  explains only a small part of the misses on this set.
+- **Where false positives lie**, measured after the first results were seen. There
+  are 77 detections at or above 0.16 with no scored aircraft at IoU ≥ 0.5 (simple IoU,
+  not COCO's greedy matching). Of these:
+  - 19 overlap a scored aircraft (localisation mismatch);
+  - 25 are on negative frames;
+  - 33 are elsewhere on frames with objects;
+  - none overlaps an ignore region;
+  - 73 are at least 64 px wide.
+
+  Visual inspection (`benchmarks/runs/aeris-007/fp_tp_sheet.jpg`, not in Git) shows two
+  patterns. Some are large boxes on clouds or the horizon. Others are detections that
+  include a helicopter's rotor or tail, around a label box drawn on the fuselage only.
+- **Looser IoU**, also measured after the first results were seen, same frozen
+  threshold. At IoU 0.2, development recall is 0.094 (51 of 544) and precision 0.418.
+  [64,inf) recall is 0.521. So box-extent convention differences account for 7
+  aircraft; tiny targets account for most of the misses.
+
+## Frozen development gate (`configs/evaluation/regression.json`)
+
+A candidate is evaluated on the same development frames with the same evaluator,
+IoU 0.5 and score threshold 0.16. It fails when a gated metric is worse than the
+baseline by more than its tolerance.
+
+| Metric | Baseline | Tolerance | Basis |
+|---|---|---|---|
+| AP50 | 0.0648 | 0.001 | AP resolution floor (repeat difference 0) |
+| AP@[.50:.95] | 0.0272 | 0.001 | AP resolution floor |
+| Precision | 0.3607 | 1/122 = 0.0082 | one detection of 122 at the threshold |
+| Recall | 0.0809 | 1/544 = 0.0018 | one object |
+| False positives per negative frame (lower is better) | 0.0670 | 1/373 = 0.0027 | one frame |
+| Recall [0,16) | 0.000 | 1/47 | one object |
+| Recall [16,32) | 0.0071 | 1/282 | one object |
+| Recall [32,64) | 0.0694 | 1/144 | one object |
+| Recall [64,inf) | 0.4507 | 1/71 | one object |
+
+Every bin has at least 30 scored objects, so all are gated; a bin below 30 would be
+reported as not gated. The tolerances are tight because the pipeline is deterministic
+on this CPU. The day-bootstrap intervals show that the set cannot tell apart candidates
+whose true difference is a few points of recall. So a passing candidate is "no
+measurable regression on this frozen set", not "equally good in general".
+`aeris.evaluation.baseline.gate_check` applies the gate. The baseline passes its own
+gate (tested).
+
+## Reproduce
+
+```
+python -m aeris.evaluation.baseline select    # needs data/raw/aot/part{1,2,3}/groundtruth.csv (pinned)
+python -m aeris.evaluation.baseline fetch     # 1,889 frames, ETag + SHA-256 checked
+python -m aeris.evaluation.baseline run --threads 1 --run-id baseline
+python -m aeris.evaluation.baseline run --threads 4 --run-id repeat
+python -m aeris.evaluation.baseline report
+AERIS_REQUIRE_REAL_BASELINE=1 python tools/check_tests.py tests/unit/test_baseline.py
+```
+
+The ground-truth CSVs come from `<bucket_url>/<key>` in the benchmark config. Each run
+writes to `benchmarks/runs/aeris-007/` (Git-ignored). `benchmarks/baseline_manifest.json`
+records every frame's key, ETag MD5 and SHA-256, the annotation, detection and results
+digests, the model and config digests, the code revisions of both runs, the dependency
+lock digests and the environment.
+
+The REAL tests re-derive the committed numbers from those files:
+
+- frame hashes;
+- selection digests;
+- annotation digests;
+- the development metrics from the recorded detections;
+- the validation threshold;
+- an exact re-run of the detector on five development frames.
+
+## Limitations
+
+- **Domain.** AOT is grayscale, filmed from a moving aircraft, over 2019 flights. The
+  MVP targets a fixed RGB ground camera. These numbers are not target-domain evidence.
+  The owner's pilot or TartanAviation (unreachable here) is still needed.
+- **Composition.** Frames are enriched for scored aircraft. Precision and AP would be
+  lower on AOT's natural frame mix, which has many more empty frames.
+- **Point-like targets are excluded.** About 80 % of AOT aircraft labels are nominal
+  markers. The set says nothing about aircraft only a few pixels wide.
+- **Label completeness.** AOT labels every airborne object its annotators found, but
+  its documentation makes no completeness guarantee. An unlabelled aircraft would count
+  as a false positive. The false-positive sheet shows no such case among the sampled
+  boxes, but not every false positive was inspected.
+- **Box convention.** AOT helicopter boxes often cover the fuselage only. At IoU 0.5
+  this costs 7 development aircraft compared with IoU 0.2 (a diagnostic added after the
+  results were seen; the gate stays at 0.5).
+- **No occlusion or truncation labels.** Those flags are `false`, meaning "not
+  labelled".
+- **Intervals.** The day bootstrap treats days as independent. The AP intervals use
+  200 resamples because each one reruns COCOeval.
+- **Timings** come from a shared cloud VM and are not a performance benchmark
+  (AERIS-016).
+- **Holdout** counts come from labels only. The holdout was not fetched or evaluated.

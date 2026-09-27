@@ -57,6 +57,15 @@ Decision:
 
 Consequences:
 
+- Measured on 2026-09-27 (docs/baseline.md):
+  - validation chose threshold 0.16;
+  - development AP50 is 0.065 and recall 0.081, with recall 0.451 for aircraft at
+    least 64 px wide and 0 below 16 px;
+  - 1-thread and 4-thread runs gave bit-identical detections, so the tolerances are
+    the resolution floors.
+
+  Two diagnostics (a false-positive breakdown and IoU 0.2) were added after these
+  results were seen. They are labelled as such, and the gate is unchanged.
 - The benchmark is a domain proxy. AOT is grayscale video from a moving aircraft; the MVP
   targets a fixed RGB ground camera. The baseline measures the pretrained detector on
   real aircraft video, but not in the target setting. The owner's pilot or a reachable
