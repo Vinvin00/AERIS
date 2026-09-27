@@ -1,6 +1,6 @@
 {
   "benchmark_id": "aeris-007-aot-v2",
-  "created_at": "2026-09-27T12:02:54+00:00",
+  "created_at": "2026-09-27T12:17:52+00:00",
   "definition": {
     "path": "configs/evaluation/aot_benchmark.json",
     "sha256": "aa99e72a59bedc497f5038fc09e45e40e69ea7434803937f160659742d6a8cec"
@@ -23365,10 +23365,8 @@
     },
     "repeat": {
       "code": {
-        "commit": "4e2430d2aeeaff7bc952474790a3a6fb866bd0d2",
-        "dirty_paths": [
-          "ocs/decisions/007-measured-baseline.md"
-        ]
+        "commit": "9f149101f71ecc883c2392c23e01765382d958fb",
+        "dirty_paths": []
       },
       "model_provenance": "aeris-detector-baseline-v1; YOLOX-S YOLOX@6ddff4824372 weights sha256:f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30; onnxruntime CPUExecutionProvider threads=4",
       "splits": {
@@ -23383,8 +23381,8 @@
           "threads": 4,
           "unmapped_floor": 0.05,
           "unmapped_sha256": "279fcd4e63805afc8709a2c4279f94c5e0f52dbf4340dbfefcbaa04141e3704a",
-          "wall_s_per_frame_median": 0.13728397699924244,
-          "wall_s_total": 155.81412440400527
+          "wall_s_per_frame_median": 0.14910021600007894,
+          "wall_s_total": 167.86205717100802
         },
         "validation": {
           "annotations_sha256": "5716e9cd8ca2cbf25ed6643624711b3062a3ecadb3087e3c8793bbe7d80caf39",
@@ -23397,8 +23395,8 @@
           "threads": 4,
           "unmapped_floor": 0.05,
           "unmapped_sha256": "9635a6402ca8682ff7a5b8178eeaed255dcd2fcfb67c7bb351cc6550fa5327d1",
-          "wall_s_per_frame_median": 0.1354118320005,
-          "wall_s_total": 106.66023384300661
+          "wall_s_per_frame_median": 0.1429936259992246,
+          "wall_s_total": 111.6166382360052
         }
       }
     }

@@ -73,10 +73,10 @@ Decision:
 
 Consequences:
 
-- Measured on 2026-09-27 (docs/baseline.md):
+- Measured on 2026-09-27 (docs/baseline.md), benchmark v2:
   - validation chose threshold 0.16;
-  - development AP50 is 0.065 and recall 0.081, with recall 0.451 for aircraft at
-    least 64 px wide and 0 below 16 px;
+  - development AP50 is 0.067 and recall 0.083 (44 of 531), with recall 0.451 for
+    aircraft at least 64 px wide and 0 below 16 px;
   - 1-thread and 4-thread runs gave bit-identical detections, so the tolerances are
     the resolution floors.
 

@@ -15,7 +15,7 @@
   "comparison": "A candidate fails a gated metric when it is worse than the baseline by more than tolerance_abs x (1 + 1e-9); the 1e-9 relative margin only absorbs floating-point rounding, so exactly one count worse passes a one-count tolerance.",
   "development_frames_digest": "788926d2984c388d8faaeaf6e1be7dda08fe4d4665a83bf560bbfeed36e5dbf8",
   "environment_scope": "Tolerances are measured by re-running the baseline in the gating environment. Before gating a candidate in a different environment (host, ONNX Runtime, OpenCV or NumPy build), re-run the baseline there; if its detections are not bit-identical to the recorded ones, re-measure repeatability there and record it before comparing any candidate.",
-  "frozen_at": "2026-09-27T12:02:54+00:00",
+  "frozen_at": "2026-09-27T12:17:52+00:00",
   "frozen_before_candidates": "Set from the baseline and its repeat run only; no candidate model had been evaluated when this file was written.",
   "gates": [
     {
