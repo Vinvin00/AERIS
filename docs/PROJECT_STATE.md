@@ -189,10 +189,19 @@ FGVC cabin image `image1885942` is unsuitable for exterior detection. Codex ackn
 reviewing AERIS-008 attempt 1 (`1f73d59`) but had posted no findings when AERIS-008 was
 accepted.
 
-## Reviewer follow-ups (minor, not yet done)
+Codex's supplementary macOS review of the final AERIS-008 source (`b00c99c`, PR #1
+comment `5859280428`, 2026-09-27) reran the video suite there (33/34 pass, one skip:
+no local ONNX export) and independently re-verified the Matroska stored-time check
+against `ffprobe` (max difference `1.82e-12` ms) and the fetched clip's hashes. It
+raised one new finding, **C008-1** (major), on the `--render` overlay path, not on
+detection or timestamp correctness. See the follow-up table below; AERIS-008 stays
+accepted (three attempts already used) and this is tracked as separate corrective work.
+
+## Reviewer follow-ups (not yet done)
 
 | From | Follow-up | Owner task |
 |---|---|---|
+| 008 C008-1 | **Major, post-acceptance, from Codex's supplementary review** (PR #1 comment `5859280428`). `Overlay` (`python/aeris/video/pipeline.py:380` `__init__`, `:403` `close`) writes the overlay at the decoded frame's exact width/height, but OpenCV's `mp4v` writer silently rounds odd dimensions down for 4:2:0 chroma subsampling; `close()` reports the requested `self.size`, not what was actually encoded. Codex's reproducer (macOS, real FFV1-encoded 65x49 Matroska, real ONNX-independent `--render` run): `run.json.overlay` says `{width: 65, height: 49, frames: 3}` while the written `overlay.mp4` decodes to 64x48. I reproduced the same rounding directly with `cv2.VideoWriter` in this Linux cloud environment (65x49 write → capture reports 64x48), so it is OpenCV/mp4v behaviour, not a macOS artefact. `frames.jsonl`/`detections.jsonl` keep the correct decoded geometry; only the overlay file and its `run.json` entry are wrong. No existing evidence run used an odd-dimension input (Haneda is 1920x1080), so no accepted results are affected. Smallest fix (Codex's and mine): refuse `--render` on an odd width or height with a clear `PipelineError`, leaving headless processing unaffected; the alternative is to pad and record the actual encoded geometry/transform. Add odd-width, odd-height and both-odd test cases that decode the overlay file and check its real dimensions rather than trusting `close()` | new task touching `aeris/video` (unassigned; scope this before relying on `--render` output geometry for odd-sized input) |
 | 001 F1 | 17 of 34 contract mutants survive. The untested checks are ID, version and timestamp checks on detection, prediction, truth and annotation records; there are no `annotation_id`/`track_id` identifier tests. The reconstructed 001 report (F2) wrongly claimed them | next contracts task (unassigned) |
 | 001 F4 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report. AERIS-008 avoids it (one timestamp policy per run) but could not change `python/aeris/data/` | next task owning `python/aeris/data/*` (unassigned) |
 | 002 N1/F1 | Manifest validator value checks: 27 of 40 invalid values pass (no sources, `False` class ID, `1e400`, unknown evaluation names). Not ported to `python/aeris/data` by AERIS-003 | unassigned |
