@@ -55,7 +55,7 @@ Decision:
 - **Real evidence (AC3), two explicitly separate results, not one.** Both use 23 pinned,
   contiguous frames of one real AOT flight (`tests/fixtures/tracking/real_samples.json`;
   frames 18-40 of `69904ae4f18d46ec8886e8fd6179171b-camera0`, part1, a scored Helicopter
-  visible throughout, 16-45 px wide):
+  visible throughout, measured 15.6-19.7 px wide in these 23 frames:
   - **Oracle ablation:** the flight's own ground-truth boxes are fed to the tracker
     directly (score 1.0, provenance says "oracle ground truth (ablation, not a
     detector)"). This measures the tracker's own real-world performance, decoupled from
@@ -66,9 +66,12 @@ Decision:
   - **End-to-end real detector + tracker:** the accepted AERIS-006 ONNX detector, on the
     same real frames, finds nothing (0 detections; HOTA/MOTA/IDF1 all 0). This is the
     honest, expected result, not a bug: AERIS-007 already measured near-zero AOT recall
-    below 32 px, and this helicopter is 16-45 px throughout. Reporting a favourable
-    number here would have meant hunting for a larger, rarer real target instead of
-    using the plainly available one — the kind of curation AGENTS.md forbids.
+    below 32 px, and this helicopter measures 15.6-19.7 px wide throughout these 23
+    frames (attempt 1 wrongly said "16-45 px" here, a figure from the same flight's
+    object 211 frames later, outside this pinned window; caught in review and corrected).
+    Reporting a favourable number here would have meant hunting for a larger, rarer real
+    target instead of using the plainly available one — the kind of curation AGENTS.md
+    forbids.
   - Both are on the *same* real flight so a reader can see exactly which factor (detector
     recall, not the tracker) drives the difference.
 

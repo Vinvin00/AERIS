@@ -86,8 +86,11 @@ cannot back a tracking-performance claim.
 
 **Pinned real sample** (`tests/fixtures/tracking/real_samples.json`): 23 contiguous
 frames (indices 18-40, part1, CDLA-Permissive-1.0), flight
-`69904ae4f18d46ec8886e8fd6179171b-camera0`, one scored `Helicopter1` visible throughout
-(16-45 px wide). Frames are fetched by key and checked against a pinned SHA-256 (not
+`69904ae4f18d46ec8886e8fd6179171b-camera0`, one scored `Helicopter1` visible throughout,
+measured 15.6-19.7 px wide and 12.2-14.7 px tall in these 23 frames specifically (the
+same flight's object grows past 45 px much later, around frame 251, well outside this
+pinned window; an earlier draft of this page wrongly quoted that later size here, caught
+in review). Frames are fetched by key and checked against a pinned SHA-256 (not
 committed, per AGENTS.md):
 
 ```
@@ -114,7 +117,7 @@ the difference:
   for forecast evaluation, not a new one, and is clearly labelled as an ablation, never a
   deployment claim.
 - **End-to-end** finds nothing: the real detector produces 0 detections on this
-  16-45 px real target. This is the honest, expected result, not a bug — AERIS-007
+  16-20 px real target. This is the honest, expected result, not a bug — AERIS-007
   already measured near-zero AOT recall below 32 px, and reporting a favourable number
   here would have meant hunting for a rarer, larger real target instead of using the
   plainly available one.
@@ -167,8 +170,9 @@ convenience CLI for inspection, not a required artifact of any accepted evidence
   a crossing between two similarly-sized, similarly-moving objects is not covered by any
   test here and may not be resolvable by this design at all.
 - **Real end-to-end evidence is a single, real, honestly-negative result.** The
-  detector's real recall on this flight's small target is zero; a real end-to-end result
-  with actual real matches would need a larger, rarer real target or a later detector.
+  detector's real recall on this flight's 16-20 px target is zero; a real end-to-end
+  result with actual real matches would need a larger, rarer real target or a later
+  detector.
 - **Duplicate suppression's IoU threshold** (0.5) does not, by itself, suppress the
   fixture's own jittered duplicate (measured IoU 0.44); the confirmed-first cascade is
   the layer that actually keeps identity stable in that case. A lower threshold was not

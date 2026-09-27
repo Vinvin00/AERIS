@@ -123,6 +123,20 @@ class KalmanMathTests(unittest.TestCase):
         with self.assertRaisesRegex(tr.TrackingError, "eigenvalue"):
             tr._symmetrize_psd(bad)
 
+    def test_predict_and_update_actually_call_symmetrize_psd(self):
+        # The helper is correct in isolation (above); this checks the call sites
+        # themselves are still wired up, not just the standalone function.
+        from unittest import mock
+        c = config(lost_timeout_s=10.0)
+        t = tr.Tracker("seq", c)
+        with mock.patch.object(tr, "_symmetrize_psd", wraps=tr._symmetrize_psd) as spy:
+            t.step(0.0, [det("seq", 0, 0.0, BBox(0, 0, 10, 10))])  # spawn only: no predict/update
+            spawn_calls = spy.call_count
+            t.step(0.1, [det("seq", 1, 0.1, BBox(0, 0, 10, 10))])  # one predict(), one update()
+            matched_calls = spy.call_count - spawn_calls
+        self.assertEqual(spawn_calls, 0)
+        self.assertEqual(matched_calls, 2)
+
 
 class EmptyInputTests(unittest.TestCase):
     def test_no_detections_and_no_tracks_is_a_no_op(self):
@@ -159,6 +173,25 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual((s0.lifecycle, s1.lifecycle, s2.lifecycle),
                          ("tentative", "tentative", "confirmed"))
         self.assertEqual({s0.track_id, s1.track_id, s2.track_id}, {s0.track_id})
+
+    def test_lost_timeout_boundary_is_strict_greater_than(self):
+        # A track exactly at lost_timeout_s since its last match must still be alive
+        # (deletion needs time_since_seen_s to exceed the timeout, not just reach it);
+        # any amount past it must be gone. 0.125/0.375 are exact in binary floating
+        # point, so the boundary comparison is not itself at the mercy of float rounding.
+        c = config(lost_timeout_s=0.25)
+        at_boundary = tr.Tracker("seq", c)
+        at_boundary.step(0.0, [det("seq", 0, 0.0, BBox(0, 0, 10, 10))])
+        at_boundary.step(0.125, [det("seq", 1, 0.125, BBox(0, 0, 10, 10))])
+        states = at_boundary.step(0.375, [])  # time_since_seen_s == 0.25 exactly
+        self.assertEqual(len(states), 1)
+        self.assertEqual(states[0].time_since_seen_s, 0.25)
+
+        past_boundary = tr.Tracker("seq", c)
+        past_boundary.step(0.0, [det("seq", 0, 0.0, BBox(0, 0, 10, 10))])
+        past_boundary.step(0.125, [det("seq", 1, 0.125, BBox(0, 0, 10, 10))])
+        states = past_boundary.step(0.375 + 1e-9, [])  # time_since_seen_s just over 0.25
+        self.assertEqual(states, [])
 
 
 class ValidationTests(unittest.TestCase):
@@ -451,7 +484,7 @@ class RealAotSequenceTests(unittest.TestCase):
         self.assertGreaterEqual(combined["IDF1"], 0.9)
 
     def test_end_to_end_real_detector_result_is_reported_honestly(self):
-        # The real accepted ONNX detector, on this flight's genuinely small (16-45 px)
+        # The real accepted ONNX detector, on this flight's genuinely small (16-20 px)
         # helicopter: AERIS-007 already measured near-zero recall below 32 px on AOT, so a
         # near-empty result here is the honest, expected outcome, not a bug. This proves
         # the real evaluation pipeline runs end to end; it is not a tracker quality claim.
