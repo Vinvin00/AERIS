@@ -807,7 +807,7 @@ def _headline(report: dict) -> dict:
 def build_regression(config, threshold, values, gates, intervals, manifest) -> dict:
     rule = config["regression_rule"]
     return {
-        "schema_version": 1, "regression_id": "aeris-007-regression-v1",
+        "schema_version": 1, "regression_id": f"{config['benchmark_id']}-gate",
         "benchmark_id": config["benchmark_id"], "split": rule["split"],
         "development_frames_digest": manifest["splits"]["development"]["frames_digest"],
         "frozen_at": manifest["created_at"],

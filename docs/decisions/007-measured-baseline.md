@@ -59,8 +59,10 @@ Decision:
   compared marker sides exactly, so 7,697 markers with sides like 16.000000000000114 px
   were scored as aircraft. Of those, 16 were in development, 11 in validation and 19 in
   the holdout.
-  - v2 compares within 1e-6 px. Nothing else in the definition changed: split, caps,
-    threshold rule, tolerance rule, evaluator, IoU and detector.
+  - v2 compares within 1e-6 px. No other rule value changed: split, caps, threshold
+    rule, tolerance values and floors, evaluator, IoU and detector. Three clauses were
+    added to say how the rules apply: the rounding margin, the environment scope and the
+    fixed-threshold candidate protocol.
   - The frames were reselected and the pipeline re-run.
   - The v1 outputs are kept in `benchmarks/runs/aeris-007-v1/` (not in Git).
   - The same review found that `gate_check` failed exactly one-count-worse candidates

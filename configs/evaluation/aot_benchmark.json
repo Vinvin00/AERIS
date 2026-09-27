@@ -155,7 +155,13 @@
       "after_results_seen": true,
       "change": "Nominal-marker sides are compared within 1e-6 px instead of exactly. The CSV derives right = left + width in floating point, so 7,697 marker boxes (e.g. width 16.000000000000114) were scored as measured aircraft in v1.",
       "found_by": "independent review of AERIS-007 attempt 1 (finding F1)",
-      "unchanged": "split salt and allocation, sequence and frame caps, threshold rule, tolerance rule, evaluator, IoU, detector"
+      "unchanged": "split salt and allocation, sequence and frame caps, threshold rule, tolerance values and floors, minimum supports, evaluator, IoU, detector",
+      "clarified": [
+        "regression_rule.comparison: failure is 'worse by more than tolerance_abs x (1 + 1e-9)'; the margin only absorbs floating-point rounding (review finding F2)",
+        "regression_rule.environment_scope: tolerances hold in the measured environment; elsewhere re-run the baseline first",
+        "regression_rule.candidate_protocol: candidates use the frozen score threshold and do not re-select it"
+      ],
+      "clarified_note": "The clarifications add no new rule value; they state how the v1 rules are applied."
     }
   ]
 }

@@ -65,8 +65,14 @@ The definition is `configs/evaluation/aot_benchmark.json`. Version v1 was commit
 **Revision v2.** It was made after the v1 results were seen, prompted by the attempt-1
 review's finding F1. v1 compared marker sides exactly, so markers with float-noise sides
 were scored as aircraft: 16 in development, 11 in validation and 19 in the holdout, all
-16–32 px wide. v2 compares within 1e-6 px; nothing else in the definition changed. The
-frames were reselected and every step re-run. The v1 outputs are kept in
+16–32 px wide. v2 compares within 1e-6 px. No other rule value changed. Three clauses
+were added to say how the existing rules apply (`revisions[0].clarified` in the config):
+
+- the rounding margin in gate comparisons;
+- the environment scope of the tolerances;
+- the fixed-threshold candidate protocol.
+
+The frames were reselected and every step re-run. The v1 outputs are kept in
 `benchmarks/runs/aeris-007-v1/` (not in Git). The v1 figures are in the attempt-1 report
 and are superseded.
 
@@ -192,8 +198,15 @@ A candidate is evaluated on the same development frames with the same evaluator,
 IoU 0.5 and the **fixed** score threshold 0.16. It does not re-select a threshold; one
 that needs its own threshold is a different protocol requiring a reviewed change. It
 fails a gated metric when it is worse than the baseline by more than the tolerance
-(× (1 + 1e-9), a margin that only absorbs floating-point rounding). So exactly one count
-worse passes, and two counts worse fail. Tests check this on the frozen file.
+(× (1 + 1e-9), a margin that only absorbs floating-point rounding). So one fewer true
+positive (or one more false positive on a negative frame) passes, and two fail. Tests
+check this on the frozen file.
+
+**Precision** is a ratio, so its one-count tolerance (1/117) is less strict for *added*
+false positives. With 44 true positives, 44/119 (two extra false positives) still passes
+and 44/120 fails. False positives on negative frames are also caught by the
+false-positives-per-negative-frame gate: 27 of 373 fails. False positives on frames that
+contain aircraft are caught only through precision.
 
 | Metric | Baseline | Tolerance | Basis |
 |---|---|---|---|

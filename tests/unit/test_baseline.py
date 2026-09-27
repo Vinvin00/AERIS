@@ -654,6 +654,11 @@ class CommittedArtifactTests(unittest.TestCase):
             self.assertEqual(bl.gate_check(REGRESSION, dict(base, **{metric: value(2)}))["status"],
                              "fail", metric)
         self.assertGreaterEqual(checked, 6)
+        # Documented property: precision's one-count tolerance is looser for added false
+        # positives (docs/baseline.md): tp/(tp+fp+2) passes, tp/(tp+fp+3) fails here.
+        self.assertEqual(bl.gate_check(REGRESSION, dict(base, precision=tp / (tp + fp + 2)))["status"], "pass")
+        self.assertEqual(bl.gate_check(REGRESSION, dict(base, precision=tp / (tp + fp + 3)))["status"], "fail")
+        self.assertEqual(REGRESSION["regression_id"], f"{CONFIG['benchmark_id']}-gate")
 
 
 # ------------------------------------------------------------------ REAL (AOT frames, run outputs)
