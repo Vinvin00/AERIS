@@ -777,6 +777,43 @@
         "edge"
       ],
       "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-021",
+      "title": "Overlay render geometry correction",
+      "objective": "Fix AERIS-008's --render overlay reporting the requested frame size when OpenCV's mp4v writer silently rounds odd width/height down for 4:2:0 chroma subsampling, so run.json.overlay always matches the file actually written. Corrective task from Codex's supplementary review finding C008-1 on the accepted AERIS-008 source; AERIS-008 itself is not reopened.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-008"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md",
+        "docs/video.md",
+        "docs/decisions/008-video-pipeline.md"
+      ],
+      "write_globs": [
+        "python/aeris/video/pipeline.py",
+        "tests/unit/*video*",
+        "docs/video.md",
+        "docs/decisions/021-*.md"
+      ],
+      "acceptance": {
+        "AC1": "For an odd input width, odd height, or both, the overlay path either refuses before any file is written or the written file decodes to exactly the width/height/frame count run.json.overlay reports; a test decodes the actual overlay file rather than trusting the writer's return value",
+        "AC2": "Even-dimension rendering (including the accepted AERIS-008 real-clip evidence path) is unaffected: headless processing (no --render) always succeeds regardless of dimension parity"
+      },
+      "required_artifacts": [
+        "python/aeris/video/pipeline.py",
+        "tests/unit/test_video.py",
+        "docs/video.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "video"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
     }
   ]
 }
