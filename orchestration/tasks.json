@@ -241,14 +241,19 @@
       "read": [
         "docs/FEASIBILITY.md",
         "docs/ROADMAP.md",
-        "docs/EVALUATION_LOOP.md"
+        "docs/EVALUATION_LOOP.md",
+        "docs/dataset.md",
+        "docs/evaluation.md"
       ],
       "write_globs": [
+        "python/aeris/data/aot.py",
+        "python/aeris/evaluation/baseline.py",
         "benchmarks/baseline_manifest.json",
         "configs/evaluation/*",
         "docs/baseline.md",
         "tests/unit/*baseline*",
-        "docs/decisions/007-*.md"
+        "docs/decisions/007-*.md",
+        "tests/fixtures/baseline/*"
       ],
       "acceptance": {
         "AC1": "Real data/model/config/environment/artifact digests make the baseline reproducible",

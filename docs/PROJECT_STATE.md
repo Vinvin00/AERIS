@@ -134,7 +134,7 @@ anything; a fresh session did the review.
 | 004 F2 | Some generated fields are protected only by the byte snapshot, not by semantic assertions: vertical angular extent, range, range rate, detection class ID, false-positive score, noise model and manifest record counts. The reviewer found 7 such mutants. The coordinator's 25-mutant run is now saved in the evidence folder | next task touching `aeris/simulation` |
 | 004 F3 | Truth angular extent is measured between marker rays. CONTRACTS.md defines the bbox extent between edge rays (≤ 4.6e-6 relative difference here). Document it in ADR 004 or add edge-ray truth | AERIS-011 |
 | 006 A1 F6 | `AERIS_REQUIRE_REAL_DETECTOR=1` is not set by the detection gate, so REAL tests could skip and still pass verify. Propose a gate change (separate contract-change task) | next governance task |
-| 006 A2 F1 | The two small aircraft were not simply missed: they were localized and labelled `kite` (B-17 score 0.608, IoU 0.78; airliner 0.018, IoU 0.52), then dropped by argmax-then-map. `docs/detection.md`, ADR 006 and the report call it a resolution-only miss. Correct the wording; weigh the class rule with measured data | AERIS-007 (class rule), next `docs/detection.md` touch (wording) |
+| 006 A2 F1 | The two small aircraft were not simply missed: they were localized and labelled `kite` (B-17 score 0.608, IoU 0.78; airliner 0.018, IoU 0.52), then dropped by argmax-then-map. `docs/detection.md`, ADR 006 and the report call it a resolution-only miss. Correct the wording; weigh the class rule with measured data | AERIS-007 measures the effect in its baseline (it cannot change detector code); a later detector task changes the rule; next `docs/detection.md` touch (wording) |
 | 006 A2 F2 | Two surviving mutants: a parity box check over x coordinates only passes all 54 strict tests; removing the fetcher's request pacing passes the sample tests. Add a y-only box perturbation and a pacing test | next task touching `aeris/detection` |
 | 006 A2 F3 | Fetch record: the local `manifest.json` came from an uncommitted intermediate fetcher (no `original_size_bytes`), so the submitted fetcher has run only against fakes; the three HTTP 429 refusals survive only in prose; five stored files are 3000–3840 px wide, not "2048 px renditions or smaller originals"; COCO's small-object boundary is by area (< 32² px²), not width. Re-fetch with the submitted fetcher when useful and correct the wording | next task touching `aeris/detection` |
 | 006 docs | ADR 005/006 still read "proposed", and `docs/detection.md` "attempt 2, awaiting independent review". Set them to accepted | next docs touch |
@@ -149,6 +149,21 @@ Closed by AERIS-003:
 - All six attempt-1 review findings: statistics nulls, stronger tests, unverified claims
   qualified, CLI errors, per-line decoding, and FGVC split subsets.
 
+## Planning changes
+
+- 2026-09-27, AERIS-007 scope (before its first packet). The owner asked for public
+  labelled data found online, with more budget if needed. The chosen source, the Airborne
+  Object Tracking dataset (AOT, CDLA-Permissive-1.0, public S3), needs a source adapter
+  and a baseline runner. AERIS-007 owned no Python module, and `python/aeris/data/*` and
+  `python/aeris/evaluation/*` belong to accepted tasks. Following the AERIS-013/015/017
+  pattern of owning single files inside an earlier module, AERIS-007 now also owns
+  `python/aeris/data/aot.py`, `python/aeris/evaluation/baseline.py` and
+  `tests/fixtures/baseline/*`, and reads `docs/dataset.md` and `docs/evaluation.md`.
+  Acceptance criteria, checks, required artifacts and budget text are unchanged. A packet
+  prepared minutes earlier under the old scope was discarded unused. TartanAviation
+  (fixed airport cameras, RGB, the closer domain) was preferred but its servers use
+  ports 8080/8081, which this environment's proxy cannot reach.
+
 ## Owner decisions blocking real video evidence (not G1)
 
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
@@ -160,9 +175,13 @@ Integration: branch `claude/inspiring-keller-xf368q`, draft PR Vinvin00/AERIS#1.
 it has no torch or weights, so the REAL detector tests skip there. The owner's newest
 run archive must include AERIS-006 (`aeris-runs-2026-09-27-g2c.tar.gz`).
 
-Next action: restore `orchestration/runs/` from the newest archive. AERIS-007 (measured
-baseline and gate selection) and AERIS-008 (timestamp-aware video pipeline) are ready.
-AERIS-007 needs real labelled aircraft data, which is blocked on the owner decisions
-above. AERIS-008 connects video decoding to the AERIS-006 detector; its AC3 needs a
-bounded real video sample within a task-local budget, so its source and licence must be
-chosen first.
+Next action: in a fresh checkout, first restore `orchestration/runs/` from the newest
+archive (it is Git-ignored). AERIS-007 (measured baseline and gate selection) proceeds on
+public AOT data under the 2026-09-27 planning change above, with a task-local download and
+time budget documented in the task; the owner approved a larger download/time budget if
+needed. The task's "no paid compute" rule still holds; paid compute would need a
+separately reviewed budget change. The owner
+decisions above still block real *fixed-camera* video evidence (the owned pilot), not
+AERIS-007's baseline. AERIS-008 (timestamp-aware video pipeline) follows; its AC3 needs a
+bounded real video sample with a recorded source and licence, which the owner also asked
+to be found online.
