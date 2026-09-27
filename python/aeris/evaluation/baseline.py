@@ -565,12 +565,18 @@ def environment() -> dict:
             "locks": {name: file_sha256(ROOT / name) for name in LOCKS}}
 
 
+def dirty_paths(porcelain: str) -> list[str]:
+    """Paths from `git status --porcelain` (two status columns, a space, then the path)."""
+    return [line[3:] for line in porcelain.splitlines() if len(line) > 3]
+
+
 def code_revision() -> dict:
     def git(*args):
         return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True,
-                              check=False).stdout.strip()
-    return {"commit": git("rev-parse", "HEAD") or None,
-            "dirty_paths": [line[3:] for line in git("status", "--porcelain").splitlines()]}
+                              check=False).stdout
+    # Do not strip leading whitespace: the first status column is often a space.
+    return {"commit": git("rev-parse", "HEAD").strip() or None,
+            "dirty_paths": dirty_paths(git("status", "--porcelain"))}
 
 
 # ---------------------------------------------------------------- commands

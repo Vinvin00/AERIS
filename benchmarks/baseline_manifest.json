@@ -1,9 +1,9 @@
 {
-  "benchmark_id": "aeris-007-aot-v1",
-  "created_at": "2026-09-27T11:21:20+00:00",
+  "benchmark_id": "aeris-007-aot-v2",
+  "created_at": "2026-09-27T12:02:54+00:00",
   "definition": {
     "path": "configs/evaluation/aot_benchmark.json",
-    "sha256": "4d0e263585a98270a263e4df829a6e066862491fcff28c6e4556ce4e8db51896"
+    "sha256": "aa99e72a59bedc497f5038fc09e45e40e69ea7434803937f160659742d6a8cec"
   },
   "environment": {
     "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
@@ -416,15 +416,6 @@
         "size": 2280690
       },
       {
-        "frame": 950,
-        "key": "part3/Images/47337f69a1c94084a977b5e52c0874c1/156076908428317281347337f69a1c94084a977b5e52c0874c1.png",
-        "kind": "scored",
-        "md5": "f570951613992f32a88459abfb9ec628",
-        "sequence_id": "47337f69a1c94084a977b5e52c0874c1-camera1",
-        "sha256": "ef9fec173ad3110591175ca6a429885fb0ac91f433deacfd4a86844bb7a29a7c",
-        "size": 2233415
-      },
-      {
         "frame": 970,
         "key": "part3/Images/47337f69a1c94084a977b5e52c0874c1/156076908628585716747337f69a1c94084a977b5e52c0874c1.png",
         "kind": "other",
@@ -432,24 +423,6 @@
         "sequence_id": "47337f69a1c94084a977b5e52c0874c1-camera1",
         "sha256": "abc0271a6d449be5ee3f468242a33f2635676ebd53c7d24fe8d8f9ea56958da0",
         "size": 2291128
-      },
-      {
-        "frame": 1070,
-        "key": "part3/Images/47337f69a1c94084a977b5e52c0874c1/156076909625187843247337f69a1c94084a977b5e52c0874c1.png",
-        "kind": "scored",
-        "md5": "2a34cc6bcea69ae8f45754082095a1bd",
-        "sequence_id": "47337f69a1c94084a977b5e52c0874c1-camera1",
-        "sha256": "2704ba09987c5ca4bb42f7f2145f443770ff02c31b44ad2bc797b9bed9bf539e",
-        "size": 2404698
-      },
-      {
-        "frame": 1080,
-        "key": "part3/Images/47337f69a1c94084a977b5e52c0874c1/156076909724938095847337f69a1c94084a977b5e52c0874c1.png",
-        "kind": "scored",
-        "md5": "964d8267d2335d024b8982cf8487ec19",
-        "sequence_id": "47337f69a1c94084a977b5e52c0874c1-camera1",
-        "sha256": "52bd1e0f6a6086931e2111ae7091c4ecde71ed9688027be7a41d605fa96b21b4",
-        "size": 2370021
       },
       {
         "frame": 60,
@@ -1505,6 +1478,24 @@
         "size": 2690040
       },
       {
+        "frame": 230,
+        "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577550188315484260ea84c7f75a147408086317ff9cd96b4.png",
+        "kind": "scored",
+        "md5": "0ceeb1192c1288ff9060f226a0919a34",
+        "sequence_id": "0ea84c7f75a147408086317ff9cd96b4-camera1",
+        "sha256": "5f86995cead9aa89daf3937e6162e23c9d0ba089c3273195c40ded6e745db82a",
+        "size": 2705321
+      },
+      {
+        "frame": 250,
+        "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577550208565904220ea84c7f75a147408086317ff9cd96b4.png",
+        "kind": "scored",
+        "md5": "beaf775920e6a1f6d41e353db72e78fb",
+        "sequence_id": "0ea84c7f75a147408086317ff9cd96b4-camera1",
+        "sha256": "53c4352e21933ec43cdb732766cccdf340eacec6b4b00b7e4f9347fcbc42bc1f",
+        "size": 2708547
+      },
+      {
         "frame": 260,
         "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577550218309365070ea84c7f75a147408086317ff9cd96b4.png",
         "kind": "scored",
@@ -1622,15 +1613,6 @@
         "size": 2501399
       },
       {
-        "frame": 1040,
-        "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577550997510205670ea84c7f75a147408086317ff9cd96b4.png",
-        "kind": "scored",
-        "md5": "011b0afa7b1dfee6c92fcf54cc04dbde",
-        "sequence_id": "0ea84c7f75a147408086317ff9cd96b4-camera1",
-        "sha256": "cbfc3a14a455c5d49f46358f4c8e0627210c1c89714ebd94e9bf20abbbcfa88c",
-        "size": 2511210
-      },
-      {
         "frame": 1160,
         "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577551117350911890ea84c7f75a147408086317ff9cd96b4.png",
         "kind": "other",
@@ -1638,15 +1620,6 @@
         "sequence_id": "0ea84c7f75a147408086317ff9cd96b4-camera1",
         "sha256": "97f6db6af2fb89c33cac996998077477ebbe63a9c9ed498e86dfaf18a2afcf7b",
         "size": 2492943
-      },
-      {
-        "frame": 1180,
-        "key": "part3/Images/0ea84c7f75a147408086317ff9cd96b4/15577551137343666010ea84c7f75a147408086317ff9cd96b4.png",
-        "kind": "scored",
-        "md5": "d9821f090dd4f03f032fe730223c10aa",
-        "sequence_id": "0ea84c7f75a147408086317ff9cd96b4-camera1",
-        "sha256": "343a30f03ccce393169eb9ed2273f3c420c96b74bca5cb566f636911e8131497",
-        "size": 2457895
       },
       {
         "frame": 100,
@@ -1674,15 +1647,6 @@
         "sequence_id": "1aee6f2a113344a2bf98b17011dec39a-camera0",
         "sha256": "06b414bffdaab00150e0fd955311709fcf5606444e729fd47a28c230824ee84d",
         "size": 2874079
-      },
-      {
-        "frame": 590,
-        "key": "part1/Images/1aee6f2a113344a2bf98b17011dec39a/15663770147500763311aee6f2a113344a2bf98b17011dec39a.png",
-        "kind": "scored",
-        "md5": "dc60852492143d35d4956cc20df0ed97",
-        "sequence_id": "1aee6f2a113344a2bf98b17011dec39a-camera0",
-        "sha256": "0ed6cd3285c18140fb2ae623e970737ac6dc476f0bbfc2b56d4796765ed0bf06",
-        "size": 2867379
       },
       {
         "frame": 600,
@@ -2315,15 +2279,6 @@
         "size": 2871674
       },
       {
-        "frame": 1100,
-        "key": "part2/Images/c49b2a869be04391a506871671ed041a/1536094297481271307c49b2a869be04391a506871671ed041a.png",
-        "kind": "scored",
-        "md5": "b50220f5b23e5e68654e9e42d08a43e0",
-        "sequence_id": "c49b2a869be04391a506871671ed041a-camera0",
-        "sha256": "45aa7d6e57f8f9540e30074738ce46c317c2c85c8eecd2d536a66f56c8062299",
-        "size": 2943085
-      },
-      {
         "frame": 1170,
         "key": "part2/Images/c49b2a869be04391a506871671ed041a/1536094304454060544c49b2a869be04391a506871671ed041a.png",
         "kind": "other",
@@ -2601,15 +2556,6 @@
         "sequence_id": "267ec81040b74cc89c03bc435d0a00c2-camera0",
         "sha256": "ce18fc68ad3556d767515923f1d3a4ab5cb4904b02c088a7ddbada84f2cff058",
         "size": 2794878
-      },
-      {
-        "frame": 350,
-        "key": "part1/Images/267ec81040b74cc89c03bc435d0a00c2/1532463641291859056267ec81040b74cc89c03bc435d0a00c2.png",
-        "kind": "scored",
-        "md5": "e684a015abeb624830ba7171612ee54a",
-        "sequence_id": "267ec81040b74cc89c03bc435d0a00c2-camera0",
-        "sha256": "21a1062781785a25b04ce0796548a62222133d520d01dfb6dbf613a0bcb4406b",
-        "size": 2824757
       },
       {
         "frame": 360,
@@ -4423,7 +4369,7 @@
       {
         "frame": 150,
         "key": "part1/Images/29e65a7c64fe4759bd094faaa9d3b0dd/153814621903331142429e65a7c64fe4759bd094faaa9d3b0dd.png",
-        "kind": "scored",
+        "kind": "other",
         "md5": "8a64ab3828b7a1a694532fab2e08dd50",
         "sequence_id": "29e65a7c64fe4759bd094faaa9d3b0dd-camera0",
         "sha256": "96579270a6492a74a9bd037d2d3d07e2695531eac9e1dd70cd15af8af5720575",
@@ -4446,15 +4392,6 @@
         "sequence_id": "29e65a7c64fe4759bd094faaa9d3b0dd-camera0",
         "sha256": "a928e5356c1f60d4d3fc96672cf111961a03d33978660e7549bb2fb46b144171",
         "size": 2370623
-      },
-      {
-        "frame": 570,
-        "key": "part1/Images/29e65a7c64fe4759bd094faaa9d3b0dd/153814626100846019229e65a7c64fe4759bd094faaa9d3b0dd.png",
-        "kind": "other",
-        "md5": "4c32577d953409bd3e0b483eaaf8231d",
-        "sequence_id": "29e65a7c64fe4759bd094faaa9d3b0dd-camera0",
-        "sha256": "3824733434d14465dff943211e725327dc31060792f2169ed7e0ea889a294fd4",
-        "size": 2367381
       },
       {
         "frame": 600,
@@ -4581,15 +4518,6 @@
         "sequence_id": "780e65d5703d4d418c8c5b8cf1ec7754-camera0",
         "sha256": "998898885eb1b7bae07cec12919a03a6f6f46a4b0b5ff5b8de6d9e11e6a1e6e1",
         "size": 2412540
-      },
-      {
-        "frame": 370,
-        "key": "part1/Images/780e65d5703d4d418c8c5b8cf1ec7754/1561030139762624816780e65d5703d4d418c8c5b8cf1ec7754.png",
-        "kind": "scored",
-        "md5": "c95f465f18e064a0bf6fd059b1914ebf",
-        "sequence_id": "780e65d5703d4d418c8c5b8cf1ec7754-camera0",
-        "sha256": "58fecc5295a1fc3bbebce316ac7822d23c88f9b2b51cbd4d8dc541e45759a2e5",
-        "size": 2422127
       },
       {
         "frame": 380,
@@ -5978,6 +5906,15 @@
         "size": 2642500
       },
       {
+        "frame": 20,
+        "key": "part1/Images/69904ae4f18d46ec8886e8fd6179171b/154884661226440454669904ae4f18d46ec8886e8fd6179171b.png",
+        "kind": "scored",
+        "md5": "3123c1d0a982a5e6832ec511b56a7555",
+        "sequence_id": "69904ae4f18d46ec8886e8fd6179171b-camera0",
+        "sha256": "e4f1c9a0cc3a4756ca6893296e637dbf95378f81a1c382b332416cf9bf009a74",
+        "size": 2296222
+      },
+      {
         "frame": 30,
         "key": "part1/Images/69904ae4f18d46ec8886e8fd6179171b/154884661318779606869904ae4f18d46ec8886e8fd6179171b.png",
         "kind": "scored",
@@ -6147,15 +6084,6 @@
         "sequence_id": "69904ae4f18d46ec8886e8fd6179171b-camera0",
         "sha256": "f7a402588004564d408a242147fae6caca397ee2e98693a3579529dd24805417",
         "size": 2782377
-      },
-      {
-        "frame": 640,
-        "key": "part1/Images/69904ae4f18d46ec8886e8fd6179171b/154884667417701198869904ae4f18d46ec8886e8fd6179171b.png",
-        "kind": "scored",
-        "md5": "faaad18073cefbf45a4c573da081e3d0",
-        "sequence_id": "69904ae4f18d46ec8886e8fd6179171b-camera0",
-        "sha256": "302a35d8ad69657b440f158e865c21fc4745cd93458441586ca00f406a906231",
-        "size": 2641129
       },
       {
         "frame": 1010,
@@ -8581,20 +8509,11 @@
       {
         "frame": 580,
         "key": "part1/Images/7ded9b87ddcf482ca56ae505d186e685/15611263628811595637ded9b87ddcf482ca56ae505d186e685.png",
-        "kind": "scored",
+        "kind": "other",
         "md5": "65083797bc6c7f1f196229c4585a71a6",
         "sequence_id": "7ded9b87ddcf482ca56ae505d186e685-camera0",
         "sha256": "8e3492ef33678937a37dd35f92c7952b019a50887dab937beb04cb04c955de59",
         "size": 2146401
-      },
-      {
-        "frame": 960,
-        "key": "part1/Images/7ded9b87ddcf482ca56ae505d186e685/15611264008548862987ded9b87ddcf482ca56ae505d186e685.png",
-        "kind": "other",
-        "md5": "5a949a462e186bc170ed20f23b5abd7e",
-        "sequence_id": "7ded9b87ddcf482ca56ae505d186e685-camera0",
-        "sha256": "e6cd48480f8203064d9780a172e23854bea69a31797ac4a9fe64bad27131de43",
-        "size": 2138076
       },
       {
         "frame": 1110,
@@ -8660,15 +8579,6 @@
         "size": 2507244
       },
       {
-        "frame": 200,
-        "key": "part3/Images/9999b06a7ae94d43ba3a34219792813d/15517916376321021979999b06a7ae94d43ba3a34219792813d.png",
-        "kind": "scored",
-        "md5": "2c442a0b234d05a1ea93d3506ab39016",
-        "sequence_id": "9999b06a7ae94d43ba3a34219792813d-camera1",
-        "sha256": "1414f67641491ae61aebd58b60686fc6541caf62a349d7406d6764192549d9e2",
-        "size": 2503051
-      },
-      {
         "frame": 420,
         "key": "part3/Images/9999b06a7ae94d43ba3a34219792813d/15517916596200605949999b06a7ae94d43ba3a34219792813d.png",
         "kind": "other",
@@ -8676,15 +8586,6 @@
         "sequence_id": "9999b06a7ae94d43ba3a34219792813d-camera1",
         "sha256": "be1c89b1f363400b55d0cdb22925bb723374e9d86cbd7f1bfbbe806629ebbe6c",
         "size": 2471362
-      },
-      {
-        "frame": 430,
-        "key": "part3/Images/9999b06a7ae94d43ba3a34219792813d/15517916606184727889999b06a7ae94d43ba3a34219792813d.png",
-        "kind": "scored",
-        "md5": "54c919b3490e0eb5f3075f70fbebcc5e",
-        "sequence_id": "9999b06a7ae94d43ba3a34219792813d-camera1",
-        "sha256": "f3d16563ca8d166a7448dedb6e38ac2457202479caf858d93ea9334549d73e0f",
-        "size": 2495886
       },
       {
         "frame": 590,
@@ -9767,15 +9668,6 @@
         "size": 2857658
       },
       {
-        "frame": 740,
-        "key": "part2/Images/e9edb60f57714d18865bd2679fe7463f/1532462960316886554e9edb60f57714d18865bd2679fe7463f.png",
-        "kind": "scored",
-        "md5": "ba4ff81a24b92037f86128601e385f38",
-        "sequence_id": "e9edb60f57714d18865bd2679fe7463f-camera0",
-        "sha256": "9ac26b841cadebbacac8b5c4f1d43325cb11b57a645e32762b0e13c7bca34369",
-        "size": 2809431
-      },
-      {
         "frame": 750,
         "key": "part2/Images/e9edb60f57714d18865bd2679fe7463f/1532462961314853840e9edb60f57714d18865bd2679fe7463f.png",
         "kind": "other",
@@ -10363,12 +10255,6 @@
         "sequence_id": "05594b7a2160418ba95f6ae10a77b860-camera0"
       },
       {
-        "frame": 740,
-        "key": "part1/Images/05594b7a2160418ba95f6ae10a77b860/155506053517523247405594b7a2160418ba95f6ae10a77b860.png",
-        "kind": "scored",
-        "sequence_id": "05594b7a2160418ba95f6ae10a77b860-camera0"
-      },
-      {
         "frame": 790,
         "key": "part1/Images/05594b7a2160418ba95f6ae10a77b860/155506054019793220405594b7a2160418ba95f6ae10a77b860.png",
         "kind": "other",
@@ -10705,6 +10591,12 @@
         "sequence_id": "cfcc2b32f8294133b231dbe05208de62-camera0"
       },
       {
+        "frame": 120,
+        "key": "part2/Images/cfcc2b32f8294133b231dbe05208de62/1540560246251910610cfcc2b32f8294133b231dbe05208de62.png",
+        "kind": "scored",
+        "sequence_id": "cfcc2b32f8294133b231dbe05208de62-camera0"
+      },
+      {
         "frame": 130,
         "key": "part2/Images/cfcc2b32f8294133b231dbe05208de62/1540560247267197420cfcc2b32f8294133b231dbe05208de62.png",
         "kind": "scored",
@@ -10822,12 +10714,6 @@
         "frame": 1030,
         "key": "part2/Images/cfcc2b32f8294133b231dbe05208de62/1540560337192628776cfcc2b32f8294133b231dbe05208de62.png",
         "kind": "other",
-        "sequence_id": "cfcc2b32f8294133b231dbe05208de62-camera0"
-      },
-      {
-        "frame": 1200,
-        "key": "part2/Images/cfcc2b32f8294133b231dbe05208de62/1540560354176960434cfcc2b32f8294133b231dbe05208de62.png",
-        "kind": "scored",
         "sequence_id": "cfcc2b32f8294133b231dbe05208de62-camera0"
       },
       {
@@ -11068,12 +10954,6 @@
         "frame": 780,
         "key": "part2/Images/9ce9387c32bc4c58b1f618a5d5b259a8/15416835930642125769ce9387c32bc4c58b1f618a5d5b259a8.png",
         "kind": "other",
-        "sequence_id": "9ce9387c32bc4c58b1f618a5d5b259a8-camera0"
-      },
-      {
-        "frame": 920,
-        "key": "part2/Images/9ce9387c32bc4c58b1f618a5d5b259a8/15416836070851924269ce9387c32bc4c58b1f618a5d5b259a8.png",
-        "kind": "scored",
         "sequence_id": "9ce9387c32bc4c58b1f618a5d5b259a8-camera0"
       },
       {
@@ -11362,12 +11242,6 @@
         "frame": 390,
         "key": "part1/Images/70f2af89d9b74af9a051113714d904c8/153558738483174625570f2af89d9b74af9a051113714d904c8.png",
         "kind": "other",
-        "sequence_id": "70f2af89d9b74af9a051113714d904c8-camera0"
-      },
-      {
-        "frame": 550,
-        "key": "part1/Images/70f2af89d9b74af9a051113714d904c8/153558740079618123270f2af89d9b74af9a051113714d904c8.png",
-        "kind": "scored",
         "sequence_id": "70f2af89d9b74af9a051113714d904c8-camera0"
       },
       {
@@ -12013,12 +11887,6 @@
         "sequence_id": "25b7cec075d94093acd44da0b069ef5e-camera1"
       },
       {
-        "frame": 290,
-        "key": "part3/Images/25b7cec075d94093acd44da0b069ef5e/154168467460942813025b7cec075d94093acd44da0b069ef5e.png",
-        "kind": "scored",
-        "sequence_id": "25b7cec075d94093acd44da0b069ef5e-camera1"
-      },
-      {
         "frame": 850,
         "key": "part3/Images/25b7cec075d94093acd44da0b069ef5e/154168473057628896125b7cec075d94093acd44da0b069ef5e.png",
         "kind": "other",
@@ -12187,12 +12055,6 @@
         "sequence_id": "c2431b903e0448c18fdcda157776f847-camera0"
       },
       {
-        "frame": 400,
-        "key": "part2/Images/a74d17d912514065b477931e1e7d8364/1539953100726558456a74d17d912514065b477931e1e7d8364.png",
-        "kind": "scored",
-        "sequence_id": "a74d17d912514065b477931e1e7d8364-camera0"
-      },
-      {
         "frame": 510,
         "key": "part2/Images/a74d17d912514065b477931e1e7d8364/1539953111720039064a74d17d912514065b477931e1e7d8364.png",
         "kind": "other",
@@ -12310,12 +12172,6 @@
         "frame": 780,
         "key": "part2/Images/c608c767660142079c874f39026631d1/1535587543712091758c608c767660142079c874f39026631d1.png",
         "kind": "other",
-        "sequence_id": "c608c767660142079c874f39026631d1-camera0"
-      },
-      {
-        "frame": 830,
-        "key": "part2/Images/c608c767660142079c874f39026631d1/1535587548707594258c608c767660142079c874f39026631d1.png",
-        "kind": "scored",
         "sequence_id": "c608c767660142079c874f39026631d1-camera0"
       },
       {
@@ -12895,12 +12751,6 @@
         "sequence_id": "2bcab84910b34376a1e7ccc619a8991f-camera0"
       },
       {
-        "frame": 60,
-        "key": "part1/Images/2bcab84910b34376a1e7ccc619a8991f/15416874116397281082bcab84910b34376a1e7ccc619a8991f.png",
-        "kind": "scored",
-        "sequence_id": "2bcab84910b34376a1e7ccc619a8991f-camera0"
-      },
-      {
         "frame": 140,
         "key": "part1/Images/2bcab84910b34376a1e7ccc619a8991f/15416874196111725742bcab84910b34376a1e7ccc619a8991f.png",
         "kind": "other",
@@ -13003,12 +12853,6 @@
         "sequence_id": "97f2b3a6da034e0a98d994c5cf9606ce-camera1"
       },
       {
-        "frame": 860,
-        "key": "part3/Images/97f2b3a6da034e0a98d994c5cf9606ce/155171325556089641397f2b3a6da034e0a98d994c5cf9606ce.png",
-        "kind": "scored",
-        "sequence_id": "97f2b3a6da034e0a98d994c5cf9606ce-camera1"
-      },
-      {
         "frame": 900,
         "key": "part3/Images/97f2b3a6da034e0a98d994c5cf9606ce/155171325955649661897f2b3a6da034e0a98d994c5cf9606ce.png",
         "kind": "empty",
@@ -13018,12 +12862,6 @@
         "frame": 960,
         "key": "part3/Images/97f2b3a6da034e0a98d994c5cf9606ce/155171326555293149097f2b3a6da034e0a98d994c5cf9606ce.png",
         "kind": "empty",
-        "sequence_id": "97f2b3a6da034e0a98d994c5cf9606ce-camera1"
-      },
-      {
-        "frame": 1040,
-        "key": "part3/Images/97f2b3a6da034e0a98d994c5cf9606ce/155171327354927595797f2b3a6da034e0a98d994c5cf9606ce.png",
-        "kind": "scored",
         "sequence_id": "97f2b3a6da034e0a98d994c5cf9606ce-camera1"
       },
       {
@@ -13660,12 +13498,6 @@
         "frame": 50,
         "key": "part1/Images/2ff6bd2a268649f09794851db82a8ab4/15446204749880575812ff6bd2a268649f09794851db82a8ab4.png",
         "kind": "other",
-        "sequence_id": "2ff6bd2a268649f09794851db82a8ab4-camera0"
-      },
-      {
-        "frame": 130,
-        "key": "part1/Images/2ff6bd2a268649f09794851db82a8ab4/15446204829839013482ff6bd2a268649f09794851db82a8ab4.png",
-        "kind": "scored",
         "sequence_id": "2ff6bd2a268649f09794851db82a8ab4-camera0"
       },
       {
@@ -14485,12 +14317,6 @@
         "sequence_id": "0ebab9c253404edd850a22d49b7a2792-camera0"
       },
       {
-        "frame": 180,
-        "key": "part1/Images/0ebab9c253404edd850a22d49b7a2792/15405494979134890700ebab9c253404edd850a22d49b7a2792.png",
-        "kind": "scored",
-        "sequence_id": "0ebab9c253404edd850a22d49b7a2792-camera0"
-      },
-      {
         "frame": 330,
         "key": "part1/Images/0ebab9c253404edd850a22d49b7a2792/15405495128969347940ebab9c253404edd850a22d49b7a2792.png",
         "kind": "other",
@@ -14751,12 +14577,6 @@
       {
         "frame": 290,
         "key": "part2/Images/982a657892fc4324a2f278074b343436/1541685464159889381982a657892fc4324a2f278074b343436.png",
-        "kind": "scored",
-        "sequence_id": "982a657892fc4324a2f278074b343436-camera0"
-      },
-      {
-        "frame": 440,
-        "key": "part2/Images/982a657892fc4324a2f278074b343436/1541685479165627532982a657892fc4324a2f278074b343436.png",
         "kind": "scored",
         "sequence_id": "982a657892fc4324a2f278074b343436-camera0"
       },
@@ -15205,6 +15025,12 @@
         "sequence_id": "ae80504db4a14705926f052173a360f2-camera0"
       },
       {
+        "frame": 320,
+        "key": "part2/Images/ae80504db4a14705926f052173a360f2/1555057973199833318ae80504db4a14705926f052173a360f2.png",
+        "kind": "scored",
+        "sequence_id": "ae80504db4a14705926f052173a360f2-camera0"
+      },
+      {
         "frame": 340,
         "key": "part2/Images/ae80504db4a14705926f052173a360f2/1555057975199397524ae80504db4a14705926f052173a360f2.png",
         "kind": "scored",
@@ -15243,12 +15069,6 @@
       {
         "frame": 420,
         "key": "part2/Images/ae80504db4a14705926f052173a360f2/1555057983192932503ae80504db4a14705926f052173a360f2.png",
-        "kind": "scored",
-        "sequence_id": "ae80504db4a14705926f052173a360f2-camera0"
-      },
-      {
-        "frame": 520,
-        "key": "part2/Images/ae80504db4a14705926f052173a360f2/1555057993186604064ae80504db4a14705926f052173a360f2.png",
         "kind": "scored",
         "sequence_id": "ae80504db4a14705926f052173a360f2-camera0"
       },
@@ -15433,12 +15253,6 @@
         "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
       },
       {
-        "frame": 420,
-        "key": "part3/Images/c14774548ac8415bbb1c73c9059ae350/1540563396178064906c14774548ac8415bbb1c73c9059ae350.png",
-        "kind": "scored",
-        "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
-      },
-      {
         "frame": 590,
         "key": "part3/Images/c14774548ac8415bbb1c73c9059ae350/1540563413174439931c14774548ac8415bbb1c73c9059ae350.png",
         "kind": "empty",
@@ -15457,21 +15271,9 @@
         "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
       },
       {
-        "frame": 800,
-        "key": "part3/Images/c14774548ac8415bbb1c73c9059ae350/1540563434157751363c14774548ac8415bbb1c73c9059ae350.png",
-        "kind": "scored",
-        "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
-      },
-      {
         "frame": 880,
         "key": "part3/Images/c14774548ac8415bbb1c73c9059ae350/1540563442151735092c14774548ac8415bbb1c73c9059ae350.png",
         "kind": "other",
-        "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
-      },
-      {
-        "frame": 920,
-        "key": "part3/Images/c14774548ac8415bbb1c73c9059ae350/1540563446148676495c14774548ac8415bbb1c73c9059ae350.png",
-        "kind": "scored",
         "sequence_id": "c14774548ac8415bbb1c73c9059ae350-camera1"
       },
       {
@@ -15625,6 +15427,12 @@
         "sequence_id": "d4b4e821788742c8848a0d5e5970117e-camera0"
       },
       {
+        "frame": 50,
+        "key": "part2/Images/d4b4e821788742c8848a0d5e5970117e/1560846831399462572d4b4e821788742c8848a0d5e5970117e.png",
+        "kind": "scored",
+        "sequence_id": "d4b4e821788742c8848a0d5e5970117e-camera0"
+      },
+      {
         "frame": 60,
         "key": "part2/Images/d4b4e821788742c8848a0d5e5970117e/1560846832396564909d4b4e821788742c8848a0d5e5970117e.png",
         "kind": "scored",
@@ -15693,12 +15501,6 @@
       {
         "frame": 170,
         "key": "part2/Images/d4b4e821788742c8848a0d5e5970117e/1560846843390488183d4b4e821788742c8848a0d5e5970117e.png",
-        "kind": "scored",
-        "sequence_id": "d4b4e821788742c8848a0d5e5970117e-camera0"
-      },
-      {
-        "frame": 300,
-        "key": "part2/Images/d4b4e821788742c8848a0d5e5970117e/1560846856382829405d4b4e821788742c8848a0d5e5970117e.png",
         "kind": "scored",
         "sequence_id": "d4b4e821788742c8848a0d5e5970117e-camera0"
       },
@@ -16012,12 +15814,6 @@
         "frame": 80,
         "key": "part3/Images/64247006fa3446d1be90b326459789d7/155506298913537674464247006fa3446d1be90b326459789d7.png",
         "kind": "other",
-        "sequence_id": "64247006fa3446d1be90b326459789d7-camera1"
-      },
-      {
-        "frame": 100,
-        "key": "part3/Images/64247006fa3446d1be90b326459789d7/155506299114229876764247006fa3446d1be90b326459789d7.png",
-        "kind": "scored",
         "sequence_id": "64247006fa3446d1be90b326459789d7-camera1"
       },
       {
@@ -16426,15 +16222,6 @@
         "sequence_id": "a5984d8928604828963c4ad4b498eae9-camera0",
         "sha256": "dc17359d41f89db58e6bd13211807efd9d84a950dde7e7c3abf7819e1103e7d2",
         "size": 2591232
-      },
-      {
-        "frame": 810,
-        "key": "part2/Images/a5984d8928604828963c4ad4b498eae9/1561631413800357785a5984d8928604828963c4ad4b498eae9.png",
-        "kind": "scored",
-        "md5": "8ccb8146026907d0cb14dd8207114efc",
-        "sequence_id": "a5984d8928604828963c4ad4b498eae9-camera0",
-        "sha256": "d95e8f9c348912f50535a19235edc2d20e9b06928fbd98c684363f0859c63336",
-        "size": 2510125
       },
       {
         "frame": 890,
@@ -17704,15 +17491,6 @@
         "sequence_id": "26933f7280b44e69a0a13e8a3ffa53c1-camera0",
         "sha256": "64ca2785df817034b756b9456042d579af059dcd55d4a05a2955e6e55b6a1277",
         "size": 2724891
-      },
-      {
-        "frame": 280,
-        "key": "part1/Images/26933f7280b44e69a0a13e8a3ffa53c1/153061207291769647126933f7280b44e69a0a13e8a3ffa53c1.png",
-        "kind": "scored",
-        "md5": "b82f09147d8996e7935fa52e827c97b5",
-        "sequence_id": "26933f7280b44e69a0a13e8a3ffa53c1-camera0",
-        "sha256": "79b241450c0ccf3b3da6eb278663c82e3fe1f6e0866bae65d5fd84d773779d10",
-        "size": 2699763
       },
       {
         "frame": 320,
@@ -21144,15 +20922,6 @@
         "size": 2617310
       },
       {
-        "frame": 890,
-        "key": "part2/Images/fbe48d947bd24ae48d2b1c31a9f64222/1563460752258647135fbe48d947bd24ae48d2b1c31a9f64222.png",
-        "kind": "scored",
-        "md5": "02d8f5ac74470270155eefb946f2024a",
-        "sequence_id": "fbe48d947bd24ae48d2b1c31a9f64222-camera0",
-        "sha256": "861ac438d46180163b466135d670afa4fc877960ea0c133993514c017796a532",
-        "size": 2668334
-      },
-      {
         "frame": 930,
         "key": "part2/Images/fbe48d947bd24ae48d2b1c31a9f64222/1563460756208053153fbe48d947bd24ae48d2b1c31a9f64222.png",
         "kind": "other",
@@ -21981,15 +21750,6 @@
         "size": 2123933
       },
       {
-        "frame": 570,
-        "key": "part1/Images/6542d5b2e8644a649a220534a461bfa9/15665451045613396776542d5b2e8644a649a220534a461bfa9.png",
-        "kind": "scored",
-        "md5": "40bbe4faf704b570a426154bfe639f6c",
-        "sequence_id": "6542d5b2e8644a649a220534a461bfa9-camera0",
-        "sha256": "b09abbc15687d7c1b056cf5ada1e757f783dbfbdbde5a7a880e1c8f1edbb6e59",
-        "size": 2209651
-      },
-      {
         "frame": 690,
         "key": "part1/Images/6542d5b2e8644a649a220534a461bfa9/15665451165841661826542d5b2e8644a649a220534a461bfa9.png",
         "kind": "scored",
@@ -22132,15 +21892,6 @@
         "sequence_id": "0d6d650af9434bb3b35d4fc80823cb9d-camera1",
         "sha256": "ba16d3f24e45f5987d2ca9c102dc91a1e1a2cacd0fb720c39aca3b30677c5545",
         "size": 2434766
-      },
-      {
-        "frame": 470,
-        "key": "part3/Images/0d6d650af9434bb3b35d4fc80823cb9d/15682154519745674230d6d650af9434bb3b35d4fc80823cb9d.png",
-        "kind": "scored",
-        "md5": "a5c3d29951d29d949decf37c4ecc6c08",
-        "sequence_id": "0d6d650af9434bb3b35d4fc80823cb9d-camera1",
-        "sha256": "4e8dbaf6e987c7f77ce6279aecc28627380dfab359ea5d214fcb0ee50996f269",
-        "size": 2429629
       },
       {
         "frame": 510,
@@ -22332,15 +22083,6 @@
         "size": 2220181
       },
       {
-        "frame": 100,
-        "key": "part1/Images/35ec4111eb4248a08f1da35c1dc534ae/155802103190462941735ec4111eb4248a08f1da35c1dc534ae.png",
-        "kind": "scored",
-        "md5": "bf2746fbbb164a156bfa6859ce92fae9",
-        "sequence_id": "35ec4111eb4248a08f1da35c1dc534ae-camera0",
-        "sha256": "9310ed23b120f4d5d9ac08051cde2964da609d13006b3d0b8b59555f19a96765",
-        "size": 2379899
-      },
-      {
         "frame": 110,
         "key": "part1/Images/35ec4111eb4248a08f1da35c1dc534ae/155802103290321387435ec4111eb4248a08f1da35c1dc534ae.png",
         "kind": "scored",
@@ -22492,15 +22234,6 @@
         "sequence_id": "4b21deaba80d4a0aa07a01a35b1c3cc6-camera0",
         "sha256": "1e0825e25f685e57674039f6564e0bce5aa27deecc186d57d3eaf07595abe48a",
         "size": 2267557
-      },
-      {
-        "frame": 990,
-        "key": "part1/Images/4b21deaba80d4a0aa07a01a35b1c3cc6/15483751126274974704b21deaba80d4a0aa07a01a35b1c3cc6.png",
-        "kind": "scored",
-        "md5": "db8a5418c7637e8909c6467ed0046d58",
-        "sequence_id": "4b21deaba80d4a0aa07a01a35b1c3cc6-camera0",
-        "sha256": "d7dbab4d5e2b9cedb27f28ffa45c8142303acc8da68acda010c43123a4641293",
-        "size": 2285034
       },
       {
         "frame": 1000,
@@ -22656,15 +22389,6 @@
         "size": 2250229
       },
       {
-        "frame": 540,
-        "key": "part3/Images/e697b1c4a6634439ae131643c84d3909/1562840213354385438e697b1c4a6634439ae131643c84d3909.png",
-        "kind": "other",
-        "md5": "11af5d3960ebd24878b207fdd4376d4c",
-        "sequence_id": "e697b1c4a6634439ae131643c84d3909-camera1",
-        "sha256": "6f33b4b19030a423297dd2c79fc135f7f8e49451ee3ef240505cd1fac0061294",
-        "size": 2236511
-      },
-      {
         "frame": 590,
         "key": "part3/Images/e697b1c4a6634439ae131643c84d3909/1562840218352696169e697b1c4a6634439ae131643c84d3909.png",
         "kind": "other",
@@ -22712,7 +22436,7 @@
       {
         "frame": 1160,
         "key": "part3/Images/e697b1c4a6634439ae131643c84d3909/1562840275316251662e697b1c4a6634439ae131643c84d3909.png",
-        "kind": "scored",
+        "kind": "other",
         "md5": "a51790dc9382167be739c4b3951cc67d",
         "sequence_id": "e697b1c4a6634439ae131643c84d3909-camera1",
         "sha256": "04781b59ef1838b2297fba91b9c87013ce6677b0c7336f196a47d2e29247b6bd",
@@ -23298,14 +23022,14 @@
   "pretraining_overlap": "YOLOX-S weights were trained on COCO 2017; AOT frames are not part of COCO, so no image overlap is known. Domain overlap: COCO has an 'airplane' class and no helicopter class.",
   "results": {
     "development": {
-      "ap50": 0.06476277358913303,
-      "ap_50_95": 0.027174473335023024,
-      "f1": 0.13213213213213215,
-      "false_negatives": 500,
-      "false_positives": 78,
-      "false_positives_per_complete_frame": 0.07001795332136446,
+      "ap50": 0.06695318508222585,
+      "ap_50_95": 0.027942024435148698,
+      "f1": 0.1358024691358025,
+      "false_negatives": 487,
+      "false_positives": 73,
+      "false_positives_per_complete_frame": 0.0662431941923775,
       "frames": {
-        "complete": 1114,
+        "complete": 1102,
         "negative": 373,
         "partial": 0,
         "unlabeled_excluded": 0
@@ -23316,16 +23040,16 @@
         "false_positives_per_negative_frame": 0.06702412868632708,
         "with_false_positives": 12
       },
-      "precision": 0.36065573770491804,
-      "recall": 0.08088235294117647,
+      "precision": 0.37606837606837606,
+      "recall": 0.08286252354048965,
       "score_threshold": 0.16,
       "support": {
-        "detections": 1451,
+        "detections": 1413,
         "detections_dropped_by_budget": 0,
         "detections_matched_to_ignored_regions": 0,
         "detections_on_unlabeled_frames": 0,
-        "ground_truth": 544,
-        "ignored_ground_truth": 280
+        "ground_truth": 531,
+        "ignored_ground_truth": 278
       },
       "true_positives": 44,
       "width_bins": {
@@ -23336,8 +23060,8 @@
         },
         "[16,32)": {
           "availability_reason": {},
-          "recall": 0.0070921985815602835,
-          "support": 282
+          "recall": 0.007434944237918215,
+          "support": 269
         },
         "[32,64)": {
           "availability_reason": {},
@@ -23354,24 +23078,24 @@
     "diagnostics": {
       "false_positive_breakdown": {
         "definition": "detections at or above the frozen threshold with no scored aircraft at IoU >= 0.5, by what they overlap (first matching category)",
-        "elsewhere_on_a_frame_with_objects": 33,
+        "elsewhere_on_a_frame_with_objects": 28,
         "on_a_negative_frame": 25,
         "overlapping_a_scored_aircraft": 19,
-        "unmatched": 77,
-        "unmatched_width_ge_64_px": 73
+        "unmatched": 72,
+        "unmatched_width_ge_64_px": 68
       },
       "loose_iou_threshold_metrics": {
         "0.2": {
-          "f1": 0.15315315315315314,
-          "false_negatives": 493,
-          "false_positives": 71,
+          "f1": 0.1574074074074074,
+          "false_negatives": 480,
+          "false_positives": 66,
           "false_positives_per_negative_frame": 0.06702412868632708,
-          "precision": 0.4180327868852459,
-          "recall": 0.09375,
+          "precision": 0.4358974358974359,
+          "recall": 0.096045197740113,
           "true_positives": 51,
           "width_bins": {
             "[0,16)": 0.0,
-            "[16,32)": 0.0070921985815602835,
+            "[16,32)": 0.007434944237918215,
             "[32,64)": 0.08333333333333333,
             "[64,inf)": 0.5211267605633803
           }
@@ -23384,14 +23108,14 @@
           "person": 7
         },
         "definition": "scored aircraft with no aircraft detection at IoU >= 0.5 and score >= the frozen threshold; covered = an unmapped COCO class candidate at or above the threshold overlaps it at IoU >= 0.5 (most frequent class counted)",
-        "missed": 500
+        "missed": 487
       },
       "negative_frames_with_birds_left_out": 22,
       "per_category_development": {
         "Airplane": {
-          "ap50": 0.046881273673726825,
-          "recall": 0.07772020725388601,
-          "support": 193,
+          "ap50": 0.04937289160191978,
+          "recall": 0.08196721311475409,
+          "support": 183,
           "width_bins": {
             "[0,16)": {
               "availability_reason": {},
@@ -23401,7 +23125,7 @@
             "[16,32)": {
               "availability_reason": {},
               "recall": 0.0,
-              "support": 119
+              "support": 109
             },
             "[32,64)": {
               "availability_reason": {},
@@ -23416,9 +23140,9 @@
           }
         },
         "Helicopter": {
-          "ap50": 0.05716371612582277,
-          "recall": 0.08262108262108261,
-          "support": 351,
+          "ap50": 0.05822359002520185,
+          "recall": 0.08333333333333333,
+          "support": 348,
           "width_bins": {
             "[0,16)": {
               "availability_reason": {},
@@ -23427,8 +23151,8 @@
             },
             "[16,32)": {
               "availability_reason": {},
-              "recall": 0.012269938650306749,
-              "support": 163
+              "recall": 0.0125,
+              "support": 160
             },
             "[32,64)": {
               "availability_reason": {},
@@ -23447,14 +23171,14 @@
     },
     "intervals_development": {
       "ap50": {
-        "high": 0.1035476013690294,
-        "low": 0.03504144369853803,
+        "high": 0.1069747501442865,
+        "low": 0.035132661930616045,
         "resamples": 200,
         "sequences": 31
       },
       "ap_50_95": {
-        "high": 0.046830838029674825,
-        "low": 0.014466171456587408,
+        "high": 0.049101169941635325,
+        "low": 0.014762403089199561,
         "resamples": 200,
         "sequences": 31
       },
@@ -23465,14 +23189,14 @@
         "sequences": 31
       },
       "precision": {
-        "high": 0.5350877192982456,
-        "low": 0.2,
+        "high": 0.5614035087719298,
+        "low": 0.2125,
         "resamples": 1000,
         "sequences": 31
       },
       "recall": {
-        "high": 0.11685823754789272,
-        "low": 0.047619047619047616,
+        "high": 0.11937377690802348,
+        "low": 0.0492091388400703,
         "resamples": 1000,
         "sequences": 31
       },
@@ -23483,7 +23207,7 @@
         "sequences": 31
       },
       "width_bin_recall [16,32)": {
-        "high": 0.01838235294117647,
+        "high": 0.019011406844106463,
         "low": 0.0,
         "resamples": 1000,
         "sequences": 31
@@ -23505,8 +23229,8 @@
     "repeatability": {
       "development": {
         "detections": [
-          1451,
-          1451
+          1413,
+          1413
         ],
         "frames_with_count_mismatch": 0,
         "max_abs_box_difference_px": 0.0,
@@ -23525,8 +23249,8 @@
       },
       "validation": {
         "detections": [
-          885,
-          885
+          870,
+          870
         ],
         "frames_with_count_mismatch": 0,
         "max_abs_box_difference_px": 0.0,
@@ -23534,16 +23258,16 @@
       },
       "validation_threshold_repeat": 0.16
     },
-    "sha256": "5c128f0b9ea061721b48b08a99901876c49e103a955ec885ad6a2fe0124edda7",
+    "sha256": "d02836218dd5d75dac4ac86a69b7a78ec4efe52fe0ab8d61e11dbd02383256ed",
     "validation": {
-      "ap50": 0.1185030181849045,
-      "ap_50_95": 0.07196872801023144,
-      "f1": 0.19873150105708245,
-      "false_negatives": 348,
+      "ap50": 0.12352758609183889,
+      "ap_50_95": 0.07453326361294112,
+      "f1": 0.20346320346320343,
+      "false_negatives": 337,
       "false_positives": 31,
-      "false_positives_per_complete_frame": 0.04,
+      "false_positives_per_complete_frame": 0.04041720990873533,
       "frames": {
-        "complete": 775,
+        "complete": 767,
         "negative": 255,
         "partial": 0,
         "unlabeled_excluded": 0
@@ -23555,14 +23279,14 @@
         "with_false_positives": 7
       },
       "precision": 0.6025641025641025,
-      "recall": 0.1189873417721519,
+      "recall": 0.12239583333333333,
       "score_threshold": 0.16,
       "support": {
-        "detections": 885,
+        "detections": 870,
         "detections_dropped_by_budget": 0,
         "detections_matched_to_ignored_regions": 0,
         "detections_on_unlabeled_frames": 0,
-        "ground_truth": 395,
+        "ground_truth": 384,
         "ignored_ground_truth": 304
       },
       "true_positives": 47,
@@ -23575,7 +23299,7 @@
         "[16,32)": {
           "availability_reason": {},
           "recall": 0.0,
-          "support": 181
+          "support": 170
         },
         "[32,64)": {
           "availability_reason": {},
@@ -23604,75 +23328,77 @@
   "runs": {
     "baseline": {
       "code": {
-        "commit": "773e8995842f10ab0f0537f2121be95c247af671",
+        "commit": "4e2430d2aeeaff7bc952474790a3a6fb866bd0d2",
         "dirty_paths": []
       },
       "model_provenance": "aeris-detector-baseline-v1; YOLOX-S YOLOX@6ddff4824372 weights sha256:f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30; onnxruntime CPUExecutionProvider threads=1",
       "splits": {
         "development": {
-          "annotations_sha256": "4102357d71c9314296f9e5b0f86a1eac960e16c86cd1e788c99bc311e0bc417c",
-          "detections": 1451,
-          "detections_sha256": "e0834ae07730189035c9d67dfb77af377d36460c1ced99efe90a78f819f8b4bf",
-          "frames": 1114,
+          "annotations_sha256": "f9e8844145a3dbbb24af52afbcde1a0293f5f84ff9e9fc987b2a790db5ab201b",
+          "detections": 1413,
+          "detections_sha256": "bc6662af088d107eec66af5eda7f841526d9269e439b565f72ce564b0c7ea517",
+          "frames": 1102,
           "providers": [
             "CPUExecutionProvider"
           ],
           "threads": 1,
           "unmapped_floor": 0.05,
-          "unmapped_sha256": "3350f11830829cb96f38d3414654e3dac002d2907d4fca961c2ab8ddc6b9249a",
-          "wall_s_per_frame_median": 0.28097344300022087,
-          "wall_s_total": 317.05897755198794
+          "unmapped_sha256": "279fcd4e63805afc8709a2c4279f94c5e0f52dbf4340dbfefcbaa04141e3704a",
+          "wall_s_per_frame_median": 0.283401867000066,
+          "wall_s_total": 317.27396089699414
         },
         "validation": {
-          "annotations_sha256": "b4733bc72c86c5835ebb97baf535af45524096c55ed6994ebed18e81bb905ec0",
-          "detections": 885,
-          "detections_sha256": "58c91133457d4f7517e06970286e7dd5ed493feae2bb372d779a50d5459092d9",
-          "frames": 775,
+          "annotations_sha256": "5716e9cd8ca2cbf25ed6643624711b3062a3ecadb3087e3c8793bbe7d80caf39",
+          "detections": 870,
+          "detections_sha256": "8b0eea8533ef387cef25680a2097242e260bb1d33d3093a7fb3fc403f130673d",
+          "frames": 767,
           "providers": [
             "CPUExecutionProvider"
           ],
           "threads": 1,
           "unmapped_floor": 0.05,
-          "unmapped_sha256": "7ffcc5783afde73e8c49f004c77eab34ba24b57d7fdd72c0df0b9c5fd5e5d420",
-          "wall_s_per_frame_median": 0.28047918099991875,
-          "wall_s_total": 220.29956709700036
+          "unmapped_sha256": "9635a6402ca8682ff7a5b8178eeaed255dcd2fcfb67c7bb351cc6550fa5327d1",
+          "wall_s_per_frame_median": 0.28549086899965914,
+          "wall_s_total": 221.9892208099909
         }
       }
     },
     "repeat": {
       "code": {
-        "commit": "2f249e57be72b1f7183169d183dd9907792a6c02",
-        "dirty_paths": []
+        "commit": "4e2430d2aeeaff7bc952474790a3a6fb866bd0d2",
+        "dirty_paths": [
+          "ocs/decisions/007-measured-baseline.md"
+        ]
       },
       "model_provenance": "aeris-detector-baseline-v1; YOLOX-S YOLOX@6ddff4824372 weights sha256:f55ded7181e1b0c13285c56e7790b8f0e8f8db590fe4edb37f0b7f345c913a30; onnxruntime CPUExecutionProvider threads=4",
       "splits": {
         "development": {
-          "annotations_sha256": "4102357d71c9314296f9e5b0f86a1eac960e16c86cd1e788c99bc311e0bc417c",
-          "detections": 1451,
-          "detections_sha256": "dcbce846d806e7e485179e1165a5492e6b1bdb37c2570f31694f39ef0b9e90a7",
-          "frames": 1114,
+          "annotations_sha256": "f9e8844145a3dbbb24af52afbcde1a0293f5f84ff9e9fc987b2a790db5ab201b",
+          "detections": 1413,
+          "detections_sha256": "8f402db35f34e25f8f0f951c62d94c311c2aaa8637d67ce24be03392d77d8403",
+          "frames": 1102,
           "providers": [
             "CPUExecutionProvider"
           ],
           "threads": 4,
           "unmapped_floor": 0.05,
-          "unmapped_sha256": "3350f11830829cb96f38d3414654e3dac002d2907d4fca961c2ab8ddc6b9249a",
-          "wall_s_per_frame_median": 0.1353365280001526,
-          "wall_s_total": 164.73946494598522
+          "unmapped_sha256": "279fcd4e63805afc8709a2c4279f94c5e0f52dbf4340dbfefcbaa04141e3704a",
+          "wall_s_per_frame_median": 0.13728397699924244,
+          "wall_s_total": 155.81412440400527
         },
         "validation": {
-          "annotations_sha256": "b4733bc72c86c5835ebb97baf535af45524096c55ed6994ebed18e81bb905ec0",
-          "detections": 885,
-          "detections_sha256": "60cb76decdf51f8c90d84adbdaa15dc16f1b763407ce35f8eda2e42efde59f40",
-          "frames": 775,
+          "annotations_sha256": "5716e9cd8ca2cbf25ed6643624711b3062a3ecadb3087e3c8793bbe7d80caf39",
+          "detections": 870,
+          "detections_sha256": "0825eb1f3265e8d178fa0d3ef65b116acbb4531aca334dae78794b7f307aa580",
+          "frames": 767,
           "providers": [
             "CPUExecutionProvider"
           ],
           "threads": 4,
           "unmapped_floor": 0.05,
-          "unmapped_sha256": "7ffcc5783afde73e8c49f004c77eab34ba24b57d7fdd72c0df0b9c5fd5e5d420",
-          "wall_s_per_frame_median": 0.1327505320000455,
-          "wall_s_total": 105.13610692899329
+          "unmapped_sha256": "9635a6402ca8682ff7a5b8178eeaed255dcd2fcfb67c7bb351cc6550fa5327d1",
+          "wall_s_per_frame_median": 0.1354118320005,
+          "wall_s_total": 106.66023384300661
         }
       }
     }
@@ -23751,18 +23477,18 @@
         "2019-11-06"
       ],
       "flight_count": 90,
-      "frames": 1114,
-      "frames_digest": "75952f995dd8c28121f0d9d667c33d3da2edb516c149bfd391a5ed41dcd3df59",
+      "frames": 1102,
+      "frames_digest": "788926d2984c388d8faaeaf6e1be7dda08fe4d4665a83bf560bbfeed36e5dbf8",
       "frames_empty": 351,
       "frames_other": 221,
-      "frames_scored": 542,
+      "frames_scored": 530,
       "nominal_aircraft_ignored": 210,
-      "not_aircraft_left_out": 96,
-      "scored_aircraft": 544,
-      "scored_airplane": 193,
-      "scored_helicopter": 351,
+      "not_aircraft_left_out": 97,
+      "scored_aircraft": 531,
+      "scored_airplane": 183,
+      "scored_helicopter": 348,
       "scored_width_[0,16)": 47,
-      "scored_width_[16,32)": 282,
+      "scored_width_[16,32)": 269,
       "scored_width_[32,64)": 144,
       "scored_width_[64,inf)": 71,
       "sequence_count": 90,
@@ -23858,7 +23584,7 @@
         "e9edb60f57714d18865bd2679fe7463f-camera0",
         "b7e618466a2b4f22b7c28e84a643f050-camera0"
       ],
-      "unknown_objects_ignored": 70
+      "unknown_objects_ignored": 68
     },
     "holdout": {
       "day_count": 15,
@@ -23880,18 +23606,18 @@
         "2019-09-09"
       ],
       "flight_count": 89,
-      "frames": 1039,
-      "frames_digest": "13b3c4bf011fa8425b21bedae3df0782216910830a88605aafd583f6902189ac",
+      "frames": 1023,
+      "frames_digest": "940b044b7b046d81f439ab9566b93254229f4e42fe4c837f3ba276bc79177993",
       "frames_empty": 325,
       "frames_other": 235,
-      "frames_scored": 479,
-      "nominal_aircraft_ignored": 259,
-      "not_aircraft_left_out": 99,
-      "scored_aircraft": 482,
-      "scored_airplane": 144,
-      "scored_helicopter": 338,
+      "frames_scored": 463,
+      "nominal_aircraft_ignored": 256,
+      "not_aircraft_left_out": 98,
+      "scored_aircraft": 466,
+      "scored_airplane": 138,
+      "scored_helicopter": 328,
       "scored_width_[0,16)": 44,
-      "scored_width_[16,32)": 271,
+      "scored_width_[16,32)": 255,
       "scored_width_[32,64)": 119,
       "scored_width_[64,inf)": 48,
       "sequence_count": 90,
@@ -23987,7 +23713,7 @@
         "d3ee8ae18cf640d7ad53dc3e7164614b-camera0",
         "913432173b6d465c801682fadc0c3704-camera0"
       ],
-      "unknown_objects_ignored": 116
+      "unknown_objects_ignored": 114
     },
     "validation": {
       "day_count": 15,
@@ -24009,18 +23735,18 @@
         "2019-09-11"
       ],
       "flight_count": 59,
-      "frames": 775,
-      "frames_digest": "2a74ad0450796edee7419cb3efd65212c66748d6f7673922e4783bf6fcaf4ab7",
+      "frames": 767,
+      "frames_digest": "ef45d88d476f374bfee3c4c3adbefce79fd27a9e5d07f179972d1bef2eefa076",
       "frames_empty": 235,
       "frames_other": 153,
-      "frames_scored": 387,
-      "nominal_aircraft_ignored": 192,
+      "frames_scored": 379,
+      "nominal_aircraft_ignored": 194,
       "not_aircraft_left_out": 57,
-      "scored_aircraft": 395,
-      "scored_airplane": 247,
-      "scored_helicopter": 148,
+      "scored_aircraft": 384,
+      "scored_airplane": 240,
+      "scored_helicopter": 144,
       "scored_width_[0,16)": 19,
-      "scored_width_[16,32)": 181,
+      "scored_width_[16,32)": 170,
       "scored_width_[32,64)": 117,
       "scored_width_[64,inf)": 78,
       "sequence_count": 60,
@@ -24086,7 +23812,7 @@
         "dc0c48432eb34425b62f7c59fdd7fa25-camera0",
         "7dcb51ed009e40769bcf63853db30fa2-camera0"
       ],
-      "unknown_objects_ignored": 112
+      "unknown_objects_ignored": 110
     }
   },
   "task": "AERIS-007"

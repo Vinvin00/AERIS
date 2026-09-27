@@ -503,6 +503,14 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual([o.ignore for o in only.objects], [False, True])
 
 
+class ProvenanceTests(unittest.TestCase):
+    def test_dirty_paths_keep_first_character(self):
+        # A leading space is the "unmodified in index" column, not padding.
+        text = " M docs/baseline.md\nM  python/x.py\n?? new file.txt\n"
+        self.assertEqual(bl.dirty_paths(text), ["docs/baseline.md", "python/x.py", "new file.txt"])
+        self.assertEqual(bl.dirty_paths(""), [])
+
+
 class DigestTests(unittest.TestCase):
     def test_canonical_digest(self):
         self.assertEqual(bl.digest({"b": 1, "a": [1, 2]}), bl.digest({"a": [1, 2], "b": 1}))
