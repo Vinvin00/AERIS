@@ -7,14 +7,19 @@ Decoding uses OpenCV's FFmpeg backend (LGPL FFmpeg bundled with opencv-python-he
 Each decoded frame's time comes from its presentation timestamp: after `read()`, OpenCV
 reports FFmpeg's best-effort presentation time of that frame (the frame PTS when the
 stream has one) as `CAP_PROP_POS_MSEC`. Timestamps are seconds from the first decoded
-frame. Every delta must be strictly positive; a zero or negative delta, or a missing
-timestamp, stops the run (`TimestampError`). OpenCV reports 0 for a frame without a
-timestamp, so a stream without timestamps fails at its second frame. The only fallback
-is explicit: `--timestamps inferred_fps --fps F` gives `frame_index / F`, and every frame
-record says `timestamp_source = "inferred_fps"`.
+frame. That is only a presentation timestamp when the container stores per-frame times,
+so `pts` mode accepts Matroska/WebM, MP4/QuickTime and MPEG-TS (identified by their magic
+bytes) and refuses AVI, Ogg, raw elementary streams and unknown formats, for which FFmpeg
+would derive times from a nominal frame rate. Every delta must be strictly positive; a
+zero or negative delta, or a missing timestamp, stops the run (`TimestampError`). The only
+fallback is explicit: `--timestamps inferred_fps --fps F` gives `frame_index / F`, and
+every frame record says `timestamp_source = "inferred_fps"`.
 
-Each processed frame records decode, preprocess, inference, postprocess, render and total
-wall-clock seconds. Frames decoded but not processed are counted by reason. Outputs, in
+Each processed frame records decode, preprocess, inference, postprocess and render
+wall-clock seconds, `total` (one wall-clock span from the start of its decode to the end
+of its processing) and `other` (total minus the named stages: timestamp check, pixel
+hash, record building). Throughput is processed frames over the loop's wall time. Frames
+decoded but not processed are counted by reason. Outputs, in
 the output directory:
 
 - `frames.jsonl`: contract `FrameRecord`s (`annotation_status = "unlabeled"`; the image
@@ -51,7 +56,8 @@ from aeris.data.contracts import SCHEMA_VERSION, FrameRecord
 from aeris.detection import baseline as det
 
 ROOT = Path(__file__).resolve().parents[3]
-STAGES = ("decode", "preprocess", "inference", "postprocess", "render", "total")
+STAGES = ("decode", "preprocess", "inference", "postprocess", "render", "other", "total")
+PTS_CONTAINERS = ("matroska", "mp4", "mpegts")
 TIMESTAMP_MODES = ("pts", "inferred_fps")
 OVERLAY_FOURCC = "mp4v"
 OVERLAY_MIN_SCORE = 0.3  # display only; detections.jsonl keeps every detection above the detector floor
@@ -187,6 +193,23 @@ def file_sha256(path: Path) -> str:
     return sha.hexdigest()
 
 
+def container_format(path: Path) -> str:
+    """The container named by the file's magic bytes (`unknown` if none matches)."""
+    with open(path, "rb") as handle:
+        head = handle.read(377)
+    if head[:4] == b"\x1a\x45\xdf\xa3":
+        return "matroska"
+    if head[4:8] in (b"ftyp", b"moov", b"mdat", b"wide", b"free", b"skip"):
+        return "mp4"
+    if len(head) == 377 and head[0] == head[188] == head[376] == 0x47:
+        return "mpegts"
+    if head[:4] == b"RIFF" and head[8:12] == b"AVI ":
+        return "avi"
+    if head[:4] == b"OggS":
+        return "ogg"
+    return "unknown"
+
+
 def open_video(path: Path):
     """An OpenCV FFmpeg capture and the container's reported properties."""
     if not path.is_file():
@@ -195,7 +218,8 @@ def open_video(path: Path):
     if not cap.isOpened():
         raise PipelineError(f"{path}: OpenCV's FFmpeg backend cannot open it as video")
     fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-    info = {"path": str(path), "name": path.name, "sha256": file_sha256(path),
+    info = {"path": str(path), "name": path.name, "container": container_format(path),
+            "sha256": file_sha256(path),
             "size_bytes": path.stat().st_size, "backend": cap.getBackendName(),
             "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             "nominal_fps": float(cap.get(cv2.CAP_PROP_FPS)),
@@ -290,6 +314,13 @@ def run(path, detector, out_dir, *, timestamps: str = "pts", fps: float | None =
         raise PipelineError("warmup_frames: expected an integer >= 0")
     path, out_dir = Path(path), Path(out_dir)
     policy = TimestampPolicy(timestamps, fps)
+    if not path.is_file():
+        raise PipelineError(f"{path}: no such file")
+    container = container_format(path)
+    if policy.mode == "pts" and container not in PTS_CONTAINERS:
+        raise PipelineError(f"{path.name}: a {container} file carries no per-frame presentation "
+                            "timestamps (FFmpeg would derive them from a nominal frame rate); use "
+                            "--timestamps inferred_fps --fps F to state a frame rate explicitly")
     cap, info = open_video(path)
     out_dir.mkdir(parents=True, exist_ok=True)
     sequence = sequence_id or re.sub(r"\s+", "_", path.stem)
@@ -297,11 +328,12 @@ def run(path, detector, out_dir, *, timestamps: str = "pts", fps: float | None =
     skipped: Counter = Counter()
     overlay, overlay_info, status, error, failure = None, None, "ok", None, None
     decoded, stopped_at_max, reference, index = 0, False, None, None
+    loop_start = clock()
     try:
         while True:
-            start = clock()
+            frame_start = clock()
             ok, image = cap.read()
-            decode_s = clock() - start
+            decode_s = clock() - frame_start
             if not ok:
                 break
             index = decoded
@@ -338,13 +370,14 @@ def run(path, detector, out_dir, *, timestamps: str = "pts", fps: float | None =
                     overlay = Overlay(out_dir / "overlay.mp4", rate, width, height)
                 overlay.write(image, records, timestamp)
                 render_s = clock() - start
+            frames.append(frame)
+            detections.extend(records)
+            total_s = clock() - frame_start
             per_frame.append({"frame_index": index, "timestamp_s": timestamp, "decode": decode_s,
                               "preprocess": pre_s, "inference": inf_s, "postprocess": post_s,
                               "render": render_s,
-                              "total": decode_s + pre_s + inf_s + post_s + (render_s or 0.0),
-                              "detections": len(records)})
-            frames.append(frame)
-            detections.extend(records)
+                              "other": total_s - (decode_s + pre_s + inf_s + post_s + (render_s or 0.0)),
+                              "total": total_s, "detections": len(records)})
             if max_frames is not None and len(frames) >= max_frames:
                 stopped_at_max = True
                 break
@@ -358,6 +391,7 @@ def run(path, detector, out_dir, *, timestamps: str = "pts", fps: float | None =
         cap.release()
         if overlay is not None:
             overlay_info = overlay.close()
+    loop_wall_s = clock() - loop_start
     warnings = []
     if (status == "ok" and not stopped_at_max and info["frame_count_reported"] > 0
             and decoded < info["frame_count_reported"]):
@@ -368,8 +402,11 @@ def run(path, detector, out_dir, *, timestamps: str = "pts", fps: float | None =
                "percentiles": "numpy.percentile, linear interpolation",
                "summary": {stage: summarize([f[stage] for f in kept if f[stage] is not None]) for stage in STAGES},
                "decode_all_decoded_frames": summarize(decode_all),
-               "processed_frames_per_second": (len(per_frame) / sum(f["total"] for f in per_frame)
-                                               if per_frame else None),
+               "loop_wall_s": loop_wall_s,
+               "processed_frames_per_second": (len(per_frame) / loop_wall_s
+                                               if per_frame and loop_wall_s > 0 else None),
+               "throughput_note": "processed frames / loop wall time, including warm-up, decoding "
+                                  "of stride-skipped frames and writing the overlay",
                "per_frame": per_frame}
     _jsonl(out_dir / "frames.jsonl", frames)
     _jsonl(out_dir / "detections.jsonl", detections)
