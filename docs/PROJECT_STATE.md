@@ -170,13 +170,32 @@ Scores are correctness/tests/reproducibility/contracts/scope out of 4.
       let FFmpeg fill in times that are not stored.
     - Attempt 3 refused those and added the frame-by-frame Matroska check.
 
+- AERIS-021 overlay render geometry correction (`python/aeris/video/pipeline.py`,
+  ADR 021), a follow-up task for Codex's supplementary AERIS-008 review finding
+  **C008-1** (major; see below). Review: accept on attempt 1 of 3, 4/4/3/3/4.
+  - `Overlay.__init__` refuses (`PipelineError`, no file written) an odd input width or
+    height, rather than let OpenCV's `mp4v` writer silently crop it while `run.json`
+    kept reporting the requested (wrong) size. Headless processing is unaffected.
+  - Measured directly against this Linux build across five fourccs (`mp4v`, `MJPG`,
+    `FFV1`, `HFYU`, `RGBA`) and three containers: every one rounds an odd dimension
+    down, so this is general OpenCV `VideoWriter` behaviour here, not `mp4v`-specific.
+  - The MP4 overlay regression test now decodes the written file and checks its real
+    geometry against `run.json.overlay`, closing the general form of the defect, not
+    only the odd/even case; a dedicated test covers odd width, odd height and both odd
+    through the fake-capture seam (OpenCV's own writer cannot emit a genuinely
+    odd-dimension file in this sandbox, which also has no `ffmpeg` CLI).
+  - AERIS-008 itself was not reopened: its three attempts and acceptance are untouched.
+  - The reviewer's own probes (6 hand-written mutants, an independent five-fourcc
+    rounding re-measurement, and a `git diff` confirming AERIS-008's files were
+    untouched) corroborate the fix; findings below.
+
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only. One reviewer session reviewed 001 and 002. A fresh
 session reviewed both 003 attempts; the coordinator co-authored 003. Fresh sessions
-reviewed 004, both 005 attempts, both 006 attempts, the three 007 attempts and the
-three 008 attempts, which the coordinator wrote. The first reviewer sessions for 006
-attempt 2 and 008 attempt 1 stopped on a rate limit before writing anything; fresh
-sessions did those reviews. Another fresh session reviewed
+reviewed 004, both 005 attempts, both 006 attempts, the three 007 attempts, the three
+008 attempts and AERIS-021, which the coordinator wrote. The first reviewer sessions
+for 006 attempt 2 and 008 attempt 1 stopped on a rate limit before writing anything;
+fresh sessions did those reviews. Another fresh session reviewed
 the AERIS-007 planning change.
 
 Supplementary review (2026-09-27): the owner authorised a parallel Codex session to
@@ -194,14 +213,14 @@ comment `5859280428`, 2026-09-27) reran the video suite there (33/34 pass, one s
 no local ONNX export) and independently re-verified the Matroska stored-time check
 against `ffprobe` (max difference `1.82e-12` ms) and the fetched clip's hashes. It
 raised one new finding, **C008-1** (major), on the `--render` overlay path, not on
-detection or timestamp correctness. See the follow-up table below; AERIS-008 stays
-accepted (three attempts already used) and this is tracked as separate corrective work.
+detection or timestamp correctness. AERIS-008 stayed accepted throughout (three
+attempts already used); the finding was fixed as the separate follow-up task AERIS-021
+(above), closed in the follow-up table below.
 
 ## Reviewer follow-ups (not yet done)
 
 | From | Follow-up | Owner task |
 |---|---|---|
-| 008 C008-1 | **Major, post-acceptance, from Codex's supplementary review** (PR #1 comment `5859280428`). `Overlay` (`python/aeris/video/pipeline.py:380` `__init__`, `:403` `close`) writes the overlay at the decoded frame's exact width/height, but OpenCV's `mp4v` writer silently rounds odd dimensions down for 4:2:0 chroma subsampling; `close()` reports the requested `self.size`, not what was actually encoded. Codex's reproducer (macOS, real FFV1-encoded 65x49 Matroska, real ONNX-independent `--render` run): `run.json.overlay` says `{width: 65, height: 49, frames: 3}` while the written `overlay.mp4` decodes to 64x48. I reproduced the same rounding directly with `cv2.VideoWriter` in this Linux cloud environment (65x49 write → capture reports 64x48), so it is OpenCV/mp4v behaviour, not a macOS artefact. `frames.jsonl`/`detections.jsonl` keep the correct decoded geometry; only the overlay file and its `run.json` entry are wrong. No existing evidence run used an odd-dimension input (Haneda is 1920x1080), so no accepted results are affected. Smallest fix (Codex's and mine): refuse `--render` on an odd width or height with a clear `PipelineError`, leaving headless processing unaffected; the alternative is to pad and record the actual encoded geometry/transform. Add odd-width, odd-height and both-odd test cases that decode the overlay file and check its real dimensions rather than trusting `close()` | new task touching `aeris/video` (unassigned; scope this before relying on `--render` output geometry for odd-sized input) |
 | 001 F1 | 17 of 34 contract mutants survive. The untested checks are ID, version and timestamp checks on detection, prediction, truth and annotation records; there are no `annotation_id`/`track_id` identifier tests. The reconstructed 001 report (F2) wrongly claimed them | next contracts task (unassigned) |
 | 001 F4 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report. AERIS-008 avoids it (one timestamp policy per run) but could not change `python/aeris/data/` | next task owning `python/aeris/data/*` (unassigned) |
 | 002 N1/F1 | Manifest validator value checks: 27 of 40 invalid values pass (no sources, `False` class ID, `1e400`, unknown evaluation names). Not ported to `python/aeris/data` by AERIS-003 | unassigned |
@@ -230,7 +249,17 @@ accepted (three attempts already used) and this is tracked as separate correctiv
 | 008 A3-R3 | A crafted MPEG-TS behind an 8- or 16-byte MP4 `skip` box is classed as MP4; FFmpeg opens it as TS and interpolated times are labelled `decode_pts`. No muxer writes such a file, but the `docs/video.md` limitation ("caught only by the open, decode or delta checks") is too optimistic. Walk the top-level ISO BMFF boxes and require `moov`, or reword | next task touching `aeris/video` |
 | 008 MP4 | MP4 times are FFmpeg's reading of `stts`/`ctts`, edit lists and fragment defaults; no real MP4 file was checked, only OpenCV-written constant-rate ones | next task touching `aeris/video` |
 | 008 unit timeout | The full unit check runs in about 82–90 s against its 120 s timeout | next governance task |
+| 021 R021-1 | The AERIS-021 report, ADR 021 and this file's AERIS-021 entry attribute the OpenCV `VideoWriter` odd-dimension rounding to "4:2:0 chroma subsampling". The reviewer's own re-measurement found `RGBA` (uncompressed, no chroma subsampling) rounds identically, contradicting that specific mechanism. Doesn't affect the fix (the even/odd check is mechanism-agnostic and empirically justified); soften the wording to "measured, mechanism not confirmed" | next `aeris/video` docs touch |
+| 021 R021-2 | The AERIS-021 `report.json` summary says "36 video tests pass in strict mode"; `check-video.log` and the reviewer's own rerun both show 35. Harmless narrative off-by-one, no verification artifact affected | next report touch (informational; no action needed beyond noting it here) |
 | 004 F4 | Synthetic detector scores identify row kinds (duplicate exactly 0.55, false positive 0.30), so a threshold between 0.55 and 0.70 silently drops both. AERIS-005's tests probe thresholds 0.25/0.5/0.55/0.9 around them; vary the scores before tracker threshold tests | AERIS-009 or next `aeris/simulation` task |
+
+Closed by AERIS-021:
+
+- **008 C008-1** (major, from Codex's supplementary AERIS-008 review, PR #1 comment
+  `5859280428`): `--render`'s overlay silently reported the requested frame size while
+  OpenCV's `VideoWriter` had rounded an odd width or height down. `Overlay.__init__` now
+  refuses before writing anything; headless processing is unaffected. AERIS-008 itself
+  was not reopened.
 
 Closed by AERIS-003:
 
