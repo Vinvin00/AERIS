@@ -1,0 +1,151 @@
+{
+ "schema_version": 1,
+ "part": "part1",
+ "flight_id": "69904ae4f18d46ec8886e8fd6179171b",
+ "camera": "camera0",
+ "licence": "cdla-permissive-1.0",
+ "licence_url": "https://cdla.dev/permissive-1-0/",
+ "source": "Amazon Prime Air Airborne Object Tracking training set, s3://airborne-obj-detection-challenge-training",
+ "track_id": "Helicopter1",
+ "fetched_utc": "2026-09-27",
+ "frames": [
+  {
+   "frame": 18,
+   "img_name": "154884661198467704469904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "dec76b802f12a5aa4cde4bb65bace6551487727e3b4dab594e58c042bee05ba6",
+   "size_bytes": 2278372
+  },
+  {
+   "frame": 19,
+   "img_name": "154884661208930385269904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "e76c36c25323976e9a2445cb2dc9cbfdaa6c16c22a4dbd3e8e8450a9b97b9b69",
+   "size_bytes": 2287703
+  },
+  {
+   "frame": 20,
+   "img_name": "154884661226440454669904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "e4f1c9a0cc3a4756ca6893296e637dbf95378f81a1c382b332416cf9bf009a74",
+   "size_bytes": 2296222
+  },
+  {
+   "frame": 21,
+   "img_name": "154884661233410309169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "d2371527e5f8b2ebec97a0eb5dee9d735dc5ba776fb5805fa25067839c07a5aa",
+   "size_bytes": 2297593
+  },
+  {
+   "frame": 22,
+   "img_name": "154884661238582578169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "717e3fe21cff3208804bac9a60ff8cf5911d6c52e6a47d753cd4a2626f8ae64a",
+   "size_bytes": 2301224
+  },
+  {
+   "frame": 23,
+   "img_name": "154884661256098572169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "bb2d626273bc59154275ceee0bb88f9d5aa3f072bfcc08de43d5bca2b067195d",
+   "size_bytes": 2300646
+  },
+  {
+   "frame": 24,
+   "img_name": "154884661260078318869904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "29af097d717b02848719f34c4e615db881939c363f8267af26274403e1d5008b",
+   "size_bytes": 2300081
+  },
+  {
+   "frame": 25,
+   "img_name": "154884661268453842969904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "60e9a91deb8693122f0f59c34ea9eb37a0216a0f6d7631179cd041180e5d1d72",
+   "size_bytes": 2295626
+  },
+  {
+   "frame": 26,
+   "img_name": "154884661285045086069904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "a47d9ef4977d23ff5b3f462ef914711a7583e03515a7776a9f9928e516c6e797",
+   "size_bytes": 2295353
+  },
+  {
+   "frame": 27,
+   "img_name": "154884661290042407369904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "c581d9e44664f19b975b73ea26414a70c7a96c936cfa17691511fbb3a9e680e3",
+   "size_bytes": 2290195
+  },
+  {
+   "frame": 28,
+   "img_name": "154884661305133290969904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "a8838e27d1a9ad53ed4ccf49f6598145ea5986427fdd7121fc881d1e6de17c0e",
+   "size_bytes": 2290606
+  },
+  {
+   "frame": 29,
+   "img_name": "154884661309162279969904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "cafd8825848be6ad88960cd41fc4ff9849bb596f1aaa280793f666e2b988d6ee",
+   "size_bytes": 2291370
+  },
+  {
+   "frame": 30,
+   "img_name": "154884661318779606869904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "956b9a3d96e22e2f520f0d37636e15fc22aac40f1ad06a739b28cfa6d228330e",
+   "size_bytes": 2288722
+  },
+  {
+   "frame": 31,
+   "img_name": "154884661336325750169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "1954a3c1d7deef102d8a578bf50a3877c2422493551155af07674b98bc12f46d",
+   "size_bytes": 2286293
+  },
+  {
+   "frame": 32,
+   "img_name": "154884661340467716169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "7b0fa50cec863d64ac75daf50b80a4f060d89eb4cde2ce2db4a41aac19ef8520",
+   "size_bytes": 2284303
+  },
+  {
+   "frame": 33,
+   "img_name": "154884661348475849469904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "d2acf2a1e8090e266f86f8d7315e59204de0c9c98a503f5eb051b61fd756e0ca",
+   "size_bytes": 2274581
+  },
+  {
+   "frame": 34,
+   "img_name": "154884661365171615069904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "cc1b716477b392207173240726c96411eee134e4baac85293e4e3b0cc21c262f",
+   "size_bytes": 2271716
+  },
+  {
+   "frame": 35,
+   "img_name": "154884661371746034269904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "13ba2e1d7e56abb26b85313970613c08133fcda706aab62c650c9f0c5def8dee",
+   "size_bytes": 2263614
+  },
+  {
+   "frame": 36,
+   "img_name": "154884661378230415969904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "6be5bcc67f6f217f69b4bd2c1650647f4bb4ec36975c9a15ffb6c4cfd5fcb1d0",
+   "size_bytes": 2260454
+  },
+  {
+   "frame": 37,
+   "img_name": "154884661394814756169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "0f92c734a3c96d8fca7693d9ccec37d852a4086996a665be9ffc6b1c8d05ab6b",
+   "size_bytes": 2254635
+  },
+  {
+   "frame": 38,
+   "img_name": "154884661400550862169904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "636ec2018f5ffa5796327b7e58007ddc8e8e376647a635c6e465f11d5048e614",
+   "size_bytes": 2249237
+  },
+  {
+   "frame": 39,
+   "img_name": "154884661414498193469904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "2ea2dfb45fef14620437309710466b3878c97354d24ee3c2fa8e92596555f7c9",
+   "size_bytes": 2246923
+  },
+  {
+   "frame": 40,
+   "img_name": "154884661418550050769904ae4f18d46ec8886e8fd6179171b.png",
+   "sha256": "49ca768abe7217cc632fc1b56efc5c74466e3f0a918a62bd78544c03f0e7002f",
+   "size_bytes": 2233684
+  }
+ ]
+}

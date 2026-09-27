@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "config_id": "aeris-tracker-baseline-v1",
+ "task": "AERIS-009",
+ "scope_note": "Constant-velocity Kalman filter with gated Hungarian association over contract-v1 DetectionRecords. Not trained or tuned on AERIS data; noise parameters are engineering defaults, not calibrated against a validated detector-score-to-measurement-noise mapping (CONTRACTS.md forbids an unvalidated one).",
+ "process_noise": {
+  "accel_std_px_s2": 200.0,
+  "size_std_px_sqrt_s": 2.0
+ },
+ "measurement_noise": {
+  "position_std_px": 2.0,
+  "size_std_px": 2.0
+ },
+ "initial_uncertainty": {
+  "velocity_std_px_s": 200.0
+ },
+ "association": {
+  "gate_false_alarm_rate": 0.01,
+  "duplicate_suppression_iou": 0.5
+ },
+ "lifecycle": {
+  "min_hits_to_confirm": 2,
+  "lost_timeout_s": 0.3
+ },
+ "geometry": {
+  "min_size_px": 1.0
+ }
+}
