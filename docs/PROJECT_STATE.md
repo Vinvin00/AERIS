@@ -189,13 +189,52 @@ Scores are correctness/tests/reproducibility/contracts/scope out of 4.
     rounding re-measurement, and a `git diff` confirming AERIS-008's files were
     untouched) corroborate the fix; findings below.
 
+- AERIS-009 Kalman tracking and association (`python/aeris/tracking/tracker.py`,
+  ADR 009). Review: accept on attempt 2 of 3, 4/4/3/4/4.
+  - **State and association.** `[cx,cy,vx,vy,w,h]` constant-velocity Kalman state;
+    `[cx,cy,w,h]` measurement (size is matched into the gate, not left out — it is what
+    keeps a crossing's two tracks apart when their predicted centres coincide). Gated
+    Hungarian assignment runs in two passes: already-confirmed tracks match every
+    detection first, then tentative tracks compete for what is left.
+  - **Why the cascade.** Found empirically on the AERIS-004 crossing fixture's own
+    duplicate-detection case: a single flat assignment pass lets a track just spawned
+    from a duplicate (wide, barely-constrained covariance) win an established track's
+    next detection on Mahalanobis cost alone, handing over its identity. The two-pass
+    cascade (DeepSORT's own rationale) fixes this by construction; a within-frame
+    IoU-NMS duplicate suppression step is kept too, as an independent defence, even
+    though it alone did not suppress this fixture's own jittered duplicate (measured
+    IoU 0.44, just under its 0.5 threshold).
+  - **Lifecycle** (`tentative -> confirmed -> lost -> deleted`) is timed in elapsed
+    seconds throughout, never frame count; process noise `Q(dt)` depends on elapsed
+    time; covariance updates use Joseph's form, symmetrized and eigenvalue-clipped
+    every step.
+  - **Real evidence (AC3):** 23 pinned, contiguous real AOT frames (one flight, a
+    scored Helicopter measuring 15.6-19.7 px wide throughout), reporting two separate
+    real results on the same flight: an oracle ablation (ground truth fed directly to
+    the tracker, clearly labelled as such) gives 0 identity switches, MOTA 0.957, IDF1
+    0.978; the real end-to-end AERIS-006 ONNX detector finds nothing (0 detections),
+    the honest result given AERIS-007's already-measured near-zero recall below 32 px.
+  - **History.**
+    - Attempt 1 was sent back for one major finding: the real target's measured size
+      was wrongly given as "16-45 px" in the report, docs and ADR; the true figure in
+      the pinned 23-frame window is 15.6-19.7 px (the 45 px came from the same flight,
+      211 frames outside the pinned evidence). Two minor test-coverage gaps were also
+      raised.
+    - Attempt 2 corrected the wording everywhere and closed both minor gaps: a test
+      that `predict()`/`update()` actually call the PSD-safety helper (not just the
+      helper alone), and a test of the exact `lost_timeout_s` deletion boundary
+      (strictly greater-than).
+  - During this task, `verify`'s full unit-suite check (327 tests, 111-119 s) actually
+    timed out once against its 120 s budget before passing on an immediate retry — the
+    governance gap already flagged for 006/007/008 stopped being theoretical.
+
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only. One reviewer session reviewed 001 and 002. A fresh
 session reviewed both 003 attempts; the coordinator co-authored 003. Fresh sessions
 reviewed 004, both 005 attempts, both 006 attempts, the three 007 attempts, the three
-008 attempts and AERIS-021, which the coordinator wrote. The first reviewer sessions
-for 006 attempt 2 and 008 attempt 1 stopped on a rate limit before writing anything;
-fresh sessions did those reviews. Another fresh session reviewed
+008 attempts, AERIS-021 and both 009 attempts, which the coordinator wrote. The first
+reviewer sessions for 006 attempt 2 and 008 attempt 1 stopped on a rate limit before
+writing anything; fresh sessions did those reviews. Another fresh session reviewed
 the AERIS-007 planning change.
 
 Supplementary review (2026-09-27): the owner authorised a parallel Codex session to
@@ -235,7 +274,7 @@ attempts already used); the finding was fixed as the separate follow-up task AER
 | 006 A2 F1 | The two small aircraft were not simply missed: they were localized and labelled `kite` (B-17 score 0.608, IoU 0.78; airliner 0.018, IoU 0.52), then dropped by argmax-then-map. `docs/detection.md`, ADR 006 and the report call it a resolution-only miss. Correct the wording; weigh the class rule with measured data. AERIS-007 measured it on AOT: other COCO classes cover only 15 of 487 missed development aircraft | a later detector task (rule); next `docs/detection.md` touch (wording) |
 | 006 A2 F2 | Two surviving mutants: a parity box check over x coordinates only passes all 54 strict tests; removing the fetcher's request pacing passes the sample tests. Add a y-only box perturbation and a pacing test | next task touching `aeris/detection` |
 | 006 A2 F3 | Fetch record: the local `manifest.json` came from an uncommitted intermediate fetcher (no `original_size_bytes`), so the submitted fetcher has run only against fakes; the three HTTP 429 refusals survive only in prose; five stored files are 3000–3840 px wide, not "2048 px renditions or smaller originals"; COCO's small-object boundary is by area (< 32² px²), not width. Re-fetch with the submitted fetcher when useful and correct the wording | next task touching `aeris/detection` |
-| 006/008 docs | ADR 005/006/008 still read "proposed", `docs/detection.md` "attempt 2, awaiting independent review" and `docs/video.md` "attempt 3, awaiting independent review". Set them to accepted | next docs touch |
+| 006/008/009 docs | ADR 005/006/008/009 still read "proposed", `docs/detection.md` "attempt 2, awaiting independent review", `docs/video.md` "attempt 3, awaiting independent review" and `docs/tracking.md` "attempt 1, awaiting independent review" (accepted on attempt 2). Set them to accepted | next docs touch |
 | 006 other | Small-target detection below about 32 px input width; migrate the export from the deprecated TorchScript exporter to `torch.export` (re-run parity, record the new hash) | AERIS-007 / later detector task |
 | 007 A3 F10 | `docs/baseline.md` gate table: the basis for false positives per negative frame should read "one false positive on a negative frame", not "one frame" | next `docs/baseline.md` touch |
 | 007 gate | The baseline check does not set `AERIS_REQUIRE_REAL_BASELINE=1`, so REAL tests could skip and still pass (same as 006 F6). Include it in the gate change | next governance task |
@@ -248,10 +287,11 @@ attempts already used); the finding was fixed as the separate follow-up task AER
 | 008 A3-R2 | `matroska_timeline` ends an unknown-size cluster at Void (`0xEC`) or CRC-32 (`0xBF`), which may legally appear inside a cluster. Such a file is refused with a misleading "differs from the stored block time" error (fails safe; nothing mislabelled). Treat them as skippable cluster children; `docs/video.md` wording | next task touching `aeris/video` |
 | 008 A3-R3 | A crafted MPEG-TS behind an 8- or 16-byte MP4 `skip` box is classed as MP4; FFmpeg opens it as TS and interpolated times are labelled `decode_pts`. No muxer writes such a file, but the `docs/video.md` limitation ("caught only by the open, decode or delta checks") is too optimistic. Walk the top-level ISO BMFF boxes and require `moov`, or reword | next task touching `aeris/video` |
 | 008 MP4 | MP4 times are FFmpeg's reading of `stts`/`ctts`, edit lists and fragment defaults; no real MP4 file was checked, only OpenCV-written constant-rate ones | next task touching `aeris/video` |
-| 008 unit timeout | The full unit check runs in about 82–90 s against its 120 s timeout | next governance task |
+| 008/009 unit timeout | The full unit check (327 tests) now runs 111–119 s against its 120 s timeout, and during AERIS-009 it actually timed out once (`verify`'s unit check, exit 124) before passing on an immediate retry: shared-VM wall-clock variance around a too-tight budget, not a functional regression, but no longer a purely theoretical risk | next governance task (raise the timeout or split/parallelize the suite) |
+| 009 gate | The `tracking` check does not set `AERIS_REQUIRE_REAL_TRACKING=1`, so its REAL tests could skip and still pass verify (same as 006/007/008); `verify` was run with it set explicitly | next governance task (roll into the same gate change as 006/007/008) |
 | 021 R021-1 | The AERIS-021 report, ADR 021 and this file's AERIS-021 entry attribute the OpenCV `VideoWriter` odd-dimension rounding to "4:2:0 chroma subsampling". The reviewer's own re-measurement found `RGBA` (uncompressed, no chroma subsampling) rounds identically, contradicting that specific mechanism. Doesn't affect the fix (the even/odd check is mechanism-agnostic and empirically justified); soften the wording to "measured, mechanism not confirmed" | next `aeris/video` docs touch |
 | 021 R021-2 | The AERIS-021 `report.json` summary says "36 video tests pass in strict mode"; `check-video.log` and the reviewer's own rerun both show 35. Harmless narrative off-by-one, no verification artifact affected | next report touch (informational; no action needed beyond noting it here) |
-| 004 F4 | Synthetic detector scores identify row kinds (duplicate exactly 0.55, false positive 0.30), so a threshold between 0.55 and 0.70 silently drops both. AERIS-005's tests probe thresholds 0.25/0.5/0.55/0.9 around them; vary the scores before tracker threshold tests | AERIS-009 or next `aeris/simulation` task |
+| 004 F4 | Synthetic detector scores identify row kinds (duplicate exactly 0.55, false positive 0.30), so a threshold between 0.55 and 0.70 silently drops both. AERIS-005's tests probe thresholds 0.25/0.5/0.55/0.9 around them; AERIS-009's own tracker tests use fixed 0.9/0.5 scores and did not address this; vary the scores before tracker threshold tests | next `aeris/simulation` task |
 
 Closed by AERIS-021:
 
@@ -300,11 +340,9 @@ nor the Commons clip.
 
 Next action: in a fresh checkout, first restore `orchestration/runs/` (and
 `benchmarks/runs/`) from the newest archive; both are Git-ignored. Re-fetch the video
-sample with `python -m aeris.video.samples fetch` for the REAL video tests. AERIS-009
-(Kalman tracking and association) is ready. Its AC3 needs identity-labelled real video.
-AOT has track IDs and timestamps (a domain proxy, already adapted by AERIS-007); the
-Haneda clip has no labels, so it cannot back tracking metrics. AERIS-010 (causal
-forecasts) follows AERIS-009.
+sample with `python -m aeris.video.samples fetch` for the REAL video tests, and the
+pinned real AOT tracking frames with `python -m aeris.tracking.real_sample fetch`.
+AERIS-010 (causal forecasts, depending on 005 and the now-accepted 009) is ready.
 
 **AERIS-011 ownership (2026-09-27):** Vincenzo asked Codex to implement AERIS-011
 (calibrated camera-relative geometry, depending on 001 and 004) itself, on an isolated
