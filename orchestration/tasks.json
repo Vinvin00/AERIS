@@ -814,6 +814,34 @@
         "video"
       ],
       "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-022",
+      "title": "Unit-check timeout margin",
+      "objective": "Raise orchestration/gates.json unit check timeout_s to a measured safe margin so wall-clock variance in an honestly growing test suite does not fail verify on its own.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/EVALUATION_LOOP.md",
+        "docs/PROJECT_STATE.md"
+      ],
+      "write_globs": [
+        "orchestration/gates.json",
+        "docs/decisions/022-*.md"
+      ],
+      "acceptance": {
+        "AC1": "orchestration/gates.json unit check timeout_s is raised to a value with a documented safety margin over multiple measured full-suite run times, and the reasoning is recorded in an ADR",
+        "AC2": "No other checks entry (argv, timeout_s, or check set) changes"
+      },
+      "required_artifacts": [
+        "orchestration/gates.json",
+        "docs/decisions/022-unit-check-timeout.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "One bounded slice; max 3 attempts. Config-only change: no new dependencies, datasets, compute, or gate-tool (tools/orchestrate.py) source changes."
     }
   ]
 }
