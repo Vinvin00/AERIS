@@ -298,6 +298,29 @@ class FakeCaptureTests(TempDir):
         self.assertEqual({r.timestamp_source for r in records}, {"inferred_fps"})
         self.assertEqual(run["timestamps"]["source"], "inferred_fps")
 
+    def test_odd_dimensions_refuse_rendering_but_headless_still_runs(self):
+        # AERIS-021 (Codex finding C008-1): OpenCV's mp4v overlay writer silently rounds an
+        # odd width or height down for 4:2:0 chroma subsampling (measured directly against
+        # this build: 65x49 -> 64x48, 63x47 -> 62x46; an even dimension is unaffected).
+        # OpenCV's own VideoWriter cannot be made to emit a genuinely odd-dimension file
+        # (it performs the same rounding on write), so the odd "decoded" frame is supplied
+        # directly through the fake capture rather than a real encode.
+        for width, height in ((33, 24), (32, 25), (33, 25)):  # odd width, odd height, both
+            with self.subTest(width=width, height=height):
+                frames = [(grey(width, height), 0.0), (grey(width, height), 40.0)]
+                with self.assertRaisesRegex(vp.PipelineError,
+                                            f"cannot render an overlay for {width}x{height} frames.*"
+                                            "mp4v needs an even width and height"):
+                    self.run_fake(frames, render=True)
+                self.assertFalse((self.dir / "out" / "overlay.mp4").exists())
+                run = self.read_run()
+                self.assertEqual(run["status"], "failed")
+                self.assertIn(f"{width}x{height}", run["error"])
+                # The same frames process fine without --render.
+                headless = self.run_fake(frames)
+                self.assertEqual(headless["status"], "ok")
+                self.assertIsNone(headless["overlay"])
+
     def test_stage_timings_with_a_scripted_clock(self):
         # Each clock() call advances 1 ms. Per processed frame the clock is read at: frame
         # start, decode end, preprocess start/end, inference start/end, postprocess
@@ -392,7 +415,9 @@ class ContainerTests(TempDir):
         ok, first = cap.read()
         cap.release()
         self.assertEqual(frames[0].image_checksum, hashlib.sha256(first.tobytes()).hexdigest())
-        # Overlay: same size as the input, one frame per processed frame.
+        # Overlay: same size as the input, one frame per processed frame. Decode the file
+        # itself rather than trusting Overlay.close()'s return value (AERIS-021, C008-1):
+        # OpenCV's mp4v writer can silently write a different size than requested.
         overlay = cv2.VideoCapture(str(self.dir / "out" / "overlay.mp4"), cv2.CAP_FFMPEG)
         count, shapes = 0, set()
         while True:
@@ -401,8 +426,11 @@ class ContainerTests(TempDir):
                 break
             count += 1
             shapes.add(image.shape)
+        actual_w, actual_h = overlay.get(cv2.CAP_PROP_FRAME_WIDTH), overlay.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        overlay.release()
         self.assertEqual((count, shapes), (9, {(48, 64, 3)}))
         self.assertEqual(run["overlay"]["frames"], 9)
+        self.assertEqual((run["overlay"]["width"], run["overlay"]["height"]), (actual_w, actual_h))
         # run.json digests match the files written.
         for name, digest in run["outputs"].items():
             self.assertEqual(hashlib.sha256((self.dir / "out" / name).read_bytes()).hexdigest(), digest)

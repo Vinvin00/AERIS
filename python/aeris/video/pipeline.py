@@ -38,7 +38,9 @@ the output directory:
   output digests, status and any error;
 - `overlay.mp4` (with `--render`): processed frames with detections scoring at least 0.3
   drawn (a display choice only), written at a constant rate; the true times are in
-  `frames.jsonl`.
+  `frames.jsonl`. `--render` refuses an odd input width or height (`PipelineError`), since
+  OpenCV's mp4v writer would silently crop it and misreport the geometry it wrote;
+  headless processing is unaffected (AERIS-021).
 
     python -m aeris.video.pipeline run INPUT --out DIR [--detector onnx|fake]
         [--timestamps pts|inferred_fps] [--fps F] [--every N] [--max-frames N] [--render]
@@ -379,6 +381,16 @@ class Overlay:
 
     def __init__(self, path: Path, fps: float, width: int, height: int,
                  min_score: float = OVERLAY_MIN_SCORE):
+        if width % 2 or height % 2:
+            # AERIS-021 (Codex finding C008-1): OpenCV's mp4v writer silently rounds an odd
+            # width or height down to the next even value (measured: 65x49 -> 64x48, 63x47 ->
+            # 62x46; an even dimension is unaffected), which close() would otherwise report as
+            # the requested size rather than what was actually encoded. Refuse before writing
+            # anything, rather than publish a mismatched geometry claim.
+            raise PipelineError(f"cannot render an overlay for {width}x{height} frames: "
+                                f"{OVERLAY_FOURCC} needs an even width and height for 4:2:0 chroma "
+                                "subsampling, and OpenCV's writer would silently crop them instead of "
+                                "failing; run without --render to process this input headlessly")
         self.path, self.fps, self.size, self.frames = path, fps, (width, height), 0
         self.min_score = min_score
         self.writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*OVERLAY_FOURCC), fps, self.size)

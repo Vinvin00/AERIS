@@ -1,6 +1,7 @@
 # Timestamp-aware video pipeline (AERIS-008)
 
-Status: attempt 3, awaiting independent review.
+Status: accepted (AERIS-008). The overlay geometry correction below (AERIS-021) is
+attempt 1 of 3, awaiting independent review.
 
 `aeris.video.pipeline` decodes a recorded video, gives every frame a validated timestamp,
 runs a detector on the frames it processes, times each stage, and writes contract records
@@ -113,7 +114,7 @@ For each processed frame, `timings.json` records wall-clock seconds
 | `detections.jsonl` | contract `DetectionRecord`s in original-frame pixels (class map `aeris-aircraft-v1`), with model provenance |
 | `timings.json` | per-frame stage times, summaries, loop wall time and throughput |
 | `run.json` | status and error, input (path, size, SHA-256, container, reported properties), timestamp summary (with `stored_times_checked`), counts, settings, detector (provenance, ONNX digest, providers, threads, precision, input size), overlay properties, warnings, environment, code revision with dirty paths, argv, output digests |
-| `overlay.mp4` | with `--render`: processed frames with detections scoring ≥ 0.3 drawn (display only), mp4v at nominal fps / `every`; true times are in `frames.jsonl` |
+| `overlay.mp4` | with `--render`: processed frames with detections scoring ≥ 0.3 drawn (display only), mp4v at nominal fps / `every`; true times are in `frames.jsonl`. Refused (`PipelineError`, no file written) when the decoded frame's width or height is odd (AERIS-021) |
 
 **Errors.**
 - **Before output:** bad arguments, a missing or unopenable input, a container without
@@ -218,12 +219,18 @@ temporary directory; nothing is committed. They cover:
   - exact per-stage, `other`, `total`, loop-wall and throughput values under a scripted
     clock;
   - `total` covers record building and rendering: with record building made to take 5 ms,
-    the scripted clock gives render 1 ms, `other` 10 ms and `total` 15 ms.
+    the scripted clock gives render 1 ms, `other` 10 ms and `total` 15 ms;
+  - **overlay geometry (AERIS-021):** an odd width, odd height, and both odd all refuse
+    `--render` before any file is written, naming the size; the same frames still process
+    headlessly. OpenCV's own writer cannot be made to emit a genuinely odd-dimension file
+    (it rounds on write too, for every codec tried), so the odd frame is supplied directly
+    through the fake capture rather than a real encode.
 - **Containers with the fake detector:**
   - MP4 timestamps at 100 ms and 80 ms steps;
   - `FakeDetector` boxes, scores and gaps against its formula;
   - the frame checksum;
-  - overlay size and frame count;
+  - overlay size and frame count, checked by decoding the written file (AERIS-021), not
+    by trusting the writer's own return value;
   - output digests;
   - stride and skipped counts;
   - detector failure recorded;
@@ -274,6 +281,10 @@ temporary directory; nothing is committed. They cover:
   cannot write them). Uneven timing is covered by the policy tests, the fake capture,
   the tampered real copies and the real clip's 33/34 ms steps.
 - **Overlay.** It is constant-rate, for viewing. Only `frames.jsonl` carries true times.
+  `--render` refuses an odd input width or height rather than silently writing a smaller
+  file than `run.json` reports (AERIS-021); a future overlay codec with different
+  alignment needs (for example, dimensions divisible by 16) is not covered by this
+  even/odd check.
 - **Real sample.** It pans, so it exercises decoding, timing and output geometry, not the
   fixed-camera assumption. It is CC BY-SA 4.0 and is fetched, not redistributed.
 - **Processing model.** Frames are processed sequentially on one thread. There is no
