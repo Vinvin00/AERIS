@@ -79,7 +79,8 @@ def _order(salt: str, text: str) -> str:
 
 
 def capture_day(time_ns: int) -> str:
-    return datetime.datetime.fromtimestamp(time_ns / 1e9, datetime.timezone.utc).strftime("%Y-%m-%d")
+    # Integer seconds: a float division would round times just before midnight up a day.
+    return datetime.datetime.fromtimestamp(time_ns // 10**9, datetime.timezone.utc).strftime("%Y-%m-%d")
 
 
 # ---------------------------------------------------------------- selection (labels only)
