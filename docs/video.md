@@ -1,6 +1,6 @@
 # Timestamp-aware video pipeline (AERIS-008)
 
-Status: attempt 2, awaiting independent review.
+Status: attempt 3, awaiting independent review.
 
 `aeris.video.pipeline` decodes a recorded video, gives every frame a validated timestamp,
 runs a detector on the frames it processes, times each stage, and writes contract records
@@ -20,16 +20,18 @@ from `opencv-python-headless` 5.0.0.93, whose bundled FFmpeg is LGPL-2.1. After 
 `read()`, `CAP_PROP_POS_MSEC` is FFmpeg's best-effort presentation timestamp of that
 frame.
 
-That value is a real presentation timestamp only when the container stores per-frame
-times. Otherwise FFmpeg derives one from a nominal frame rate. The attempt-1 review showed
-that a raw MJPEG stream got invented 0/40/80 ms times (FFmpeg's default 25 fps). So
-`pts` mode checks the container's magic bytes first:
+That value is a real presentation timestamp only when the container stores a time for
+that frame. Otherwise FFmpeg derives one from a nominal frame rate. The attempt-1 review
+showed that a raw MJPEG stream got invented 0/40/80 ms times (FFmpeg's default 25 fps).
+The attempt-2 review showed the same for MPEG-TS, which needs a PTS only every 0.7 s,
+and for laced Matroska blocks, whose frames share one stored time. So `pts` mode checks
+the container's magic bytes first:
 
-| Container (magic bytes) | Per-frame times | `pts` mode |
+| Container (magic bytes) | Stored time per frame | `pts` mode |
 |---|---|---|
-| Matroska / WebM (`1A 45 DF A3`) | block timecodes | accepted |
-| MP4 / QuickTime (`ftyp`, `moov`, `mdat`, `wide`, `free`, `skip` at byte 4) | sample tables | accepted |
-| MPEG-TS (`0x47` sync at bytes 0, 188, 376) | PES PTS | accepted |
+| Matroska / WebM (`1A 45 DF A3`) | block timecodes | accepted, and every decoded frame is checked against its stored block time (below) |
+| MP4 / QuickTime (`ftyp`, `moov`, `mdat`, `wide`, `free`, `skip` at byte 4) | sample tables (duration and composition offset per sample) | accepted; FFmpeg's times from those tables are not re-parsed |
+| MPEG-TS (`0x47` sync at bytes 0, 188, 376) | PES PTS, required only every 0.7 s | refused |
 | AVI (`RIFF…AVI `) | none: index × rate | refused |
 | Ogg (`OggS`) | granule positions (frame counts) | refused |
 | anything else (raw streams, unknown) | none | refused |
@@ -37,9 +39,29 @@ that a raw MJPEG stream got invented 0/40/80 ms times (FFmpeg's default 25 fps).
 A refused file stops the run before any output is written. The message names the
 container and points to the explicit fallback.
 
+**Matroska check.** Before decoding, `matroska_timeline` reads the stored block times
+straight from the file, without FFmpeg: an EBML walk over the Segment's Info
+(`TimecodeScale`), Tracks (track number and type) and Clusters (cluster time plus each
+SimpleBlock's or BlockGroup Block's signed 16-bit relative time). Clusters of unknown
+size end at the next Segment-level element. It refuses, with the `inferred_fps` hint:
+
+- no video track or more than one;
+- laced video blocks (flags `0x06`): frames inside a lace have no stored time of their own;
+- invisible video blocks (flag `0x08`): they are not output as frames, so stored and decoded
+  frames would not align;
+- a block before its cluster time, a missing EBML header or Segment, or malformed sizes.
+
+A truncated tail ends the scan and keeps the blocks read so far; the decoder stops there
+too. The stored times are sorted into presentation order and made relative to the
+first. During the loop, decoded frame *i* must equal stored time *i* within 0.001 ms
+(`STORED_TIME_TOLERANCE_MS`). Otherwise the run stops with `TimestampError`:
+"frame *i*: decoded time … differs from the stored block time …". It also stops when the
+decoder produces more frames than the file stores. `run.json` records what was checked
+in `timestamps.stored_times_checked`.
+
 | Mode | Frame time | `timestamp_source` | Fails when |
 |---|---|---|---|
-| `pts` (default) | (frame value − first frame's value) / 1000 s | `decode_pts` | the container is not listed as accepted, a value is missing, non-finite or negative, or any delta is ≤ 0 |
+| `pts` (default) | (frame value − first frame's value) / 1000 s | `decode_pts` | the container is not accepted, a Matroska file is refused by the timeline check or a frame differs from its stored time, a value is missing, non-finite or negative, or any delta is ≤ 0 |
 | `inferred_fps` (explicit) | `frame_index / fps` | `inferred_fps` | no explicit finite fps > 0 is given |
 
 - An fps passed in `pts` mode is refused rather than ignored.
@@ -51,8 +73,9 @@ container and points to the explicit fallback.
   `timestamp_source`. Follow-up 001 F4, where `validate_sequence` accepts mixed sources,
   belongs to the owner of `python/aeris/data/`.
 
-On the real clip, every frame time equals the Matroska block time read directly from the
-file without FFmpeg (a REAL test).
+On the real clip, every frame time equals the stored Matroska block time. The pipeline
+checks this itself on every run, and a REAL test checks it again with an independent EBML
+walker.
 
 ## Stages, timings and skipped frames (AC2)
 
@@ -89,12 +112,13 @@ For each processed frame, `timings.json` records wall-clock seconds
 | `frames.jsonl` | contract `FrameRecord` per processed frame: sequence ID (input file stem), decoded frame index, timestamp and source, size, `<file>#frame=<i>`, SHA-256 of the decoded BGR pixels, `annotation_status = "unlabeled"` |
 | `detections.jsonl` | contract `DetectionRecord`s in original-frame pixels (class map `aeris-aircraft-v1`), with model provenance |
 | `timings.json` | per-frame stage times, summaries, loop wall time and throughput |
-| `run.json` | status and error, input (path, size, SHA-256, container, reported properties), timestamp summary, counts, settings, detector (provenance, ONNX digest, providers, threads, precision, input size), overlay properties, warnings, environment, code revision with dirty paths, argv, output digests |
+| `run.json` | status and error, input (path, size, SHA-256, container, reported properties), timestamp summary (with `stored_times_checked`), counts, settings, detector (provenance, ONNX digest, providers, threads, precision, input size), overlay properties, warnings, environment, code revision with dirty paths, argv, output digests |
 | `overlay.mp4` | with `--render`: processed frames with detections scoring ≥ 0.3 drawn (display only), mp4v at nominal fps / `every`; true times are in `frames.jsonl` |
 
 **Errors.**
-- **Before output:** bad arguments, a missing or unopenable input, and a container
-  without per-frame times raise `PipelineError` before anything is written.
+- **Before output:** bad arguments, a missing or unopenable input, a container without
+  a stored time for every frame, and a Matroska file refused by the timeline check raise
+  `PipelineError` before anything is written.
 - **During the loop** (timestamp, frame size change, detector error):
   - the pipeline writes `run.json` with `status = "failed"` and the error naming the
     frame, plus the records produced so far;
@@ -166,13 +190,30 @@ temporary directory; nothing is committed. They cover:
   - None/NaN/inf/negative values fail with a hint;
   - explicit `inferred_fps`, with bad fps values refused;
   - fps refused in `pts` mode.
-- **Fake capture seam** (Matroska-tagged input):
+- **Matroska timeline** (files built in the test from EBML elements):
+  - times scaled by `TimecodeScale` (1 ms and 0.1 ms) and sorted from decode order (0, 67,
+    33 ms) into presentation order;
+  - audio blocks ignored, BlockGroup blocks read, an unknown-size cluster ended at the next
+    cluster;
+  - refusals: two video tracks, none, Xiph, fixed and EBML lacing, invisible blocks, a block
+    before its cluster time, a non-Matroska file;
+  - truncation: a cut inside the last block's payload keeps its time, and a cut through
+    its header drops it.
+- **Stored-time check** (OpenCV-written MKV, decoded times scripted through the fake
+  capture):
+  - a strictly increasing 250 ms where 200 ms is stored stops the run at frame 2;
+  - a sixth decoded frame for five stored blocks stops it;
+  - setting the lacing or invisible bits on one block of that file is refused in `pts`
+    mode, while explicit `inferred_fps` still runs.
+- **Fake capture seam** (MP4-tagged input):
   - a duplicate timestamp stops the run and `run.json` records it;
   - a frame size change fails;
   - an early end is warned about, and `--max-frames` is not treated as one;
   - the `inferred_fps` run;
   - exact per-stage, `other`, `total`, loop-wall and throughput values under a scripted
-    clock.
+    clock;
+  - `total` covers record building and rendering: with record building made to take 5 ms,
+    the scripted clock gives render 1 ms, `other` 10 ms and `total` 15 ms.
 - **Containers with the fake detector:**
   - MP4 timestamps at 100 ms and 80 ms steps;
   - `FakeDetector` boxes, scores and gaps against its formula;
@@ -181,8 +222,8 @@ temporary directory; nothing is committed. They cover:
   - output digests;
   - stride and skipped counts;
   - detector failure recorded;
-  - AVI and a raw MJPEG stream refused in `pts` mode with the hint, while AVI runs with
-    explicit `inferred_fps` (0, 0.2, 0.4, 0.6 s);
+  - AVI, MPEG-TS and a raw MJPEG stream refused in `pts` mode with the hint, while AVI
+    runs with explicit `inferred_fps` (0, 0.2, 0.4, 0.6 s);
   - magic-byte detection for every listed container;
   - missing, unknown, empty and broken-Matroska inputs;
   - bad arguments;
@@ -195,11 +236,16 @@ temporary directory; nothing is committed. They cover:
 
 - **Container times:** the pinned clip decodes to 392 frames at 1920 x 1080.
   Timestamps are whole milliseconds with only 33 and 34 ms steps. Every one equals the
-  file's Matroska block time, read by an independent EBML walker in the test.
-  `frame_index / 29.97` would end at 13,046.37 ms, not 13,046 ms.
-- **Tampered copies:** frame 10's block time is set equal to frame 9's, or 5 ms before
-  it. Both stop the run at frame 10 with a 0.000 ms or −5.000 ms delta, including when
-  frame 10 is skipped by stride; `run.json` says failed. A 20 ms later time is kept.
+  file's Matroska block time, read by an independent EBML walker in the test (not the
+  pipeline's). `frame_index / 29.97` would end at 13,046.37 ms, not 13,046 ms.
+- **Tampered copies:**
+  - frame 10's block time set equal to frame 9's stops the run at frame 10 with a
+    0.000 ms delta, also when frame 10 is skipped by stride;
+  - 5 ms before frame 9's time: sorted into presentation order, 295 ms is now stored at
+    position 9, so the decoded 300 ms stops the run at frame 9 as differing from its
+    stored time;
+  - `run.json` says failed in both cases. A time 20 ms later, still increasing, is
+    kept.
 - **Truncated clip:** a copy cut to a third still runs and warns about the early end.
 - **ONNX stages:** 10 frames (every 40th) with the real detector give byte-identical
   records to `det.detect`. All boxes are inside the frame, the overlay is 1920 x 1080
@@ -208,11 +254,16 @@ temporary directory; nothing is committed. They cover:
 ## Limitations
 
 - **Timestamps.**
-  - OpenCV reports FFmpeg's best-effort presentation timestamp in milliseconds. Within
-    accepted containers this equals the stored frame times; it was checked against
-    Matroska block times on the real clip, not on MP4 or MPEG-TS real files.
-  - The container check uses magic bytes, not a full parse. A damaged file that starts
-    correctly is caught only by the open, decode or delta checks.
+  - Matroska/WebM times are checked frame by frame against the stored block times, but
+    only to OpenCV's millisecond reporting and within 0.001 ms. Laced, invisible and
+    multi-video-track files are refused rather than mapped.
+  - MP4/QuickTime times are FFmpeg's reading of the sample tables. AERIS does not
+    re-parse `stts`/`ctts`/edit lists, and no real MP4 file was checked, only
+    OpenCV-written synthetic ones at constant rate.
+  - The container check uses magic bytes. For MP4 and the other containers a damaged file
+    that starts correctly is caught only by the open, decode or delta checks.
+  - Streams whose containers store sparse or derived times (MPEG-TS, AVI, Ogg, raw) need
+    the explicit `inferred_fps` mode, which labels its times as inferred.
 - **Test coverage.** Variable-frame-rate *files* are not generated in tests (OpenCV
   cannot write them). Uneven timing is covered by the policy tests, the fake capture,
   the tampered real copies and the real clip's 33/34 ms steps.

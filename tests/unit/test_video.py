@@ -109,6 +109,87 @@ class TimestampPolicyTests(unittest.TestCase):
             vp.TimestampPolicy("frame_index")
 
 
+# ------------------------------------------------------------------ Matroska timeline reader
+
+def _id(element: int) -> bytes:
+    return element.to_bytes((element.bit_length() + 7) // 8, "big")
+
+
+def _el(element: int, payload: bytes) -> bytes:
+    return _id(element) + (0x0100000000000000 | len(payload)).to_bytes(8, "big") + payload
+
+
+def _uint_el(element: int, value: int) -> bytes:
+    return _el(element, value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big"))
+
+
+UNKNOWN_SIZE = b"\x01\xff\xff\xff\xff\xff\xff\xff"
+
+
+def simple_block(track: int, relative: int, flags: int = 0x80) -> bytes:
+    return _el(0xA3, bytes([0x80 | track]) + relative.to_bytes(2, "big", signed=True) + bytes([flags]) + b"payload")
+
+
+def cluster(time: int, *blocks: bytes, unknown: bool = False, time_first: bool = True) -> bytes:
+    children = (_uint_el(0xE7, time) + b"".join(blocks)) if time_first else (b"".join(blocks) + _uint_el(0xE7, time))
+    return (_id(0x1F43B675) + UNKNOWN_SIZE + children) if unknown else _el(0x1F43B675, children)
+
+
+def mkv(tracks, *clusters: bytes, scale: int = 1_000_000) -> bytes:
+    """SYNTHETIC Matroska bytes: EBML header, unknown-size Segment, Info, Tracks, clusters."""
+    header = _el(0x1A45DFA3, _el(0x4282, b"webm"))
+    info = _el(0x1549A966, _uint_el(0x2AD7B1, scale))
+    entries = _el(0x1654AE6B, b"".join(_el(0xAE, _uint_el(0xD7, n) + _uint_el(0x83, kind)) for n, kind in tracks))
+    return header + _id(0x18538067) + UNKNOWN_SIZE + info + entries + b"".join(clusters)
+
+
+class MatroskaTimelineTests(TempDir):
+    def timeline(self, data: bytes) -> dict:
+        path = self.dir / "t.webm"
+        path.write_bytes(data)
+        return vp.matroska_timeline(path)
+
+    def test_times_scale_and_presentation_order(self):
+        # Clusters at 0 and 67 ms; blocks stored in decode order (B-frame style: 0, 67, 33).
+        data = mkv([(1, 1)], cluster(0, simple_block(1, 0), simple_block(1, 67), simple_block(1, 33)),
+                   cluster(100, simple_block(1, 0), simple_block(1, 33)))
+        self.assertEqual(self.timeline(data)["times_ms"], [0.0, 33.0, 67.0, 100.0, 133.0])
+        # A 0.1 ms timecode scale: 5 units = 0.5 ms.
+        scaled = self.timeline(mkv([(1, 1)], cluster(10, simple_block(1, 0), simple_block(1, 5)), scale=100_000))
+        self.assertEqual((scaled["times_ms"], scaled["timecode_scale_ns"]), ([1.0, 1.5], 100_000))
+
+    def test_other_tracks_block_groups_and_unknown_size_clusters(self):
+        audio = simple_block(2, 5)  # track 2 is audio (type 2): ignored
+        group = _el(0xA0, _el(0xA1, bytes([0x81]) + (40).to_bytes(2, "big") + b"\x00payload"))
+        data = mkv([(1, 1), (2, 2)], cluster(0, simple_block(1, 0), audio, group, unknown=True),
+                   cluster(80, simple_block(1, 0)))
+        info = self.timeline(data)
+        self.assertEqual((info["track"], info["times_ms"]), (1, [0.0, 40.0, 80.0]))
+
+    def test_refusals(self):
+        cases = {
+            "two video tracks": mkv([(1, 1), (2, 1)], cluster(0, simple_block(1, 0))),
+            "no video track": mkv([(2, 2)], cluster(0, simple_block(2, 0))),
+            "Xiph lacing": mkv([(1, 1)], cluster(0, simple_block(1, 0, 0x82))),
+            "fixed lacing": mkv([(1, 1)], cluster(0, simple_block(1, 0, 0x84))),
+            "EBML lacing": mkv([(1, 1)], cluster(0, simple_block(1, 0, 0x86))),
+            "invisible": mkv([(1, 1)], cluster(0, simple_block(1, 0, 0x88))),
+            "block before cluster time": mkv([(1, 1)], cluster(0, simple_block(1, 0), time_first=False)),
+            "not matroska": b"\x00" * 64,
+        }
+        for name, data in cases.items():
+            with self.subTest(name), self.assertRaisesRegex(vp.PipelineError, "Matroska"):
+                self.timeline(data)
+
+    def test_truncated_file_keeps_what_was_read(self):
+        data = mkv([(1, 1)], cluster(0, simple_block(1, 0), simple_block(1, 33)), cluster(67, simple_block(1, 0)))
+        # The last SimpleBlock is 20 bytes: ID, 8-byte size, track, 2-byte time, flags, 7-byte
+        # payload. Cutting 6 bytes leaves its header, so its time counts (whether the frame
+        # decodes is the decoder's business); cutting 16 bytes removes the header.
+        self.assertEqual(self.timeline(data[:-6])["times_ms"], [0.0, 33.0, 67.0])
+        self.assertEqual(self.timeline(data[:-16])["times_ms"], [0.0, 33.0])
+
+
 # ------------------------------------------------------------------ fake capture seam
 
 class FakeCapture:
@@ -147,8 +228,8 @@ def grey(width=32, height=24, value=100):
 
 class FakeCaptureTests(TempDir):
     def run_fake(self, frames, reported=None, **kwargs):
-        dummy = self.dir / "input.webm"
-        dummy.write_bytes(b"\x1a\x45\xdf\xa3" + bytes(400))  # Matroska magic; frames come from the fake
+        dummy = self.dir / "input.mp4"
+        dummy.write_bytes(bytes(4) + b"ftypisom" + bytes(400))  # MP4 magic; frames come from the fake
         capture = FakeCapture(frames, reported=reported)
         with mock.patch.object(vp.cv2, "VideoCapture", return_value=capture):
             return vp.run(dummy, vp.FakeDetector(), self.dir / "out", **kwargs)
@@ -180,6 +261,31 @@ class FakeCaptureTests(TempDir):
         run = self.run_fake(frames, reported=10, max_frames=2)
         self.assertEqual((run["counts"]["processed"], run["counts"]["stopped_at_max_frames"]), (2, True))
         self.assertEqual(run["warnings"], [])
+
+    def test_total_spans_record_building_and_render(self):
+        # Review finding N2: record building (to_records) now advances the clock by 5 ms and
+        # render is on. Ticks per frame: start, decode end, pre start/end, inference
+        # start/end, post start/end (+5 ms in to_records), render start/end, frame end ->
+        # render 1 ms, total 15 ms, other = 15 - 5 x 1 ms = 10 ms.
+        clock = {"t": 0.0}
+
+        def tick():
+            now = clock["t"]
+            clock["t"] += 0.001
+            return now
+        original = vp.det.to_records
+
+        def slow_records(*args, **kwargs):
+            clock["t"] += 0.005
+            return original(*args, **kwargs)
+        frames = [(grey(), 100.0 * i) for i in range(3)]
+        with mock.patch.object(vp.det, "to_records", slow_records):
+            self.run_fake(frames, clock=tick, render=True, warmup_frames=0)
+        timings = json.loads((self.dir / "out" / "timings.json").read_text())
+        for row in timings["per_frame"]:
+            self.assertAlmostEqual(row["render"], 0.001)
+            self.assertAlmostEqual(row["total"], 0.015)
+            self.assertAlmostEqual(row["other"], 0.010)
 
     def test_inferred_fps_run(self):
         frames = [(grey(), 0.0), (grey(), 0.0), (grey(), 0.0)]  # no usable timestamps
@@ -218,6 +324,42 @@ class FakeCaptureTests(TempDir):
 
 
 # ------------------------------------------------------------------ real containers, fake detector
+
+class StoredTimeTests(TempDir):
+    """pts mode checks each decoded Matroska frame against the file's stored block time."""
+
+    def run_with(self, video, pts_values):
+        capture = FakeCapture([(grey(64, 48), pts) for pts in pts_values])
+        with mock.patch.object(vp.cv2, "VideoCapture", return_value=capture):
+            return vp.run(video, vp.FakeDetector(), self.dir / "out")
+
+    def test_decoded_time_must_equal_the_stored_time(self):
+        video = write_video(self.dir / "clip.mkv", 5, 10.0, fourcc="mp4v")  # stored 0, 100, ... 400 ms
+        run = self.run_with(video, [0.0, 100.0, 200.0, 300.0, 400.0])
+        self.assertIn("stored block times", run["timestamps"]["stored_times_checked"])
+        with self.assertRaisesRegex(vp.TimestampError, "frame 2: decoded time 250.000 ms differs from "
+                                    "the stored block time 200.000 ms"):
+            self.run_with(video, [0.0, 100.0, 250.0, 300.0, 400.0])  # increasing, but not what is stored
+        with self.assertRaisesRegex(vp.TimestampError, "frame 5: the decoder produced more frames"):
+            self.run_with(video, [0.0, 100.0, 200.0, 300.0, 400.0, 500.0])
+
+    def test_laced_or_invisible_blocks_are_refused(self):
+        video = write_video(self.dir / "clip.mkv", 5, 10.0, fourcc="mp4v")
+        data = video.read_bytes()
+        _, blocks = matroska_blocks(data)
+        flags_at = blocks[2][2] + 2  # flags byte follows the 16-bit relative time
+        for name, bits in (("laced", 0x06), ("invisible", 0x08)):
+            with self.subTest(name):
+                copy = bytearray(data)
+                copy[flags_at] |= bits
+                path = self.dir / f"{name}.mkv"
+                path.write_bytes(copy)
+                with self.assertRaisesRegex(vp.PipelineError, f"Matroska: {name} video blocks.*inferred_fps"):
+                    vp.run(path, vp.FakeDetector(), self.dir / "out")
+                # The explicit fallback still runs.
+                run = vp.run(path, vp.FakeDetector(), self.dir / "out", timestamps="inferred_fps", fps=10.0)
+                self.assertIsNone(run["timestamps"]["stored_times_checked"])
+
 
 class ContainerTests(TempDir):
     def records(self, name):
@@ -301,9 +443,9 @@ class ContainerTests(TempDir):
         broken = self.dir / "broken.webm"
         broken.write_bytes(b"\x1a\x45\xdf\xa3" + b"\xff" * 300)  # Matroska magic, nothing valid after
         for path, message in ((self.dir / "missing.mp4", "no such file"),
-                              (garbage, "unknown file carries no per-frame"),
-                              (empty, "unknown file carries no per-frame"),
-                              (broken, "cannot open")):
+                              (garbage, "unknown file does not store a presentation time"),
+                              (empty, "unknown file does not store a presentation time"),
+                              (broken, "Matroska: ")):
             with self.subTest(path=path.name):
                 with self.assertRaisesRegex(vp.PipelineError, message):
                     vp.run(path, vp.FakeDetector(), self.dir / "out")
@@ -329,16 +471,18 @@ class ContainerTests(TempDir):
                 vp.run(video, vp.FakeDetector(), self.dir / "out", render=True)
 
     def test_containers_without_frame_times_need_the_explicit_fallback(self):
-        # AVI stores no per-frame times (FFmpeg derives them from index x rate); a raw MJPEG
-        # stream has no container at all (FFmpeg assumes 25 fps). Both are refused in pts mode.
+        # AVI stores no per-frame times (FFmpeg derives them from index x rate); MPEG-TS needs
+        # a PTS only every 0.7 s; a raw MJPEG stream has no container at all (FFmpeg assumes
+        # 25 fps). All are refused in pts mode.
         avi = write_video(self.dir / "clip.avi", 4, 10.0)
+        ts = write_video(self.dir / "clip.ts", 4, 10.0, fourcc="mp4v")
         raw = self.dir / "clip.mjpeg"
         raw.write_bytes(b"".join(cv2.imencode(".jpg", grey(64, 48, 40 * i))[1].tobytes() for i in range(4)))
-        for path, container in ((avi, "avi"), (raw, "unknown")):
+        for path, container in ((avi, "avi"), (ts, "mpegts"), (raw, "unknown")):
             with self.subTest(container=container):
                 self.assertEqual(vp.container_format(path), container)
-                with self.assertRaisesRegex(vp.PipelineError, f"a {container} file carries no per-frame "
-                                            "presentation timestamps.*inferred_fps --fps"):
+                with self.assertRaisesRegex(vp.PipelineError, f"a {container} file does not store a "
+                                            "presentation time for every frame.*inferred_fps --fps"):
                     vp.run(path, vp.FakeDetector(), self.dir / "out")
         # With the explicit fallback the AVI runs, marked inferred_fps: 0, 0.2, 0.4, 0.6 s at 5 fps.
         run = vp.run(avi, vp.FakeDetector(), self.dir / "out", timestamps="inferred_fps", fps=5.0)
@@ -507,17 +651,20 @@ class RealClipTests(TempDir):
 
 
     def test_tampered_container_times_stop_the_run(self):
-        # Rewrite frame 10's block time in a copy: equal to frame 9 (zero delta) or 5 ms
-        # before it (negative delta). Both stop the run at frame 10, also when frame 10 is
-        # skipped by stride; a later but still increasing time is kept.
+        # Rewrite frame 10's block time in a copy. Equal to frame 9: zero delta at frame 10,
+        # also when frame 10 is skipped by stride. 5 ms before frame 9: the stored times,
+        # sorted into presentation order, put 295 ms at position 9, so the decoded 300 ms at
+        # frame 9 already differs from its stored time. A later, still increasing time is kept.
         data = CLIP_PATH.read_bytes()
         scale, blocks = matroska_blocks(data)
         self.assertEqual(scale, 1_000_000)  # 1 ms units
         (time9, _, _), (time10, _, offset10) = blocks[9], blocks[10]
         relative10 = int.from_bytes(data[offset10:offset10 + 2], "big", signed=True)
-        for name, target, every, error in (("zero", time9, 1, "0.000 ms"), ("zero", time9, 4, "0.000 ms"),
-                                           ("negative", time9 - 5, 1, "-5.000 ms"),
-                                           ("later", time10 + 20, 1, None)):
+        for name, target, every, error in (
+                ("zero", time9, 1, "frame 10: timestamp delta 0.000 ms"),
+                ("zero", time9, 4, "frame 10: timestamp delta 0.000 ms"),
+                ("negative", time9 - 5, 1, "frame 9: decoded time 300.000 ms differs from the stored block time 295.000 ms"),
+                ("later", time10 + 20, 1, None)):
             with self.subTest(name=name, every=every):
                 copy = bytearray(data)
                 copy[offset10:offset10 + 2] = (relative10 + target - time10).to_bytes(2, "big", signed=True)
@@ -529,10 +676,11 @@ class RealClipTests(TempDir):
                     self.assertEqual(run["status"], "ok")
                     self.assertAlmostEqual(run["timestamps"]["delta_s_max"], 0.054)  # 33/34 + 20 ms
                     continue
-                with self.assertRaisesRegex(vp.TimestampError, f"frame 10: timestamp delta {error}"):
+                with self.assertRaisesRegex(vp.TimestampError, error):
                     vp.run(path, vp.FakeDetector(), out, every=every)
                 run = json.loads((out / "run.json").read_text())
-                self.assertEqual((run["status"], run["counts"]["decoded"]), ("failed", 11))
+                self.assertEqual((run["status"], run["counts"]["decoded"]),
+                                 ("failed", 10 if error.startswith("frame 9") else 11))
 
     def test_truncated_clip_warns(self):
         cut = self.dir / "cut.webm"
@@ -576,4 +724,8 @@ class RealClipTests(TempDir):
         timings = json.loads((self.dir / "out" / "timings.json").read_text())
         for stage in ("decode", "preprocess", "inference", "postprocess", "render", "other", "total"):
             self.assertEqual(timings["summary"][stage]["count"], 9)  # 10 processed - 1 warm-up
+        for row in timings["per_frame"]:
+            named = sum(row[k] for k in ("decode", "preprocess", "inference", "postprocess", "render"))
+            self.assertGreaterEqual(row["other"], 0.0)
+            self.assertAlmostEqual(row["total"], named + row["other"], places=9)
             self.assertTrue(math.isfinite(timings["summary"][stage]["p50"]))

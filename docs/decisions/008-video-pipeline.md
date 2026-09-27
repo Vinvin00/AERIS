@@ -1,6 +1,6 @@
 # ADR 008 — Timestamp-aware video pipeline on OpenCV's FFmpeg backend
 
-Status: proposed for AERIS-008 attempt 2 review. Date: 2026-09-27.
+Status: proposed for AERIS-008 attempt 3 review. Date: 2026-09-27.
 
 Context: AERIS-008 connects recorded video to the AERIS-006 detector. Frame times must
 come from the container's presentation timestamps, or from an explicitly marked
@@ -16,18 +16,26 @@ Decision:
 - **Timestamps.** After each `read()`, `CAP_PROP_POS_MSEC` gives FFmpeg's best-effort
   presentation timestamp of that frame. It is a real per-frame time only when the
   container stores one.
-  - `pts` mode therefore accepts only Matroska/WebM, MP4/QuickTime and MPEG-TS,
-    identified by magic bytes.
-  - It refuses AVI (index × rate), Ogg (frame-count granules), raw elementary streams and
-    unknown files, with the `inferred_fps` hint. The attempt-1 review showed FFmpeg
-    inventing 25 fps times for a raw MJPEG stream.
+  - `pts` mode therefore accepts only two containers, identified by magic bytes:
+    - Matroska/WebM, whose block times AERIS reads itself without FFmpeg. Every decoded
+      frame must equal its stored time (presentation order, within 0.001 ms). Files with
+      laced or invisible video blocks, or with no or several video tracks, are refused.
+      Frames inside a lace share one stored time, and invisible blocks are not output.
+    - MP4/QuickTime, whose sample tables store a duration and composition offset for
+      every sample. FFmpeg's times come from those tables; AERIS does not re-parse them.
+  - It refuses MPEG-TS (a PTS is required only every 0.7 s), AVI (index × rate), Ogg
+    (frame-count granules), raw elementary streams and unknown files, with the
+    `inferred_fps` hint. The attempt-1 review showed FFmpeg inventing 25 fps times for a
+    raw MJPEG stream. The attempt-2 review showed that MPEG-TS and laced Matroska let
+    FFmpeg fill in times that are not stored.
   - Frame time is (that value − the first frame's value) / 1000 s. The records label it
     `decode_pts`.
   - A missing, non-finite or negative value fails, and so does a zero or negative
     delta (`TimestampError`). Every decoded frame is checked, including frames skipped
     by stride.
-  - On the real clip, every frame time equals the Matroska block time read without
-    FFmpeg.
+  - On the real clip, every frame time equals the stored Matroska block time. The
+    pipeline checks it on every run, and a REAL test checks it with an independent
+    parser.
   - The only fallback is explicit: `--timestamps inferred_fps --fps F` gives
     `frame_index / F`, labelled `inferred_fps`. An fps is never used silently in PTS
     mode.
@@ -76,14 +84,25 @@ Alternatives rejected:
   variable-frame-rate timing and dropped frames. The real sample's 33/34 ms deltas show
   the difference.
 - **Committing tiny test videos.** AGENTS.md keeps videos out of Git, so synthetic
-  videos are written at test time with OpenCV's `VideoWriter`.
+  videos are written at test time with OpenCV's `VideoWriter`, and Matroska structures
+  are built from EBML elements in the tests.
+- **Accepting MPEG-TS and laced Matroska on FFmpeg's word** (attempt 2). FFmpeg fills in
+  times the container does not store, so those files are refused, or need
+  `inferred_fps`.
+- **Re-parsing MP4 sample tables.** It would add a second MP4 parser for a container
+  whose per-sample times are mandatory. No real MP4 was available to test it on. It is
+  left as a limitation.
 
 Consequences:
 
 - Time precision follows the container's time base (1 ms for the WebM sample), as
   reported by OpenCV in milliseconds.
-- AVI and other containers without per-frame times need the explicit `inferred_fps`
-  mode. That is a deliberate refusal to label a derived time as a presentation time.
+- MPEG-TS, AVI and other containers without a stored time for every frame need the
+  explicit `inferred_fps` mode. So do laced, invisible-block or multi-video-track
+  Matroska files. That is a deliberate refusal to label a derived time as a presentation
+  time.
+- Matroska checking adds one pass over the file's element headers before decoding. It
+  seeks past payloads rather than reading them.
 - OpenCV's `VideoWriter` cannot write variable-frame-rate files. VFR, duplicate,
   backward and missing timestamps are therefore tested through the timestamp policy and
   a fake capture, and on the real clip's uneven deltas, rather than through synthetic
