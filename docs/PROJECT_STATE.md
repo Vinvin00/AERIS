@@ -263,12 +263,60 @@ Scores are correctness/tests/reproducibility/contracts/scope out of 4.
     `AERIS_REQUIRE_REAL_*`-not-set-by-gates follow-up (needs a `tools/orchestrate.py`
     source change, out of this task's scope).
 
+- AERIS-010 causal image-space forecasts (`python/aeris/estimation/trajectory.py`,
+  ADR 010). Review: accept on attempt 2 of 3, 4/4/4/4/4. Attempt 2's code is identical
+  to attempt 1 — attempt 1 was closed only by an unrelated `unit`-check timeout (see
+  AERIS-022 above), not a code revision.
+  - **Two independently specified causal Kalman models**, both consuming truth
+    `AnnotationRecord` observations directly under AERIS-005's already-accepted
+    oracle-identity `evaluate_forecasts` (not modified here): `constant_velocity`
+    (`[cx,vx,cy,vy]`, discrete white-noise-acceleration process noise — the same
+    physical assumption as `aeris.tracking.tracker`'s own centre model, independently
+    implemented) and `constant_acceleration` (`[cx,vx,ax,cy,vy,ay]`, continuous
+    white-noise-jerk process noise integrated exactly through its own transition —
+    reviewer-verified from first principles with `sympy` against the module's closed
+    forms, confirming these are genuinely different noise models, not the same model
+    integrated one order further).
+  - **Causal warm-up, not a two-frame difference.** Velocity needs 2 observations,
+    acceleration needs 3, before a forecast's centre/covariance are anything but null
+    with a reason — the reviewer confirmed the off-by-one boundary by direct code trace
+    and found no path that leaks a future observation into an earlier forecast.
+  - **Analytic evidence (AC2).** AERIS-004's own `sim-cv-crossing` (read-only reuse)
+    cross-checks the velocity model to within 0.027 px across 75 points; this task's own
+    new `tests/fixtures/trajectory/constant_acceleration.jsonl` (dyadic frame times,
+    exact in IEEE-754 double precision) cross-checks the acceleration model to within
+    0.015 px after warm-up and shows the velocity model diverging by ~88x on the same
+    genuinely accelerating target as the horizon grows. The reviewer independently
+    recomputed all 40 fixture frames from the closed form (exact match) and re-derived
+    both process-noise matrices symbolically (exact match), rather than trusting either
+    claim or the test file's own quadrature check.
+  - **Comparable evaluation (AC3).** Both models score `eligible_total=71` with an
+    identical `eligible_set_digest` on the real evidence (23 pinned AOT frames, the same
+    flight AERIS-009 validated its tracker against) — true by construction, since
+    `evaluate_forecasts`' eligibility depends on truth alone. The acceleration model
+    does not outperform the velocity model on this one short (2.2 s) real flight; this
+    is reported plainly, not curated, and the reviewer reproduced the full per-horizon
+    RMSE table exactly.
+  - **Open, non-blocking (from review).** `docs/trajectory_estimation.md` and ADR 010
+    still read "attempt 1" in their status lines (cosmetic; see follow-up table). The
+    coordinator's own report for this task narrated attempt 1's closure as "three
+    consecutive unit-check timeouts"; the reviewer traced attempt-1's actual
+    `decision.json` and found the literally recorded `problems` entry was "changed_files
+    must exactly match source changes" (a transient, since-corrected `orchestration/gates.json`
+    working-tree edit made while triaging the timeout, before AERIS-022 was properly
+    spun out) — the underlying timeout fact itself is independently corroborated by
+    attempt-1's own `verification.json` (`exit_code 124`) and by AERIS-022's separately
+    accepted review, and attempt 2's own commit touches only its 6 declared files, so
+    this does not implicate attempt 2's implementation, only an imprecision in the
+    closure narrative.
+
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only. One reviewer session reviewed 001 and 002. A fresh
 session reviewed both 003 attempts; the coordinator co-authored 003. Fresh sessions
 reviewed 004, both 005 attempts, both 006 attempts, the three 007 attempts, the three
-008 attempts, AERIS-021, both 009 attempts and both 022 attempts, which the coordinator
-wrote. The first reviewer sessions for 006 attempt 2, 008 attempt 1 and 022 attempt 1
+008 attempts, AERIS-021, both 009 attempts, both 010 attempts (identical code; attempt 1
+closed only for the AERIS-022 timeout reason) and both 022 attempts, which the
+coordinator wrote. The first reviewer sessions for 006 attempt 2, 008 attempt 1 and 022 attempt 1
 stopped early before writing anything (rate limit for the first two; the 022 attempt-1
 session's own report arrived after its review was already independently completed and
 written, so nothing was lost); fresh or continued sessions completed those reviews.
@@ -315,7 +363,7 @@ attempts already used); the finding was fixed as the separate follow-up task AER
 | 006 A2 F1 | The two small aircraft were not simply missed: they were localized and labelled `kite` (B-17 score 0.608, IoU 0.78; airliner 0.018, IoU 0.52), then dropped by argmax-then-map. `docs/detection.md`, ADR 006 and the report call it a resolution-only miss. Correct the wording; weigh the class rule with measured data. AERIS-007 measured it on AOT: other COCO classes cover only 15 of 487 missed development aircraft | a later detector task (rule); next `docs/detection.md` touch (wording) |
 | 006 A2 F2 | Two surviving mutants: a parity box check over x coordinates only passes all 54 strict tests; removing the fetcher's request pacing passes the sample tests. Add a y-only box perturbation and a pacing test | next task touching `aeris/detection` |
 | 006 A2 F3 | Fetch record: the local `manifest.json` came from an uncommitted intermediate fetcher (no `original_size_bytes`), so the submitted fetcher has run only against fakes; the three HTTP 429 refusals survive only in prose; five stored files are 3000–3840 px wide, not "2048 px renditions or smaller originals"; COCO's small-object boundary is by area (< 32² px²), not width. Re-fetch with the submitted fetcher when useful and correct the wording | next task touching `aeris/detection` |
-| 006/008/009 docs | ADR 005/006/008/009 still read "proposed", `docs/detection.md` "attempt 2, awaiting independent review", `docs/video.md` "attempt 3, awaiting independent review" and `docs/tracking.md` "attempt 1, awaiting independent review" (accepted on attempt 2). Set them to accepted | next docs touch |
+| 006/008/009/010 docs | ADR 005/006/008/009/010 still read "proposed", `docs/detection.md` "attempt 2, awaiting independent review", `docs/video.md` "attempt 3, awaiting independent review", `docs/tracking.md` "attempt 1, awaiting independent review" (accepted on attempt 2) and `docs/trajectory_estimation.md`/ADR 010 "attempt 1" (accepted on attempt 2). Set them to accepted | next docs touch |
 | 006 other | Small-target detection below about 32 px input width; migrate the export from the deprecated TorchScript exporter to `torch.export` (re-run parity, record the new hash) | AERIS-007 / later detector task |
 | 007 A3 F10 | `docs/baseline.md` gate table: the basis for false positives per negative frame should read "one false positive on a negative frame", not "one frame" | next `docs/baseline.md` touch |
 | 007 gate | The baseline check does not set `AERIS_REQUIRE_REAL_BASELINE=1`, so REAL tests could skip and still pass (same as 006 F6). Include it in the gate change | next governance task |
@@ -393,13 +441,10 @@ Next action: in a fresh checkout, first restore `orchestration/runs/` (and
 `benchmarks/runs/`) from the newest archive; both are Git-ignored. Re-fetch the video
 sample with `python -m aeris.video.samples fetch` for the REAL video tests, and the
 pinned real AOT tracking frames with `python -m aeris.tracking.real_sample fetch`.
-AERIS-010 (causal forecasts, depending on 005 and the now-accepted 009) is implemented
-(`python/aeris/estimation/trajectory.py`, 26 tests, cross-validated against AERIS-004's
-own CV forecast targets and a new owned constant-acceleration fixture, plus real pinned
-AOT evidence); its first attempt was closed `revision_required` after three consecutive
-`unit`-check timeouts against the gate's old 120 s budget (a governance issue, not a
-defect in AERIS-010 itself — see AERIS-022 above, now accepted at 900 s). Retry AERIS-010
-under the fixed gate next.
+AERIS-010 (causal forecasts) is accepted (see above). `status` now shows AERIS-011
+(Codex's exclusive scope; the cloud session does not touch it) and AERIS-017 (bounded
+tiny-target experiment) ready; AERIS-012 (integrated Python MVP) still waits on 011.
+AERIS-017 is the next task this session would take up.
 
 **AERIS-011 ownership (2026-09-27):** Vincenzo asked Codex to implement AERIS-011
 (calibrated camera-relative geometry, depending on 001 and 004) itself, on an isolated
