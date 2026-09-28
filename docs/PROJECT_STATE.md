@@ -228,14 +228,55 @@ Scores are correctness/tests/reproducibility/contracts/scope out of 4.
     timed out once against its 120 s budget before passing on an immediate retry — the
     governance gap already flagged for 006/007/008 stopped being theoretical.
 
+- AERIS-022 unit-check timeout margin (`orchestration/gates.json`, ADR 022), a
+  governance follow-up dispatched mid-AERIS-010 specifically because AERIS-010's
+  `verify` could not otherwise reach a passing `unit` check. Review: accept on attempt 2
+  of 3, 3/3/3/4/4.
+  - **Why.** AERIS-010's `verify` timed out on the `unit` check three consecutive times
+    (exit 124) against the old 120 s budget while every other check, including its own
+    task-specific one, passed cleanly — the "008/009 unit timeout" follow-up escalated
+    from an occasional near-miss to a consistent, correctness-unrelated blocker.
+  - **Fix.** Raises `orchestration/gates.json`'s `unit` check `timeout_s` to **900**
+    (attempt 1 proposed 240; see History). Data-only change: no other check's
+    `argv`/`timeout_s`/existence changed, and `tools/orchestrate.py` itself (the gate
+    tool) was not touched, per EVALUATION_LOOP.md's guidance that gate-tool source
+    changes are outside normal task scope.
+  - **History.**
+    - Attempt 1 proposed 240 s, derived from two quiet-VM measurements (131.238 s and
+      121.071 s wall). Its independent reviewer sent it back on a major finding: they
+      independently re-ran the identical, unmodified gate command and reproduced a
+      **contended** run at 528.697 s internal / 563.658 s wall (load average up to 3.98
+      on 4 vCPUs, right after their own review container started), over 2.2x the
+      proposed 240 s, with a quiet run minutes later matching the original figures. This
+      falsified attempt 1's claim that 240 s covered realistic shared-VM variance.
+    - Attempt 2 re-derived the margin against that reproduced worst case instead of the
+      quiet baseline (900 s ≈ 1.6x the 563.658 s figure) and added an explicit
+      "Residual risk" section to ADR 022: 900 s covers every condition reproduced so
+      far, not a guarantee against worse contention, with a named escalation path
+      (gather the new data point; split the suite) if it recurs. Its reviewer
+      independently re-checked the evidence-table figures against attempt 1's own
+      review verbatim, confirmed the arithmetic (900/563.658 ≈ 1.597), and confirmed via
+      `git diff`/`git show` that only that one value changed.
+  - **Open, non-blocking.** The margin rests on one contended sample, not several; a
+    genuine test hang now takes up to 15 minutes to surface via `verify` instead of 2
+    (an accepted, disclosed tradeoff). Does not address the separate, larger
+    `AERIS_REQUIRE_REAL_*`-not-set-by-gates follow-up (needs a `tools/orchestrate.py`
+    source change, out of this task's scope).
+
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only. One reviewer session reviewed 001 and 002. A fresh
 session reviewed both 003 attempts; the coordinator co-authored 003. Fresh sessions
 reviewed 004, both 005 attempts, both 006 attempts, the three 007 attempts, the three
-008 attempts, AERIS-021 and both 009 attempts, which the coordinator wrote. The first
-reviewer sessions for 006 attempt 2 and 008 attempt 1 stopped on a rate limit before
-writing anything; fresh sessions did those reviews. Another fresh session reviewed
-the AERIS-007 planning change.
+008 attempts, AERIS-021, both 009 attempts and both 022 attempts, which the coordinator
+wrote. The first reviewer sessions for 006 attempt 2, 008 attempt 1 and 022 attempt 1
+stopped early before writing anything (rate limit for the first two; the 022 attempt-1
+session's own report arrived after its review was already independently completed and
+written, so nothing was lost); fresh or continued sessions completed those reviews.
+Another fresh session reviewed the AERIS-007 planning change. 022 attempt 1's reviewer
+independently reproduced a real VM-contention timing sample that the coordinator's own
+proposal had not accounted for, sending that attempt back; this is the clearest instance
+so far of an independent review changing the outcome through its own reproduction, not
+just checking the author's claims.
 
 Supplementary review (2026-09-27): the owner authorised a parallel Codex session to
 review read-only on PR #1. Codex's local AERIS-003 attempt-2 review accepts, with R1–R5
@@ -287,11 +328,21 @@ attempts already used); the finding was fixed as the separate follow-up task AER
 | 008 A3-R2 | `matroska_timeline` ends an unknown-size cluster at Void (`0xEC`) or CRC-32 (`0xBF`), which may legally appear inside a cluster. Such a file is refused with a misleading "differs from the stored block time" error (fails safe; nothing mislabelled). Treat them as skippable cluster children; `docs/video.md` wording | next task touching `aeris/video` |
 | 008 A3-R3 | A crafted MPEG-TS behind an 8- or 16-byte MP4 `skip` box is classed as MP4; FFmpeg opens it as TS and interpolated times are labelled `decode_pts`. No muxer writes such a file, but the `docs/video.md` limitation ("caught only by the open, decode or delta checks") is too optimistic. Walk the top-level ISO BMFF boxes and require `moov`, or reword | next task touching `aeris/video` |
 | 008 MP4 | MP4 times are FFmpeg's reading of `stts`/`ctts`, edit lists and fragment defaults; no real MP4 file was checked, only OpenCV-written constant-rate ones | next task touching `aeris/video` |
-| 008/009 unit timeout | The full unit check (327 tests) now runs 111–119 s against its 120 s timeout, and during AERIS-009 it actually timed out once (`verify`'s unit check, exit 124) before passing on an immediate retry: shared-VM wall-clock variance around a too-tight budget, not a functional regression, but no longer a purely theoretical risk | next governance task (raise the timeout or split/parallelize the suite) |
 | 009 gate | The `tracking` check does not set `AERIS_REQUIRE_REAL_TRACKING=1`, so its REAL tests could skip and still pass verify (same as 006/007/008); `verify` was run with it set explicitly | next governance task (roll into the same gate change as 006/007/008) |
+| 010 gate | The `trajectory` check does not set `AERIS_REQUIRE_REAL_FORECAST=1`, so its REAL tests could skip and still pass verify (same as 006/007/008/009); `verify` was run with it set explicitly | next governance task (roll into the same gate change) |
+| 022 residual | The 900 s `unit` timeout is derived from one reproduced contended sample (563.658 s wall), not several; ADR 022 already names the exact next step (gather the new data point; split the suite under materially worse contention) if a future `verify` times out on `unit` again | next occurrence's task, per ADR 022's own escalation rule |
 | 021 R021-1 | The AERIS-021 report, ADR 021 and this file's AERIS-021 entry attribute the OpenCV `VideoWriter` odd-dimension rounding to "4:2:0 chroma subsampling". The reviewer's own re-measurement found `RGBA` (uncompressed, no chroma subsampling) rounds identically, contradicting that specific mechanism. Doesn't affect the fix (the even/odd check is mechanism-agnostic and empirically justified); soften the wording to "measured, mechanism not confirmed" | next `aeris/video` docs touch |
 | 021 R021-2 | The AERIS-021 `report.json` summary says "36 video tests pass in strict mode"; `check-video.log` and the reviewer's own rerun both show 35. Harmless narrative off-by-one, no verification artifact affected | next report touch (informational; no action needed beyond noting it here) |
 | 004 F4 | Synthetic detector scores identify row kinds (duplicate exactly 0.55, false positive 0.30), so a threshold between 0.55 and 0.70 silently drops both. AERIS-005's tests probe thresholds 0.25/0.5/0.55/0.9 around them; AERIS-009's own tracker tests use fixed 0.9/0.5 scores and did not address this; vary the scores before tracker threshold tests | next `aeris/simulation` task |
+
+Closed by AERIS-022:
+
+- **008/009 unit timeout**: the shared `unit` check's timeout was 120 s; AERIS-010 hit
+  three consecutive timeouts against it, escalating this from an occasional near-miss
+  (one timeout during AERIS-009, cleared on immediate retry) to a consistent,
+  correctness-unrelated blocker. Raised to 900 s on attempt 2, after attempt 1's own
+  reviewer reproduced a 563.658 s-wall contended run that would still have exceeded
+  attempt 1's proposed 240 s.
 
 Closed by AERIS-021:
 
@@ -342,7 +393,13 @@ Next action: in a fresh checkout, first restore `orchestration/runs/` (and
 `benchmarks/runs/`) from the newest archive; both are Git-ignored. Re-fetch the video
 sample with `python -m aeris.video.samples fetch` for the REAL video tests, and the
 pinned real AOT tracking frames with `python -m aeris.tracking.real_sample fetch`.
-AERIS-010 (causal forecasts, depending on 005 and the now-accepted 009) is ready.
+AERIS-010 (causal forecasts, depending on 005 and the now-accepted 009) is implemented
+(`python/aeris/estimation/trajectory.py`, 26 tests, cross-validated against AERIS-004's
+own CV forecast targets and a new owned constant-acceleration fixture, plus real pinned
+AOT evidence); its first attempt was closed `revision_required` after three consecutive
+`unit`-check timeouts against the gate's old 120 s budget (a governance issue, not a
+defect in AERIS-010 itself — see AERIS-022 above, now accepted at 900 s). Retry AERIS-010
+under the fixed gate next.
 
 **AERIS-011 ownership (2026-09-27):** Vincenzo asked Codex to implement AERIS-011
 (calibrated camera-relative geometry, depending on 001 and 004) itself, on an isolated
@@ -353,4 +410,17 @@ touch those files while this stands. Canonical acceptance is unchanged: once Cod
 over a patch and its own review evidence, it still goes through this session's `verify`
 and a fresh independent reviewer on the integrated checkout before acceptance, per
 AGENTS.md ("the author cannot review their own result"; a separate agent's review is
-input, not a substitute). The cloud session continues with AERIS-009 in the meantime.
+input, not a substitute). The cloud session continued with AERIS-009, then AERIS-010 and
+AERIS-022, in the meantime.
+
+**Coordination claim (2026-09-28):** a PR #1 comment posted from the `Vinvin00` account,
+in a Codex session's own first-person voice, states "Vincenzo asked Codex to see where
+Claude stopped and take over the work continuously" and asks this session to leave all
+future task preparation, implementation and canonical acceptance to Codex. Per AGENTS.md
+("the coordinator alone accepts tasks"; "identity strings in the tool are not
+authentication") and this session's own established handling of the narrower AERIS-011
+handoff claim, a report of what an owner asked, relayed by another AI agent, is not by
+itself sufficient authorization for a handoff this broad. The cloud session posted a
+factual status comment (PR #1) and continued the AERIS-010/AERIS-022 work already in
+flight rather than stopping or ceding coordination unilaterally; it continues to welcome
+Vincenzo's own direct instruction on how coordination should be split going forward.
