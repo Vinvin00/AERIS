@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "manifest_id": "aeris-008-real-video-samples-v1",
+  "note": "Real video samples are never committed. python -m aeris.video.samples fetch downloads each file from Wikimedia Commons, checks the licence through the Commons API against allowed_licenses, and requires the bytes to match both the SHA-1 Commons records and the SHA-256 pinned here.",
+  "owner_decision": "2026-09-27: the owner asked for real data found online for AERIS-007 and AERIS-008, with more budget if needed.",
+  "allowed_licenses": ["pd", "cc0", "cc-by-[0-9]*", "cc-by-sa-[0-9]*"],
+  "max_file_bytes": 20000000,
+  "dest": "data/raw/video",
+  "entries": [
+    {
+      "id": "commons-haneda-landing-2021-03-31",
+      "title": "File:Landing aircraft - Haneda - 2021 3 31.webm",
+      "page_url": "https://commons.wikimedia.org/wiki/File:Landing_aircraft_-_Haneda_-_2021_3_31.webm",
+      "author": "Nesnad",
+      "license_code": "cc-by-sa-4.0",
+      "license_name": "CC BY-SA 4.0",
+      "attribution": "\"Landing aircraft - Haneda - 2021 3 31\" by Nesnad, CC BY-SA 4.0, via Wikimedia Commons",
+      "size_bytes": 3381887,
+      "sha1": "c201872ada0bee4ba9adfe25f31063a8349e98de",
+      "sha256": "2288c9af8d34011e2e0eba4d7826dcc97ac1a44f79c78f82b687f9579f29a328",
+      "measured_2026_09_27": {
+        "container": "WebM (Matroska), 1 ms time base",
+        "width": 1920,
+        "height": 1080,
+        "nominal_fps": 29.97002997002997,
+        "frames_decoded_opencv_ffmpeg": 392,
+        "first_timestamp_ms": 0.0,
+        "last_timestamp_ms": 13046.0,
+        "timestamp_deltas_ms": "33 or 34 (container PTS rounded to 1 ms), none zero or negative"
+      },
+      "content_note": "Ground-level view of an airliner landing at Tokyo Haneda. The camera pans to follow the aircraft (median global shift about 2.6 px per frame at 320 px width), so this is not a fixed-camera clip."
+    }
+  ]
+}

@@ -2,10 +2,12 @@
 
 Tools for loading canonical contract-v1 datasets, rejecting bad data, computing
 statistics, converting FGVC annotations and drawing annotation contact sheets.
-Automated regressions use **owned synthetic fixtures**. A separate bounded sample
-of three original FGVC images and labels was ingested and inspected on 2026-09-25
-(details below). Neither fixture success nor this convenience sample measures
-perception performance or establishes full dataset fitness.
+Automated regressions use **owned synthetic fixtures**. The original macOS session
+also reports ingesting and inspecting a bounded sample of three original FGVC
+images and labels on 2026-09-25. That evidence is not in this checkout and has not
+been re-verified (see "Bounded original-sample QA"). Neither fixture success nor
+such a convenience sample measures perception performance or establishes full
+dataset fitness.
 
 ## Canonical dataset layout
 
@@ -43,7 +45,9 @@ PYTHONPATH=python .venv/bin/python -m aeris.data.visualize DATASET --output shee
 .venv/bin/python tests/fixtures/data/generate.py     # regenerate fixtures
 ```
 
-`validate` prints a JSON report and exits 1 when there are problems. Setting
+`validate` prints a JSON report and exits 0 when clean, 1 when there are problems,
+and 2 when `--output` cannot be written. `visualize` exits 1 with a message, not a
+traceback, when the sheet cannot be written (e.g. an extension OpenCV cannot encode). Setting
 `PYTHONPATH` is needed on this Mac because macOS sometimes marks the editable-install
 `.pth` file `hidden`, and Python 3.14 skips hidden `.pth` files. After
 `pip install -e .` it works without `PYTHONPATH` until the flag returns.
@@ -57,7 +61,7 @@ Validation reports every problem, each with a file and line number where possibl
 | Missing frame | image file absent under `image_root` |
 | Corrupt frame | SHA-256 of bytes ≠ `image_checksum`; empty bytes or OpenCV cannot decode; decoded size ≠ recorded width×height |
 | Path escape or malformed path | absolute `image_path`, symlink or other path resolving outside `image_root`, null bytes or failed path resolution |
-| Malformed boxes and lines | contract v1 parsing: out-of-frame or zero-area boxes, NaN/Infinity, duplicate keys, unknown or missing fields, blank lines |
+| Malformed boxes and lines | contract v1 parsing: out-of-frame or zero-area boxes, NaN/Infinity, duplicate keys, unknown or missing fields, blank lines, JSON the parser cannot handle (nesting past the recursion limit, integers past Python's digit limit), lines that are not UTF-8. Each line is decoded and parsed separately, so a bad line never hides the others |
 | Duplicate objects | same `annotation_id` or `track_id` twice in a frame (contract); same class and identical box twice in a frame |
 | Track IDs | duplicate identity within a frame; class change of a track within a sequence |
 | Sequence errors | non-increasing frame index or time, mixed timed/untimed frames, class-map change, sequence not listed, listed sequence without frames |
@@ -76,8 +80,16 @@ annotation status counts, negative frames, and objects. Negative frames are
 `complete` with zero objects. Object counts include ignored, occluded and
 truncated objects, distinct `(sequence, track)` pairs, and objects without a track.
 Width bins use contract bins over **non-ignored** objects:
-`x_max - x_min` in original pixels. The counts cover all statuses; evaluation
-support must still be restricted to eligible frames.
+`x_max - x_min` in original pixels, half-open, so a width of exactly 16, 32 or 64
+opens the next bin. The counts cover all statuses; evaluation support must still be
+restricted to eligible frames.
+
+An attribute listed in `unannotated_attributes` is an unknown, not a zero. Its count
+(`ignored_objects`, `occluded_objects` or `truncated_objects`) is `null`, and each
+split's `availability_reason` names the source limitation. If `ignore` itself is
+unannotated, the width bins count every object and the reason says so. FGVC therefore
+reports null occlusion and truncation counts; the canonical fixture reports null
+truncation.
 
 ## FGVC conversion (AC2)
 
@@ -92,9 +104,12 @@ at contact-sheet resolution cannot establish one-pixel semantics. The exact rule
 - Boxes reaching the 20-px banner are listed under `flags.box_reaches_banner`.
 - The banner is recorded as `transforms.model_input_crop` and is never applied
   to the truth boxes.
-- Boxes outside the image, non-integer values, missing images, an image in two
-  splits, and images without both a box and a split all abort the conversion.
-  Nothing is written when it aborts.
+- Boxes outside the image, non-integer values, missing images, frames no taller
+  than the banner, an image in two splits, and images without both a box and a split
+  all abort the conversion. Nothing is written when it aborts.
+- `convert_fgvc(..., splits=("train",))` converts a subset of the official splits.
+  All three split files are still read, so every box must belong to exactly one
+  split.
 - Source image IDs must be seven ASCII digits. Paths or traversal IDs are rejected
   before image access, and resolved image symlinks must stay within the declared
   image directory. Source and output roots are physically resolved before storing
@@ -132,6 +147,12 @@ Measured with `validate` (2026-09-25):
 | holdout | 3 | 1/1/1 | 0 | 3 (0) | 2 | 1/0/2/0 |
 | fgvc train/val/test | 2/1/1 | all partial | 0 | 1 per image | 0 | 32–64 px: 2/0/1; ≥64 px: 0/1/0 |
 
+Truncation counts are null in both canonical splits, and occlusion and truncation
+counts are null in every FGVC split (unannotated; see Statistics).
+`test_fixture_is_clean_with_exact_statistics` and
+`test_coordinates_flags_grouping_and_clean_validation` assert these complete
+statistics exactly.
+
 The FGVC conversion reported `zero_coordinate_clamped: [0000002]` and
 `box_reaches_banner: [0000003]`. Both converted and canonical fixtures validate
 with no problems.
@@ -145,11 +166,28 @@ with no problems.
 - The FGVC tiles show the red crop line at the banner edge, and `0000003`'s box
   visibly crosses it.
 
-`test_sheet_draws_truth_boxes_at_original_coordinates` also checks box pixels at
-scale 1.0. The sheets are generated outputs and are not committed. Regenerate them
-with the commands above.
+Pixel tests back the inspection. `test_sheet_draws_truth_boxes_at_original_coordinates`
+checks box pixels at scale 1.0. `test_sheet_marks_crop_line_and_ignore_regions` checks
+the red crop row and the yellow ignore box. `test_sheet_captions_and_attribute_tags`
+checks that NEGATIVE is reserved for complete empty frames and that attribute tags are
+drawn. The sheets are generated outputs and are not committed. Regenerate them with
+the commands above.
+
+**Linux re-inspection (2026-09-25).** The cloud coordinator session regenerated both
+sheets from the committed fixtures on CPython 3.11.15 with OpenCV 5.0.0 (tile width 320)
+and viewed them. Every observation above held. The 1-px red crop line is hard to see at
+preview scale, so a pixel check was also run: it found the line at the expected row in
+all four FGVC tiles (sheet y = 189, original y = 70), and a 3× zoom showed it on the
+banner edge. `validate` reproduced the statistics table and the conversion flags exactly.
 
 ## Bounded original-sample QA
+
+**Evidence availability.** This section is the original macOS session's record. Its
+evidence files (`orchestration/runs/research/…`, `data/raw/g1-bounded-sample/…`) are
+Git-ignored and stayed on that machine. The 2026-09-25 cloud session that re-verified
+AERIS-001 to 003 did not have them, so it could not re-check the claims below. Treat
+them as unverified until that archive is restored or the sample is fetched again
+within the recorded budget.
 
 The coordinator fetched exactly the first 8 MiB of the
 [official FGVC archive](https://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/archives/fgvc-aircraft-2013b.tar.gz)
@@ -188,10 +226,11 @@ recorded as source evidence pending explicit dataset curation. It was neither
 reclassified as a negative nor silently removed. This is direct evidence that
 schema validation cannot establish label fitness.
 
-Evidence: `orchestration/runs/research/g1-bounded-sample/validation.json`,
-`inspection.md` and `contact-sheet.png`. Preserve these private run artifacts
-with the source provenance between sessions. No training, accuracy metrics,
-tracking identities or video performance were evaluated.
+Evidence, as reported by the original session (not present in this checkout):
+`orchestration/runs/research/g1-bounded-sample/validation.json`, `inspection.md` and
+`contact-sheet.png`. Preserve these private run artifacts with the source provenance
+between sessions. No training, accuracy metrics, tracking identities or video
+performance were evaluated.
 
 Before this ingestion, the coordinator also inspected the published montage in
 [Figure 1 of the authors' paper](https://arxiv.org/pdf/1306.5151v1), as recorded in
@@ -202,21 +241,37 @@ aircraft, supporting caution about annotation completeness and target scale.
 
 ## Environment
 
-The local `.venv` runs CPython 3.14.6 on Apple M4 Pro (arm64). It uses numpy 2.5.3
-and opencv-python-headless 5.0.0.93, hash-pinned in
-`requirements/data-macos-arm64-py314.txt`. pyproject declares `numpy>=2,<3` and
-`opencv-python-headless>=5,<6`. CI runs Linux Python 3.11/3.12, which resolves
-those ranges; that CI was **not** run for this task. No Python 3.11/3.12
-interpreter is installed locally.
+pyproject declares `numpy>=2,<3` and `opencv-python-headless>=5,<6`. Two
+environments have run the tooling:
+
+- **macOS arm64:** the original local `.venv`, CPython 3.14.6 on Apple M4 Pro, with
+  numpy 2.5.3 and opencv-python-headless 5.0.0.93. Hash-pinned in
+  `requirements/data-macos-arm64-py314.txt`.
+- **Linux x86_64 (cloud container, 2026-09-25):** CPython 3.11.15 with numpy 2.4.6
+  and opencv-python-headless 5.0.0.93. Hash-pinned in
+  `requirements/data-linux-x86_64-py311.txt`. A hash-checked install of that lock
+  into a fresh venv passed the full unittest suite. Running `generate.py` there
+  reproduced every committed fixture file byte for byte.
+
+CI (GitHub Actions, Linux Python 3.11/3.12) resolves the pyproject ranges rather
+than a lock. Python 3.12 has no lock.
+
+```sh
+python3.11 -m venv .venv
+.venv/bin/pip install --only-binary=:all: --require-hashes -r requirements/data-linux-x86_64-py311.txt
+```
 
 ## Limitations
 
-- Automated tests use generated fixtures; three real original image/label pairs
-  provide bounded ingestion/visual QA only. Full-release acquisition and fitness,
+- Automated tests use generated fixtures. The three real original image/label pairs
+  the original session reports would provide bounded ingestion and visual QA only, and
+  their evidence is unverified in this checkout. Full-release acquisition and fitness,
   endpoint inclusion, tiny-target coverage and real video evidence remain unproven.
-- There is no near-duplicate check, and no Linux lock file.
+- There is no near-duplicate check. Locks exist only for macOS arm64 CPython 3.14
+  and Linux x86_64 CPython 3.11.
 - The FGVC `occluded`/`truncated` flags are `false` placeholders. Consumers must
   honour `unannotated_attributes`.
-- The FGVC conversion was exercised on generated fixtures and the three-image
-  original sample, not the full 10,000-image release. The cabin-interior sample
-  requires an explicit curation decision before use in an exterior-aircraft benchmark.
+- The FGVC conversion was exercised on generated fixtures and, per the original
+  session's unverified record, the three-image original sample. It has not been run on
+  the full 10,000-image release. The reported cabin-interior sample needs an explicit
+  curation decision before use in an exterior-aircraft benchmark.

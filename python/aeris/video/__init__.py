@@ -1,1 +1,1 @@
-"""Video namespace; implementation is assigned through the task backlog."""
+"""Timestamp-aware video decoding and the detector pipeline (AERIS-008): see pipeline.py."""

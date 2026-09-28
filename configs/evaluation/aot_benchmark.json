@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "aeris-007-aot-v2",
+  "frozen_at": "2026-09-27",
+  "frozen_note": "Selection, class policy, threshold rule and tolerance rule were fixed and committed before the detector ran on any AOT frame (v1, 3985a8f). Changing any value here creates a new benchmark_id.",
+  "source": {
+    "name": "Airborne Object Tracking (AOT) dataset, training set",
+    "publisher": "Amazon Prime Air",
+    "license": "CDLA-Permissive-1.0",
+    "license_url": "https://cdla.dev/permissive-1-0/",
+    "registry_url": "https://registry.opendata.aws/airborne-object-tracking/",
+    "dataset_doc_url": "https://gitlab.aicrowd.com/amazon-prime-air/airborne-detection-starter-kit/-/blob/master/docs/DATASET.md",
+    "bucket_url": "https://airborne-obj-detection-challenge-training.s3.amazonaws.com",
+    "modality": "8-bit grayscale PNG, 2448 x 2048, about 10 fps, camera on an aircraft (moving platform)",
+    "groundtruth": {
+      "part1": {
+        "key": "part1/ImageSets/groundtruth.csv",
+        "size_bytes": 311792105,
+        "etag_md5": "49a704652fa7514882c99f6f0028b636",
+        "sha256": "4460a8a004c5381f3dd2f93ffa17faeccbae50251eb5f11497a6891c354910c8"
+      },
+      "part2": {
+        "key": "part2/ImageSets/groundtruth.csv",
+        "size_bytes": 315146687,
+        "etag_md5": "773552e1ef3f7a97425abdf982b26dbe",
+        "sha256": "1c869b439e4b8fef390777d299d70c99cb4ef0edaa5045609d377ccc69339968"
+      },
+      "part3": {
+        "key": "part3/ImageSets/groundtruth.csv",
+        "size_bytes": 319718164,
+        "etag_md5": "7002ecbfb29f7c09e1795a337a739867",
+        "sha256": "2dc0edb5008d55755b8df287e114246850803a94a11aaedbe50f325087363107"
+      }
+    },
+    "cameras": {
+      "part1": "camera0",
+      "part2": "camera0",
+      "part3": "camera1",
+      "note": "From each part's groundtruth.json metadata 'description'. 716 flights appear in part3 (camera1) as well as in part1 or part2 (camera0), with different frames and timestamps."
+    }
+  },
+  "class_policy": {
+    "class_mapping_version": "aeris-aircraft-v1",
+    "aircraft": [
+      "Airplane",
+      "Helicopter"
+    ],
+    "ignore_regions": [
+      "Airborne",
+      "Drone"
+    ],
+    "not_aircraft": [
+      "Bird",
+      "BIrd",
+      "Flock"
+    ],
+    "nominal_box_rule": "An aircraft box whose larger side is at most 16 px and which has a side of 6 or 16 px (within 1e-6 px) is a nominal marker, not an extent; the aircraft becomes an ignore region. Sides that differ from 6 or 16 px by more than 1e-6 px (52 sides by 1e-6 to 1e-3 px, 2,330 by 1e-3 to 0.05 px in the full ground truth) are treated as measured.",
+    "nominal_sides_px": [
+      6.0,
+      16.0
+    ],
+    "nominal_max_side_px": 16.0,
+    "annotation_status": "complete",
+    "nominal_tolerance_px": 1e-06
+  },
+  "split": {
+    "unit": "capture day of the flight: UTC date of its earliest ground-truth timestamp over all its cameras, so both cameras of a flight always share a split",
+    "salt": "aeris-007-aot-split-v1:",
+    "day_order": "ascending sha256(salt + day)",
+    "allocation": "first floor(n/4) days holdout, next floor(n/2) - floor(n/4) days validation, remaining days development",
+    "holdout_policy": "Sealed. Its frame list is frozen and hashed here, but its frames are not downloaded or evaluated before AERIS-018 release evaluation, and it never drives thresholds or model selection."
+  },
+  "selection": {
+    "sequence": "a flight and a camera, sequence_id '<flight_id>-<camera>'",
+    "sequences_per_split": {
+      "development": 90,
+      "validation": 60,
+      "holdout": 90
+    },
+    "sequence_order": "days in ascending sha256(salt + day); within a day sequences in ascending sha256(salt + sequence_id); sequences taken round-robin over days until the split's count is reached",
+    "frame_stride": 10,
+    "candidate_frames": "ground-truth frame numbers divisible by frame_stride",
+    "frame_kinds": {
+      "scored": "has at least one aircraft with a measured extent",
+      "empty": "has no labelled object at all",
+      "other": "has labelled objects but no measured-extent aircraft (nominal markers, unknown objects, birds)"
+    },
+    "frame_order": "ascending sha256(salt + sequence_id + ':' + frame) within each kind",
+    "composition_note": "Frames are chosen from labels only, never from model output. The mix is enriched for scored aircraft relative to the dataset's natural frame distribution, so AP and precision describe this composition, not an unweighted random frame.",
+    "per_sequence_caps": {
+      "scored": 15,
+      "empty": 4,
+      "other": 3
+    }
+  },
+  "detector": {
+    "config": "configs/detector/baseline.json",
+    "onnx": "models/onnx/yolox_s_aeris_opset17.onnx",
+    "runtime": "ONNX Runtime CPUExecutionProvider",
+    "threads_baseline_run": 1,
+    "threads_repeat_run": 4,
+    "input_note": "Grayscale PNGs are decoded with OpenCV IMREAD_COLOR (three equal channels), as the detector expects BGR."
+  },
+  "evaluation": {
+    "evaluator": "aeris.evaluation.metrics.evaluate_detection (pinned pycocotools 2.0.11)",
+    "iou_threshold": 0.5,
+    "max_detections_per_frame": 100,
+    "threshold_rule": "On the validation split only: the score threshold with the highest F1 at IoU 0.5 on the grid 0.01, 0.02, ..., 0.99; ties go to the higher threshold. If no grid value gives a true positive, the threshold is null and the gate is blocked.",
+    "bootstrap": {
+      "unit": "capture day",
+      "level": 0.95,
+      "resamples_threshold_metrics": 1000,
+      "resamples_ap": 200,
+      "seed": 7
+    }
+  },
+  "regression_rule": {
+    "split": "development",
+    "gated_metrics": [
+      "ap50",
+      "ap_50_95",
+      "precision",
+      "recall",
+      "false_positives_per_negative_frame",
+      "width_bin_recall"
+    ],
+    "min_support": {
+      "objects": 30,
+      "negative_frames": 30
+    },
+    "tolerance": "For each gated metric: max(2 x the largest absolute difference observed between the baseline run and the repeat run, the metric's resolution floor). A candidate fails when it is worse than the baseline by more than the tolerance.",
+    "resolution_floor": {
+      "ap": 0.001,
+      "ap_reason": "COCO reports AP to three decimals; smaller differences are below reporting resolution.",
+      "count_metric": "one count: 1 / denominator (support, detections at threshold, or negative frames)",
+      "count_metric_reason": "A single object or detection changing state is the smallest real change on a fixed frame set."
+    },
+    "support_rule": "A width bin with fewer than 30 scored objects, or a negative-frame metric with fewer than 30 negative frames, is reported as not gated (unavailable), never as a pass.",
+    "interval_note": "Day-bootstrap intervals are reported as context for what the set can resolve; they are not the tolerance.",
+    "comparison": "A candidate fails a gated metric when it is worse than the baseline by more than tolerance_abs x (1 + 1e-9); the 1e-9 relative margin only absorbs floating-point rounding, so exactly one count worse passes a one-count tolerance.",
+    "environment_scope": "Tolerances are measured by re-running the baseline in the gating environment. Before gating a candidate in a different environment (host, ONNX Runtime, OpenCV or NumPy build), re-run the baseline there; if its detections are not bit-identical to the recorded ones, re-measure repeatability there and record it before comparing any candidate.",
+    "candidate_protocol": "Candidates are scored on the development frames with the same evaluator, IoU 0.5 and the frozen score threshold recorded in regression.json; they do not re-select a threshold. A candidate that needs its own threshold is a different protocol and needs a reviewed change."
+  },
+  "budget": {
+    "owner_decision": "2026-09-27: the owner asked for labelled data found online and approved more budget if needed. No paid compute.",
+    "download_bytes_max": 8000000000,
+    "retained_disk_bytes_max": 7000000000,
+    "cpu_wall_time_max_s": 7200,
+    "per_frame_bytes_max": 8000000
+  },
+  "revisions": [
+    {
+      "benchmark_id": "aeris-007-aot-v2",
+      "date": "2026-09-27",
+      "after_results_seen": true,
+      "change": "Nominal-marker sides are compared within 1e-6 px instead of exactly. The CSV derives right = left + width in floating point, so 7,697 marker boxes (e.g. width 16.000000000000114) were scored as measured aircraft in v1.",
+      "found_by": "independent review of AERIS-007 attempt 1 (finding F1)",
+      "unchanged": "split salt and allocation, sequence and frame caps, threshold rule, tolerance values and floors, minimum supports, evaluator, IoU, detector",
+      "clarified": [
+        "regression_rule.comparison: failure is 'worse by more than tolerance_abs x (1 + 1e-9)'; the margin only absorbs floating-point rounding (review finding F2)",
+        "regression_rule.environment_scope: tolerances hold in the measured environment; elsewhere re-run the baseline first",
+        "regression_rule.candidate_protocol: candidates use the frozen score threshold and do not re-select it"
+      ],
+      "clarified_note": "The clarifications add no new rule value; they state how the v1 rules are applied."
+    }
+  ]
+}

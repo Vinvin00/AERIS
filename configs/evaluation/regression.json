@@ -1,0 +1,177 @@
+{
+  "baseline": {
+    "ap50": 0.06695318508222585,
+    "ap_50_95": 0.027942024435148698,
+    "false_positives_per_negative_frame": 0.06702412868632708,
+    "precision": 0.37606837606837606,
+    "recall": 0.08286252354048965,
+    "width_bin_recall [0,16)": 0.0,
+    "width_bin_recall [16,32)": 0.007434944237918215,
+    "width_bin_recall [32,64)": 0.06944444444444445,
+    "width_bin_recall [64,inf)": 0.4507042253521127
+  },
+  "benchmark_id": "aeris-007-aot-v2",
+  "candidate_protocol": "Candidates are scored on the development frames with the same evaluator, IoU 0.5 and the frozen score threshold recorded in regression.json; they do not re-select a threshold. A candidate that needs its own threshold is a different protocol and needs a reviewed change.",
+  "comparison": "A candidate fails a gated metric when it is worse than the baseline by more than tolerance_abs x (1 + 1e-9); the 1e-9 relative margin only absorbs floating-point rounding, so exactly one count worse passes a one-count tolerance.",
+  "development_frames_digest": "788926d2984c388d8faaeaf6e1be7dda08fe4d4665a83bf560bbfeed36e5dbf8",
+  "environment_scope": "Tolerances are measured by re-running the baseline in the gating environment. Before gating a candidate in a different environment (host, ONNX Runtime, OpenCV or NumPy build), re-run the baseline there; if its detections are not bit-identical to the recorded ones, re-measure repeatability there and record it before comparing any candidate.",
+  "frozen_at": "2026-09-27T12:42:57+00:00",
+  "frozen_before_candidates": "Set from the baseline and its repeat run only; no candidate model had been evaluated when this file was written.",
+  "gates": [
+    {
+      "baseline": 0.06695318508222585,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "ap50",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.001,
+      "support": 531,
+      "tolerance_abs": 0.001
+    },
+    {
+      "baseline": 0.027942024435148698,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "ap_50_95",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.001,
+      "support": 531,
+      "tolerance_abs": 0.001
+    },
+    {
+      "baseline": 0.37606837606837606,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "precision",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.008547008547008548,
+      "support": 117,
+      "tolerance_abs": 0.008547008547008548
+    },
+    {
+      "baseline": 0.08286252354048965,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "recall",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.0018832391713747645,
+      "support": 531,
+      "tolerance_abs": 0.0018832391713747645
+    },
+    {
+      "baseline": 0.06702412868632708,
+      "direction": "lower_is_better",
+      "gated": true,
+      "metric": "false_positives_per_negative_frame",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.002680965147453083,
+      "support": 373,
+      "tolerance_abs": 0.002680965147453083
+    },
+    {
+      "baseline": 0.0,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "width_bin_recall [0,16)",
+      "note": "baseline is 0, so this gate cannot fail; it records the value only",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.02127659574468085,
+      "support": 47,
+      "tolerance_abs": 0.02127659574468085
+    },
+    {
+      "baseline": 0.007434944237918215,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "width_bin_recall [16,32)",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.0037174721189591076,
+      "support": 269,
+      "tolerance_abs": 0.0037174721189591076
+    },
+    {
+      "baseline": 0.06944444444444445,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "width_bin_recall [32,64)",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.006944444444444444,
+      "support": 144,
+      "tolerance_abs": 0.006944444444444444
+    },
+    {
+      "baseline": 0.4507042253521127,
+      "direction": "higher_is_better",
+      "gated": true,
+      "metric": "width_bin_recall [64,inf)",
+      "repeat_delta_abs": 0.0,
+      "resolution_floor": 0.014084507042253521,
+      "support": 71,
+      "tolerance_abs": 0.014084507042253521
+    }
+  ],
+  "holdout": {
+    "frames_digest": "940b044b7b046d81f439ab9566b93254229f4e42fe4c837f3ba276bc79177993",
+    "policy": "Sealed. Its frame list is frozen and hashed here, but its frames are not downloaded or evaluated before AERIS-018 release evaluation, and it never drives thresholds or model selection.",
+    "sealed": true
+  },
+  "interval_note": "Day-bootstrap intervals are reported as context for what the set can resolve; they are not the tolerance.",
+  "intervals_development": {
+    "ap50": [
+      0.035132661930616045,
+      0.1069747501442865
+    ],
+    "ap_50_95": [
+      0.014762403089199561,
+      0.049101169941635325
+    ],
+    "false_positives_per_negative_frame": [
+      0.005479452054794521,
+      0.17357512953367876
+    ],
+    "precision": [
+      0.2125,
+      0.5614035087719298
+    ],
+    "recall": [
+      0.0492091388400703,
+      0.11937377690802348
+    ],
+    "width_bin_recall [0,16)": [
+      0.0,
+      0.0
+    ],
+    "width_bin_recall [16,32)": [
+      0.0,
+      0.019011406844106463
+    ],
+    "width_bin_recall [32,64)": [
+      0.02,
+      0.13541666666666666
+    ],
+    "width_bin_recall [64,inf)": [
+      0.28125,
+      0.6307692307692307
+    ]
+  },
+  "measured_environment": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+    "numpy": "2.4.6",
+    "onnxruntime": "1.30.0",
+    "opencv": "5.0.0",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "python": "3.11.15"
+  },
+  "protocol": {
+    "detector_settings": "configs/detector/baseline.json (unchanged for the baseline)",
+    "evaluator": "aeris.evaluation.metrics.evaluate_detection (pinned pycocotools 2.0.11)",
+    "iou_threshold": 0.5,
+    "max_detections_per_frame": 100,
+    "score_threshold": 0.16,
+    "score_threshold_source": "validation split, On the validation split only: the score threshold with the highest F1 at IoU 0.5 on the grid 0.01, 0.02, ..., 0.99; ties go to the higher threshold. If no grid value gives a true positive, the threshold is null and the gate is blocked."
+  },
+  "regression_id": "aeris-007-aot-v2-gate",
+  "schema_version": 1,
+  "split": "development",
+  "tolerance_rationale": "For each gated metric: max(2 x the largest absolute difference observed between the baseline run and the repeat run, the metric's resolution floor). A candidate fails when it is worse than the baseline by more than the tolerance. COCO reports AP to three decimals; smaller differences are below reporting resolution. A single object or detection changing state is the smallest real change on a fixed frame set. A width bin with fewer than 30 scored objects, or a negative-frame metric with fewer than 30 negative frames, is reported as not gated (unavailable), never as a pass."
+}

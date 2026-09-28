@@ -241,14 +241,19 @@
       "read": [
         "docs/FEASIBILITY.md",
         "docs/ROADMAP.md",
-        "docs/EVALUATION_LOOP.md"
+        "docs/EVALUATION_LOOP.md",
+        "docs/dataset.md",
+        "docs/evaluation.md"
       ],
       "write_globs": [
+        "python/aeris/data/aot.py",
+        "python/aeris/evaluation/baseline.py",
         "benchmarks/baseline_manifest.json",
         "configs/evaluation/*",
         "docs/baseline.md",
         "tests/unit/*baseline*",
-        "docs/decisions/007-*.md"
+        "docs/decisions/007-*.md",
+        "tests/fixtures/baseline/*"
       ],
       "acceptance": {
         "AC1": "Real data/model/config/environment/artifact digests make the baseline reproducible",
@@ -772,6 +777,71 @@
         "edge"
       ],
       "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-021",
+      "title": "Overlay render geometry correction",
+      "objective": "Fix AERIS-008's --render overlay reporting the requested frame size when OpenCV's mp4v writer silently rounds odd width/height down for 4:2:0 chroma subsampling, so run.json.overlay always matches the file actually written. Corrective task from Codex's supplementary review finding C008-1 on the accepted AERIS-008 source; AERIS-008 itself is not reopened.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-008"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md",
+        "docs/video.md",
+        "docs/decisions/008-video-pipeline.md"
+      ],
+      "write_globs": [
+        "python/aeris/video/pipeline.py",
+        "tests/unit/*video*",
+        "docs/video.md",
+        "docs/decisions/021-*.md"
+      ],
+      "acceptance": {
+        "AC1": "For an odd input width, odd height, or both, the overlay path either refuses before any file is written or the written file decodes to exactly the width/height/frame count run.json.overlay reports; a test decodes the actual overlay file rather than trusting the writer's return value",
+        "AC2": "Even-dimension rendering (including the accepted AERIS-008 real-clip evidence path) is unaffected: headless processing (no --render) always succeeds regardless of dimension parity"
+      },
+      "required_artifacts": [
+        "python/aeris/video/pipeline.py",
+        "tests/unit/test_video.py",
+        "docs/video.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "video"
+      ],
+      "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-022",
+      "title": "Unit-check timeout margin",
+      "objective": "Raise orchestration/gates.json unit check timeout_s to a measured safe margin so wall-clock variance in an honestly growing test suite does not fail verify on its own.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/EVALUATION_LOOP.md",
+        "docs/PROJECT_STATE.md"
+      ],
+      "write_globs": [
+        "orchestration/gates.json",
+        "docs/decisions/022-*.md"
+      ],
+      "acceptance": {
+        "AC1": "orchestration/gates.json unit check timeout_s is raised to a value with a documented safety margin over multiple measured full-suite run times, and the reasoning is recorded in an ADR",
+        "AC2": "No other checks entry (argv, timeout_s, or check set) changes"
+      },
+      "required_artifacts": [
+        "orchestration/gates.json",
+        "docs/decisions/022-unit-check-timeout.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "One bounded slice; max 3 attempts. Config-only change: no new dependencies, datasets, compute, or gate-tool (tools/orchestrate.py) source changes."
     }
   ]
 }

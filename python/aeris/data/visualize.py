@@ -90,7 +90,11 @@ def contact_sheet(dataset, output, columns: int = 4, tile_width: int = 240,
     padded += [blank] * (-len(padded) % columns)
     sheet = np.vstack([np.hstack(padded[start:start + columns])
                        for start in range(0, len(padded), columns)])
-    if not cv2.imwrite(str(output), sheet):
+    try:
+        written = cv2.imwrite(str(output), sheet)
+    except cv2.error as error:  # e.g. no encoder for the output extension
+        raise OSError(f"could not write {output}: {error}") from error
+    if not written:
         raise OSError(f"could not write {output}")
     return {"output": str(output), "frames_drawn": len(tiles), "frames_total": len(records),
             "unparseable_lines": len(skipped), "size": [sheet.shape[1], sheet.shape[0]]}

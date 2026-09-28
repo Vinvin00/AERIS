@@ -11,8 +11,8 @@ flags cannot be null. Images are decoded with EXIF orientation ignored. Leakage 
 checked on groups, encoded bytes and decoded pixels.
 
 Data tooling depends on numpy and opencv-python-headless (the GUI-free build;
-Apache-2.0), declared as ranges in pyproject and hash-locked for the local macOS
-arm64 Python 3.14 environment.
+Apache-2.0), declared as ranges in pyproject and hash-locked for macOS arm64
+CPython 3.14 and Linux x86_64 CPython 3.11.
 
 Reason: this is the smallest format that keeps provenance, grouping and truth
 separate from pixels. It reuses the contract parser, so malformed records fail the
@@ -20,4 +20,10 @@ same way everywhere.
 
 Consequences: later tasks read datasets through `aeris.data.validate.read_index` and
 `read_annotations`, or validate first. Near-duplicate thresholds wait for real data.
+The loader decodes each annotation line as UTF-8 and parses it separately. Contract
+JSON parsing reports every parser failure (deep nesting, oversized integers,
+undecodable input) as a ContractError, so a bad line is reported with its number and
+never hides the others. Statistics report counts of unannotated attributes as null
+with an `availability_reason`, never as zero. Records that hold `availability_reason`
+mappings are explicitly unhashable; BBox stays hashable for the duplicate-box check.
 Heavy ML dependencies (AERIS-006) may still need a Python 3.11/3.12 environment.

@@ -1,6 +1,6 @@
 # Exact lock for the AERIS-003 data tooling on macOS arm64, CPython 3.14.6 (local .venv).
 # Install: .venv/bin/pip install --only-binary=:all: --require-hashes -r requirements/data-macos-arm64-py314.txt
 # Licenses: numpy BSD-3-Clause (+ bundled permissive), opencv-python-headless Apache-2.0.
-# Linux CI (3.11/3.12) resolves the pyproject.toml ranges; there is no Linux lock yet.
+# Linux x86_64 CPython 3.11: data-linux-x86_64-py311.txt. CI resolves the pyproject.toml ranges.
 numpy==2.5.3 --hash=sha256:adc1ada2662f8a5f960b8a10d9986897e7499ef07e06d4cfe7197f8cce923c07
 opencv-python-headless==5.0.0.93 --hash=sha256:030ca5e0837a2963ab36ef896baa9767eb8d2b83353fb28af5a521e40dd8756f

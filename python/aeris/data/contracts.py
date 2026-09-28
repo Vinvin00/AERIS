@@ -2,7 +2,8 @@
 
 These records contain metadata and geometry, not decoded pixels or evaluation results.
 JSON parsing rejects unknown fields, duplicate keys, NaN and Infinity. Nullable fields
-must have a field-specific entry in ``availability_reason``.
+must have a field-specific entry in ``availability_reason``. Records holding such mappings
+are explicitly unhashable; BBox is hashable.
 """
 from __future__ import annotations
 
@@ -90,10 +91,13 @@ def _constant(value: str) -> None:
 
 
 def loads(value: str) -> Any:
-    """Parse JSON, rejecting duplicate keys and NaN/Infinity constants."""
+    """Parse JSON, rejecting duplicate keys, NaN/Infinity constants and parser failures."""
     try:
         return json.loads(value, object_pairs_hook=_pairs, parse_constant=_constant)
-    except (json.JSONDecodeError, TypeError) as error:
+    except ContractError:
+        raise
+    except (ValueError, TypeError, RecursionError) as error:
+        # ValueError covers malformed JSON, undecodable bytes and oversized integers.
         raise ContractError(f"JSON: {error}") from error
 
 
@@ -165,6 +169,7 @@ def _bbox(value: Any, width: int | None = None, height: int | None = None) -> No
 
 @dataclass(frozen=True)
 class FrameRecord(Record):
+    __hash__ = None
     schema_version: int
     sequence_id: str
     frame_index: int
@@ -200,6 +205,7 @@ class FrameRecord(Record):
 
 @dataclass(frozen=True)
 class GroundTruthObject(Record):
+    __hash__ = None
     annotation_id: str
     class_id: int
     bbox: BBox
@@ -224,6 +230,7 @@ class GroundTruthObject(Record):
 
 @dataclass(frozen=True)
 class AnnotationRecord(Record):
+    __hash__ = None
     schema_version: int
     frame: FrameRecord
     class_mapping_version: str
@@ -260,6 +267,7 @@ class AnnotationRecord(Record):
 
 @dataclass(frozen=True)
 class DetectionRecord(Record):
+    __hash__ = None
     schema_version: int
     sequence_id: str
     frame_index: int
@@ -301,6 +309,7 @@ class DetectionRecord(Record):
 
 @dataclass(frozen=True)
 class PredictionRecord(Record):
+    __hash__ = None
     schema_version: int
     sequence_id: str
     track_id: str

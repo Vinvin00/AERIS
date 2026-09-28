@@ -1,0 +1,21 @@
+{
+ "class_mapping_version": "aeris-aircraft-v1",
+ "dataset_id": "aeris-sim-image-space-v1",
+ "group_basis": "one generated sequence per group; SYNTHETIC analytic fixture: validates math and plumbing only; it is not perception, tracking, forecasting or geometry performance evidence",
+ "image_root": "../inputs/images",
+ "schema_version": 1,
+ "sequences": [
+  {
+   "group_id": "sim-cv-crossing",
+   "sequence_id": "sim-cv-crossing",
+   "split": "synthetic"
+  },
+  {
+   "group_id": "sim-empty-birth",
+   "sequence_id": "sim-empty-birth",
+   "split": "synthetic"
+  }
+ ],
+ "transforms": {},
+ "unannotated_attributes": []
+}

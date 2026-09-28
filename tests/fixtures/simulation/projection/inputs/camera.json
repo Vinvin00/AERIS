@@ -1,0 +1,58 @@
+{
+ "calibration_id": "sim-cal-v1",
+ "camera_frame": "x right, y down, z forward along the optical axis (OpenCV convention)",
+ "camera_id": "sim-cam-calibrated",
+ "distortion": {
+  "coefficients": {
+   "k1": -0.12,
+   "k2": 0.03,
+   "k3": 0.0,
+   "p1": 0.001,
+   "p2": -0.0005
+  },
+  "model": "opencv_brown_conrady",
+  "order": [
+   "k1",
+   "k2",
+   "p1",
+   "p2",
+   "k3"
+  ]
+ },
+ "intrinsics": {
+  "cx": 320.0,
+  "cy": 240.0,
+  "fx": 500.0,
+  "fy": 500.0,
+  "skew": 0.0
+ },
+ "lens": "synthetic pinhole with Brown-Conrady distortion",
+ "model_input_transform": {
+  "crop_xywh": [
+   64,
+   48,
+   512,
+   384
+  ],
+  "mapping": "model = (original - crop_origin) * resize / crop_size",
+  "resize_wh": [
+   256,
+   192
+  ]
+ },
+ "original_resolution": [
+  640,
+  480
+ ],
+ "pixel_convention": "continuous original-frame pixels: pixel (i, j) spans [i, i+1) x [j, j+1) and the top-left pixel centre is (0.5, 0.5); OpenCV puts that centre at (0, 0), so an OpenCV principal point is (cx - 0.5, cy - 0.5)",
+ "quality": {
+  "availability_reason": {
+   "reprojection_error_px": "not estimated: parameters are exact by construction"
+  },
+  "reprojection_error_px": null,
+  "source": "exact synthetic parameters; no calibration was estimated"
+ },
+ "schema_version": 1,
+ "scope": "SYNTHETIC analytic fixture: validates math and plumbing only; it is not perception, tracking, forecasting or geometry performance evidence",
+ "zoom": "fixed"
+}
