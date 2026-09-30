@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-003 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-004 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -32,6 +32,10 @@ artifact store before moving machines. Do not commit private source data or secr
   independent review. The three-image original FGVC QA sample includes one cabin
   interior requiring curation before exterior-aircraft evaluation. See
   `docs/data_qa.md` and `orchestration/runs/AERIS-003/attempt-03/`.
+- AERIS-004 analytic ground-truth fixtures (`python/aeris/simulation/fixtures.py`,
+  `tests/fixtures/simulation/`, ADR 004), accepted 2026-09-30 after 78 full-suite
+  and 3 fixture tests plus independent review. Runtime inputs and evaluator truth
+  are separate. These synthetic scenes test arithmetic and interfaces only.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -52,4 +56,4 @@ independence is operational only.
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
 of the 24 h annotation/review budget. See `docs/dataset.md`.
 
-Next action: `prepare AERIS-004` (analytic ground-truth fixtures, first G2 task).
+Next action: `prepare AERIS-005` (metric adapters and evaluation protocol).

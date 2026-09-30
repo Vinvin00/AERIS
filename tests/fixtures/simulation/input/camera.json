@@ -1,0 +1,1 @@
+{"K":[[100.0,0.0,32.0],[0.0,100.0,24.0],[0.0,0.0,1.0]],"calibration_id":"fixture-pinhole-v1","camera_id":"analytic-pinhole-1","distortion_coefficients":[],"distortion_model":"none","height":48,"lens":"synthetic-fixed","quality":"analytic-exact","width":64,"zoom":1.0}
