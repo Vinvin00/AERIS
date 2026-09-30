@@ -21,3 +21,5 @@ same way everywhere.
 Consequences: later tasks read datasets through `aeris.data.validate.read_index` and
 `read_annotations`, or validate first. Near-duplicate thresholds wait for real data.
 Heavy ML dependencies (AERIS-006) may still need a Python 3.11/3.12 environment.
+Frozen canonical records containing availability mappings are explicitly unhashable;
+`BBox` remains hashable for duplicate-object checks.

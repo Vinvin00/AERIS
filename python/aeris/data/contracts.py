@@ -177,6 +177,7 @@ class FrameRecord(Record):
     camera_id: str | None
     annotation_status: str
     availability_reason: Mapping[str, str]
+    __hash__ = None
 
     def __post_init__(self) -> None:
         self._version()
@@ -209,6 +210,7 @@ class GroundTruthObject(Record):
     truncated: bool
     availability_reason: Mapping[str, str]
     _nested: ClassVar = {"bbox": BBox}
+    __hash__ = None
 
     def __post_init__(self) -> None:
         _identifier(self.annotation_id, "annotation_id")
@@ -229,6 +231,7 @@ class AnnotationRecord(Record):
     class_mapping_version: str
     objects: tuple[GroundTruthObject, ...]
     _nested: ClassVar = {"frame": FrameRecord}
+    __hash__ = None
 
     def __post_init__(self) -> None:
         self._version()
@@ -273,6 +276,7 @@ class DetectionRecord(Record):
     model_provenance: str
     availability_reason: Mapping[str, str]
     _nested: ClassVar = {"bbox": BBox}
+    __hash__ = None
 
     def __post_init__(self) -> None:
         self._version()
@@ -311,6 +315,7 @@ class PredictionRecord(Record):
     covariance: tuple[tuple[float, float], tuple[float, float]] | None
     model_name: str
     availability_reason: Mapping[str, str]
+    __hash__ = None
 
     def __post_init__(self) -> None:
         self._version()

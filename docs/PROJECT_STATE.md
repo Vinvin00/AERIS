@@ -1,8 +1,9 @@
 # Durable project state
 
-As of 2026-09-24: no perception pipeline, downloaded dataset, trained model,
-real benchmark, or published release exists. AERIS-001 and AERIS-002 are accepted
-(see below). G0 is the engineering scaffold, not a detection milestone.
+As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
+or published release exists. AERIS-001 through AERIS-003 are accepted. G1 is
+complete as an engineering/data-QA milestone, not a detection milestone. Three
+original FGVC image/label pairs were inspected; the full archive was not acquired.
 
 Decisions: fixed-camera RGB recorded-video MVP; original-frame pixel coordinates;
 CPU first; ground truth and regression designed early; Python reference before C++
@@ -19,12 +20,18 @@ packets, reports, checks, reviews, and feedback and is intentionally excluded fr
 Copy durable task decisions into `docs/decisions/` and keep evidence in a backed-up
 artifact store before moving machines. Do not commit private source data or secrets.
 
-## Accepted (2026-09-24)
+## Accepted
 
 - AERIS-001 canonical records (`python/aeris/data/contracts.py`, ADR 001).
 - AERIS-002 dataset audit (`docs/dataset.md`, `configs/data/source_manifest.json`,
   ADR 002). FGVC is a still-image smoke check only; the owned video pilot is the only
   source that can back tracking/forecast claims, and it does not exist yet.
+- AERIS-003 dataset loader and QA (`python/aeris/data/validate.py`,
+  `python/aeris/data/fgvc.py`, `python/aeris/data/visualize.py`, ADR 003), accepted
+  2026-09-30 after passing governance, 75 unit, and 21 dataset checks plus a fresh
+  independent review. The three-image original FGVC QA sample includes one cabin
+  interior requiring curation before exterior-aircraft evaluation. See
+  `docs/data_qa.md` and `orchestration/runs/AERIS-003/attempt-03/`.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -33,7 +40,7 @@ independence is operational only.
 
 | From | Follow-up | Owner task |
 |---|---|---|
-| 001 | Records are frozen dataclasses but `hash()` raises (dict in `availability_reason`); set `__hash__ = None` or store reasons as a tuple | AERIS-003 |
+| 001 | Mapping-bearing records are now explicitly unhashable; closed in AERIS-003 | Closed |
 | 001 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report | AERIS-008 |
 | 002 N1 | Manifest validator checks key presence but not values: empty strings, empty `artifacts`/`sources`, non-bool flags, unknown status/evaluation names, `1e400` | AERIS-003 (when porting to `python/aeris/data/validate.py`) |
 | 002 N2 | 9 of 35 validator-rule mutants survive the tests (fallback, role/status, width bins, duplicate IDs, `holdout_rule`) | AERIS-003 |
@@ -45,5 +52,4 @@ independence is operational only.
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
 of the 24 h annotation/review budget. See `docs/dataset.md`.
 
-Next action: `prepare AERIS-003` (dataset loader and QA, last G1 task). AERIS-004 is
-also ready but belongs to G2.
+Next action: `prepare AERIS-004` (analytic ground-truth fixtures, first G2 task).

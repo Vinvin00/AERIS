@@ -14,7 +14,15 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from aeris.data.contracts import ContractError
+from aeris.data.contracts import (
+    AnnotationRecord,
+    BBox,
+    ContractError,
+    DetectionRecord,
+    FrameRecord,
+    GroundTruthObject,
+    PredictionRecord,
+)
 from aeris.data.fgvc import convert_fgvc
 from aeris.data.validate import decode, validate_dataset
 from aeris.data.visualize import contact_sheet
@@ -60,6 +68,17 @@ class DatasetTestCase(unittest.TestCase):
 
 
 class CanonicalFixtureTests(DatasetTestCase):
+    def test_mapping_bearing_records_are_explicitly_unhashable(self):
+        for record_type in (
+            FrameRecord,
+            GroundTruthObject,
+            AnnotationRecord,
+            DetectionRecord,
+            PredictionRecord,
+        ):
+            self.assertIsNone(record_type.__hash__)
+        self.assertIsNotNone(BBox.__hash__)
+
     def test_fixture_is_clean_with_exact_statistics(self):
         report = validate_dataset(self.canonical)
         self.assertEqual(report["problems"], [])
