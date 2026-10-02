@@ -1,0 +1,124 @@
+{
+  "decoded_frames": 6,
+  "detections_per_frame": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "detector": "yolox-tiny-coco/onnxruntime-cpu",
+  "first_boxes_xyxy": [
+    [
+      11.11,
+      41.24,
+      640.0,
+      376.1
+    ],
+    [
+      7.26,
+      45.98,
+      640.0,
+      373.71
+    ],
+    [
+      6.01,
+      37.99,
+      640.0,
+      375.17
+    ],
+    [
+      6.3,
+      36.17,
+      639.58,
+      375.08
+    ],
+    [
+      3.71,
+      41.04,
+      640.0,
+      374.93
+    ],
+    [
+      5.85,
+      34.99,
+      640.0,
+      372.53
+    ]
+  ],
+  "first_timestamp_s": 0.0,
+  "frame_timestamps_s": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5
+  ],
+  "height": 400,
+  "nominal_fps": 10.0,
+  "note": "Plumbing/timing evidence only; not detection quality. Timings are one-machine wall clock.",
+  "processed_frames": 6,
+  "render_note": null,
+  "rendered": true,
+  "sequence_id": "pan",
+  "skipped_frames": {
+    "stride": 0
+  },
+  "source": {
+    "construction": "6 frames, crop photo[100:500, 4*i:4*i+640], mp4v 10 fps, derived from one FGVC photo (not committed)",
+    "image": "1143132.jpg",
+    "image_sha256": "7f23ee17e7be6871d8489e1be3bfd877b5e01f59bb806fd558aa9b80fb719ef1"
+  },
+  "stage_summary": {
+    "decode": {
+      "p50_s": 0.0002053340431302786,
+      "p95_s": 0.0002499001333490014,
+      "samples": 5,
+      "total_s": 0.002342875930480659,
+      "warmup_excluded": 1
+    },
+    "inference": {
+      "p50_s": 0.012377250008285046,
+      "p95_s": 0.013008966064080595,
+      "samples": 5,
+      "total_s": 0.07891903992276639,
+      "warmup_excluded": 1
+    },
+    "postprocess": {
+      "p50_s": 0.0008908750023692846,
+      "p95_s": 0.0011033334769308567,
+      "samples": 5,
+      "total_s": 0.004843792179599404,
+      "warmup_excluded": 1
+    },
+    "preprocess": {
+      "p50_s": 0.0006010419456288218,
+      "p95_s": 0.0008914665319025516,
+      "samples": 5,
+      "total_s": 0.004180749994702637,
+      "warmup_excluded": 1
+    },
+    "render": {
+      "p50_s": 0.001231375033967197,
+      "p95_s": 0.0013169833924621343,
+      "samples": 5,
+      "total_s": 0.019958459888584912,
+      "warmup_excluded": 1
+    },
+    "total": {
+      "p50_s": 0.015312417061068118,
+      "p95_s": 0.016335532511584462,
+      "samples": 5,
+      "total_s": 0.110244917916134,
+      "warmup_excluded": 1
+    }
+  },
+  "timestamp_policy": "pts_or_inferred",
+  "timestamp_reason": null,
+  "timestamp_source": "decode_pts",
+  "timing_scope": "perf_counter wall-clock on this machine; decode excludes ffprobe; not a benchmark",
+  "wall_clock_s": 0.14854291698429734,
+  "width": 640
+}

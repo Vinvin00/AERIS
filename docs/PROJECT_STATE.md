@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006 and AERIS-008 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -49,6 +49,12 @@ artifact store before moving machines. Do not commit private source data or secr
   COCO ONNX (Apache-2.0 code; weight terms unverified), ONNX Runtime CPU vs OpenCV DNN
   agree within declared tolerances on three FGVC images. Smoke check only: no quality
   claim, no PyTorch export-fidelity check, weights Git-ignored (see `models/README.md`).
+- AERIS-008 timestamp-aware video pipeline (`python/aeris/video/pipeline.py`,
+  `docs/video.md`, ADR 008), accepted 2026-10-02 on attempt 02 (attempt 01 revised for a
+  skipped PTS count check and an unasserted total) after 121 full-suite tests and fresh
+  review. ffprobe PTS with marked inferred fallback; mixed-source helper closes the
+  AERIS-001 follow-up. No owned real video exists; the real sample is derived from one
+  still photo. ffprobe is an unpinned external tool.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -58,11 +64,12 @@ independence is operational only.
 | From | Follow-up | Owner task |
 |---|---|---|
 | 001 | Mapping-bearing records are now explicitly unhashable; closed in AERIS-003 | Closed |
-| 001 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources in one sequence; decide reject or report | AERIS-008 |
+| 001 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources; AERIS-008 added a rejecting helper in the video pipeline, `validate_sequence` itself unchanged (contract change) | Helper done; contract change open |
 | 002 N1 | Manifest validator checks key presence but not values: empty strings, empty `artifacts`/`sources`, non-bool flags, unknown status/evaluation names, `1e400` | AERIS-003 (when porting to `python/aeris/data/validate.py`) |
 | 002 N2 | 9 of 35 validator-rule mutants survive the tests (fallback, role/status, width bins, duplicate IDs, `holdout_rule`) | AERIS-003 |
 | 002 N3 | FGVC recall-only smoke check needs a fixed detection budget (top-k or pre-fixed score threshold) or it rewards box spam | AERIS-005/006 |
 | 006 | 1627560 class/box not asserted in a test; airplane scored per anchor instead of YOLOX argmax-class selection (undocumented); confirm weight license before release | AERIS-007+/release |
+| 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
