@@ -1,0 +1,10 @@
+# Local detector runtime tested on macOS arm64 CPython 3.14.6 (AERIS-006).
+# Install into the existing .venv; version pins, not a hash lock. onnx is only used
+# to inspect/check the downloaded graph (not imported at runtime). OpenCV and numpy
+# come from data-macos-arm64-py314.txt.
+onnxruntime==1.30.0
+onnx==1.23.1
+flatbuffers==25.12.19
+ml_dtypes==0.6.0
+protobuf==7.36.2
+packaging==26.3

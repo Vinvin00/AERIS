@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "model": {
+    "name": "yolox-tiny-coco",
+    "path": "models/onnx/yolox_tiny.onnx",
+    "sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+    "size_bytes": 20219662,
+    "source_url": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_tiny.onnx",
+    "retrieved": "2026-10-02",
+    "code_license": "Apache-2.0 (github.com/Megvii-BaseDetection/YOLOX, per repository license metadata)",
+    "weight_license": "not separately stated by the release; assumed to follow the repository Apache-2.0 license. UNVERIFIED legal position, see docs/detection.md",
+    "pretraining_data": "MS COCO 2017 train (known overlap risk with any COCO-derived evaluation data)",
+    "export": {
+      "producer": "pytorch 1.7",
+      "opset": 11,
+      "note": "exported upstream by the YOLOX authors, not by AERIS"
+    }
+  },
+  "input": {
+    "size": 416,
+    "layout": "NCHW",
+    "color_order": "BGR",
+    "value_range": "0-255 float32, no mean/std",
+    "pad_value": 114,
+    "resize": "INTER_LINEAR, aspect preserved, top-left placement"
+  },
+  "output": {
+    "shape": [
+      1,
+      3549,
+      85
+    ],
+    "format": "raw head: cx, cy, w, h (log-space per stride), objectness, 80 COCO class scores; strides 8/16/32",
+    "score": "objectness * class_score"
+  },
+  "postprocess": {
+    "score_floor": 0.1,
+    "nms_iou": 0.45,
+    "nms": "class-aware greedy",
+    "max_detections": 100,
+    "score_floor_note": "Low fixed floor for AP; the operating threshold must still be selected on validation data."
+  },
+  "class_mapping_version": "aeris-aircraft-v1",
+  "class_map": {
+    "4": {
+      "coco_name": "airplane",
+      "aeris_class_id": 0
+    }
+  },
+  "class_map_note": "Only COCO airplane maps to aeris-aircraft-v1 class 0; all other COCO classes are dropped. Helicopters, drones and birds have no COCO class here.",
+  "agreement": {
+    "raw_max_abs": 0.001,
+    "box_px": 0.5,
+    "score_abs": 0.001,
+    "note": "Tolerances were chosen after a first probe showed raw differences near 7e-5 and are about 14x looser; they were fixed before the recorded report. Two CPU runtimes execute the same ONNX graph; this is not a PyTorch-vs-ONNX export-fidelity check."
+  }
+}

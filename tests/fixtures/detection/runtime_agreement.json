@@ -1,0 +1,69 @@
+{
+  "all_within_tolerance": true,
+  "images": [
+    {
+      "box_max_diff_px": 0.0,
+      "detections": 0,
+      "file": "1885942.jpg",
+      "height": 812,
+      "raw_max_abs_diff": 5.8710575103759766e-05,
+      "same_count": true,
+      "score_max_diff": 0.0,
+      "sha256": "a34c4c01b9f19b007ce5c565c80fac2120089f2baecce3e6688992e2df01ccb9",
+      "width": 1200,
+      "within_tolerance": true
+    },
+    {
+      "box_max_diff_px": 0.0001220703125,
+      "detections": 1,
+      "file": "1143132.jpg",
+      "height": 678,
+      "raw_max_abs_diff": 4.3004751205444336e-05,
+      "same_count": true,
+      "score_max_diff": 1.1920928955078125e-07,
+      "sha256": "7f23ee17e7be6871d8489e1be3bfd877b5e01f59bb806fd558aa9b80fb719ef1",
+      "width": 1000,
+      "within_tolerance": true
+    },
+    {
+      "box_max_diff_px": 0.000244140625,
+      "detections": 1,
+      "file": "1627560.jpg",
+      "height": 1079,
+      "raw_max_abs_diff": 7.367134094238281e-05,
+      "same_count": true,
+      "score_max_diff": 1.7881393432617188e-07,
+      "sha256": "28e4f4aa581475a1611315794d3dda1e3884647c28331b2f7a1ca62003383408",
+      "width": 1600,
+      "within_tolerance": true
+    }
+  ],
+  "latency": {
+    "onnxruntime-cpu": {
+      "p50_ms": 9.524666471406817,
+      "p95_ms": 9.982230828609318,
+      "runs": 20,
+      "scope": "model forward only, one image",
+      "warmup_runs": 1
+    },
+    "opencv-dnn-cpu": {
+      "p50_ms": 20.83760395180434,
+      "p95_ms": 22.574493987485766,
+      "runs": 20,
+      "scope": "model forward only, one image",
+      "warmup_runs": 1
+    }
+  },
+  "model_sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+  "tolerances": {
+    "box_px": 0.5,
+    "note": "Tolerances were chosen after a first probe showed raw differences near 7e-5 and are about 14x looser; they were fixed before the recorded report. Two CPU runtimes execute the same ONNX graph; this is not a PyTorch-vs-ONNX export-fidelity check.",
+    "raw_max_abs": 0.001,
+    "score_abs": 0.001
+  },
+  "versions": {
+    "numpy": "2.5.3",
+    "onnxruntime": "1.30.0",
+    "opencv": "5.0.0"
+  }
+}

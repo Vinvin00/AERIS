@@ -13,3 +13,5 @@ frozen ML training environment.
   versions exercised by AERIS-005. The local task installed these with `--no-deps`
   on the existing data environment; TrackEval's plotting/dataset extras were not
   needed by the HOTA and Identity API calls. This is a version pin, not a hash lock.
+- `detection-macos-arm64-py314.txt`: ONNX Runtime 1.30.0 (CPU) and graph-inspection
+  `onnx` used by the AERIS-006 baseline. Version pin only; Linux and Python 3.11/3.12 untested.
