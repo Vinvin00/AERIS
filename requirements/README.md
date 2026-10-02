@@ -9,3 +9,7 @@ frozen ML training environment.
   AERIS-003 loader, QA and contact sheet on the local Python 3.14.6 `.venv`
   (installed footprint about 153 MB). Linux CI on 3.11/3.12 resolves the ranges in
   pyproject.toml. numpy 2.5.3 itself requires Python >= 3.12.
+- `evaluation-macos-arm64-py314.txt`: exact standard evaluator and required numeric
+  versions exercised by AERIS-005. The local task installed these with `--no-deps`
+  on the existing data environment; TrackEval's plotting/dataset extras were not
+  needed by the HOTA and Identity API calls. This is a version pin, not a hash lock.

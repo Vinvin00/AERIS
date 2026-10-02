@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-004 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-005 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -36,6 +36,13 @@ artifact store before moving machines. Do not commit private source data or secr
   `tests/fixtures/simulation/`, ADR 004), accepted 2026-09-30 after 78 full-suite
   and 3 fixture tests plus independent review. Runtime inputs and evaluator truth
   are separate. These synthetic scenes test arithmetic and interfaces only.
+- AERIS-005 metric adapters and evaluation protocol (`python/aeris/evaluation/metrics.py`,
+  `docs/evaluation.md`, ADR 005), accepted 2026-10-01 on attempt 03 after 87 full-suite
+  and 9 metrics tests plus fresh independent review. Pinned pycocotools 2.0.11 and
+  TrackEval 1.3.0 run on synthetic fixtures only; no real AP/HOTA/IDF1 exists. Attempt 02
+  was closed by a coordinator sequencing error (`verify` resets `review.json`), not a
+  code defect. Minor follow-up: AERIS-002 N3 (fixed detection budget) is now handled by
+  the per-frame budget and required score threshold.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -56,4 +63,4 @@ independence is operational only.
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
 of the 24 h annotation/review budget. See `docs/dataset.md`.
 
-Next action: `prepare AERIS-005` (metric adapters and evaluation protocol).
+Next action: `status`, then `prepare` the next ready task (expected AERIS-006).
