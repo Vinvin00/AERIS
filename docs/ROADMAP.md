@@ -3,17 +3,18 @@
 Tasks and exact dependencies are in `orchestration/tasks.json`. A milestone is
 complete only after its tasks have evidence and independent review.
 
-Milestone membership: G1 = 001–003; G2 = 004–007; G3 = 008–009;
+Milestone membership: G1 = 001–003; G2 = 004–007; G3 = 008–009 plus deferred 021 (real-video MOT evidence);
 G4 = 010–011; G5 = 012, 013, 015, 017; G6 = 014, 016; G7 = 018.
 All IDs use the `AERIS-` prefix. Requests through a gate include all earlier gates.
-IDs 019 and 020 are optional extensions and are not included in G7.
+IDs 019 and 020 are optional extensions and are not included in G7. Unlike them, deferred
+021 *is* a prerequisite of 018, so G7 stays blocked until real tracking evidence exists.
 
 | Gate | Work | Exit evidence | Approximate focused effort |
 |---|---|---|---|
 | G0 | Foundation and orchestration (this delivery) | Offline checks, C++ contract check, tested review loop | Delivered scaffold |
 | G1 | Contracts, data audit, adapters, QA | Licensed/provenanced manifest, split report, validator tests, real visual samples | 30–50 h |
 | G2 | Evaluation, baseline model, early export | Synthetic analytical fixtures, real baseline, export parity evidence | 35–60 h |
-| G3 | Video and tracking | Correct timestamp/dropout behavior, MOT report on real identities | 40–70 h |
+| G3 | Video and tracking | Correct timestamp/dropout behavior, MOT report on real identities (requires deferred AERIS-021; not met until the owner supplies labeled footage) | 40–70 h |
 | G4 | Forecasts and calibrated geometry | Causal horizon evaluation, pixel mode, optional calibrated rays | 35–60 h |
 | G5 | Python MVP, robustness, regression | End-to-end artifacts, versioned benchmark, failure examples | 60–110 h |
 | G6 | C++ parity and performance | Matched fixtures, runtime integration, CPU ONNX report | 70–140 h |

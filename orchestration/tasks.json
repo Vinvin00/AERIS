@@ -335,7 +335,7 @@
       "acceptance": {
         "AC1": "Crossing, missing, duplicate and empty detections test stable IDs and lifecycle timeout in seconds",
         "AC2": "Covariance stays finite/PSD and prediction/update use variable delta time without future access",
-        "AC3": "Tracking metrics run on identity-labeled real video; absent labels block real-performance claims"
+        "AC3": "The detections-tracker-TrackEval path runs on identity-labeled synthetic scenes and the AERIS-004 analytic fixture, and absent identity labels return unavailable tracking metrics that block real-performance claims; real-video metrics are carried by AERIS-021"
       },
       "required_artifacts": [
         "python/aeris/tracking/tracker.py",
@@ -672,7 +672,8 @@
       "depends_on": [
         "AERIS-015",
         "AERIS-016",
-        "AERIS-017"
+        "AERIS-017",
+        "AERIS-021"
       ],
       "read": [
         "docs/FEASIBILITY.md",
@@ -772,6 +773,46 @@
         "edge"
       ],
       "budget": "One bounded slice; max 3 attempts. No paid compute. Small test fixtures only; real data/model acquisition must stay within a documented task-local size/time budget. Escalate if acceptance cannot be met."
+    },
+    {
+      "id": "AERIS-021",
+      "title": "Real-video tracking evidence",
+      "objective": "Evaluate the accepted tracker on rights-cleared, identity-labeled real video with the AERIS-005 TrackEval adapter and report the result with its support and limits. Carries the real-video half of the original AERIS-009 AC3.",
+      "status": "deferred",
+      "depends_on": [
+        "AERIS-003",
+        "AERIS-005",
+        "AERIS-008",
+        "AERIS-009"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "docs/tracking_evidence.md",
+        "configs/tracker/*",
+        "tests/fixtures/tracking/*",
+        "docs/decisions/021-*.md",
+        "python/aeris/evaluation/*",
+        "configs/data/*",
+        "docs/dataset.md"
+      ],
+      "acceptance": {
+        "AC1": "HOTA and IDF1 are computed with the AERIS-005 adapter on rights-cleared real video sequences with identity labels, with sequence counts, support and eligibility reported",
+        "AC2": "Footage provenance, rights, annotation protocol and splits are recorded; no claim exceeds the sample support and any intervals are bootstrapped by sequence",
+        "AC3": "Detector and tracker configuration hashes are recorded and parameters are chosen on a development split before held-out evaluation"
+      },
+      "required_artifacts": [
+        "docs/tracking_evidence.md",
+        "configs/data/tracking_evidence_manifest.json"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Blocked until the owner supplies footage source and rights, a capture/session plan and an annotation budget (see docs/dataset.md). No work may start before then; activation needs a separately reviewed change."
     }
   ]
 }

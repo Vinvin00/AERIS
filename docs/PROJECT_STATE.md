@@ -75,6 +75,8 @@ independence is operational only.
 ## Owner decisions blocking real video evidence (not G1)
 
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
-of the 24 h annotation/review budget. See `docs/dataset.md`.
+of the 24 h annotation/review budget. See `docs/dataset.md`. These also block the deferred
+AERIS-021 (real-video tracking evidence), which AERIS-018 now depends on; AERIS-009's AC3 was
+split by `docs/decisions/PLAN-001-aeris-009-ac3-split.md`.
 
 Next action: `status`, then `prepare` the next ready task.

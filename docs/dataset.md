@@ -145,7 +145,7 @@ manifests, hashes and retrieval notes.
 and under what terms; locations and dates for ≥6 sessions; the annotation tool
 (CVAT is a candidate) and its export mapping to contract v1; and approval of the
 24 h annotation/review budget. Without the pilot, G3+ real tracking and forecast
-claims stay blocked.
+claims stay blocked (real tracking evidence is the deferred task AERIS-021).
 
 ## Limitations
 
