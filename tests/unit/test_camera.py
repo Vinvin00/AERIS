@@ -87,6 +87,34 @@ class ProjectionRoundTripTests(unittest.TestCase):
         with self.assertRaises(GeometryError):
             model.ray_to_pixel((0, 0, -1))
 
+    def test_non_invertible_distortion_is_rejected_not_silently_wrong(self):
+        # k1=-0.5,k2=0.3,k3=-0.1 is non-monotonic inside this frame: previously wrong rays, up to ~378 px.
+        bad = {**DISTORTED, "distortion_coefficients": [-0.5, 0.3, 0.0, 0.0, -0.1]}
+        with self.assertRaises(GeometryError) as caught:
+            Calibration.from_dict(bad)
+        assert "not invertible" in str(caught.exception)
+        strong_but_valid = {**DISTORTED, "distortion_coefficients": [-0.8, 0.5, 0.0, 0.0, 0.0]}
+        CameraModel(Calibration.from_dict(strong_but_valid))   # invertible over the frame: accepted
+
+    def test_failed_undistortion_returns_no_ray_with_reason(self):
+        import aeris.estimation.camera as camera
+        model = CameraModel(Calibration.from_dict(DISTORTED))
+        real = camera._undistort
+        camera._undistort = lambda cal, x, y: np.array([5.0, 5.0])   # simulate a non-converged solve
+        try:
+            ray = model.pixel_to_ray(100, 100)
+        finally:
+            camera._undistort = real
+        assert ray.direction is None and "failed to converge" in ray.availability_reason["direction"]
+
+    def test_ray_to_pixel_is_none_outside_the_calibrated_frame(self):
+        model = CameraModel(Calibration.from_dict(PINHOLE))
+        assert model.ray_to_pixel(unit([0, 0, 1])) is not None
+        assert model.ray_to_pixel(unit([math.sin(math.radians(80)), 0, math.cos(math.radians(80))])) is None
+        assert model.ray_to_pixel(unit([1.0, 0.0, 1.0])) is None      # 45 deg: 100 px right of cx > frame
+        distorted = CameraModel(Calibration.from_dict(DISTORTED))
+        assert distorted.ray_to_pixel(unit([3.0, 0.0, 1.0])) is None
+
     def test_pixel_outside_calibrated_frame_has_no_ray(self):
         ray = CameraModel(Calibration.from_dict(PINHOLE)).pixel_to_ray(70, 10)
         assert ray.direction is None and "outside" in ray.availability_reason["direction"]
@@ -211,6 +239,16 @@ class HeadingAndSizeChangeTests(unittest.TestCase):
         assert result.label not in ("approaching", "receding")
         assert not any("range" in f.name or "yaw" in f.name or f.name.endswith("_m")
                        for f in dataclasses.fields(SizeChange))
+
+    def test_standard_error_uses_n_minus_two_degrees_of_freedom(self):
+        t = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+        noise = np.array([0.02, -0.03, 0.01, 0.04, -0.02, -0.02])
+        y = 0.3 * t + noise
+        result = self.model.apparent_size_change([(float(a), float(math.exp(b))) for a, b in zip(t, y)])
+        slope, intercept = np.polyfit(t, y, 1)
+        resid = y - (slope * t + intercept)
+        expected_se = math.sqrt(float(resid @ resid) / (len(t) - 2) / float(((t - t.mean()) ** 2).sum()))
+        assert abs(result.log_rate_per_s - slope) < 1e-9 and abs(result.standard_error - expected_se) < 1e-9
 
     def test_noisy_or_sparse_size_series_is_uncertain(self):
         rng = np.random.default_rng(5)

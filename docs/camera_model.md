@@ -16,6 +16,12 @@ origin is top-left, x right, y down, in original-frame pixels. Rays are unit
 `(x, y, z)` with z forward, x right, y down. Distortion is removed first (iterative
 `undistortPoints`, tolerance 1e-12, up to 100 iterations) and the ray is `normalize([x, y, 1])`.
 
+A calibration whose distortion polynomial is not invertible over the frame (undistort then
+re-project must return each of a 21x13 pixel grid, corners included, within 0.01 px) is rejected
+at construction with `GeometryError`; `pixel_to_ray` repeats the re-projection check per call and
+returns no ray with a reason if the solve did not converge. This closes a review finding where
+extreme coefficients such as (-0.5, 0.3, 0, 0, -0.1) silently gave rays up to ~378 px off.
+
 ## Crop, resize and padding
 
 `ImageTransform` is the explicit axis-aligned map `processed = (original - crop) * scale +
@@ -28,7 +34,7 @@ and extents are identical whichever processed image a pixel came from.
 
 | Function | Result | Convention |
 |---|---|---|
-| `pixel_to_ray` / `ray_to_pixel` | unit ray / pixel (distortion applied back) | round trip tested |
+| `pixel_to_ray` / `ray_to_pixel` | unit ray / pixel (distortion applied back); `ray_to_pixel` is `None` when the pixel falls outside the calibrated frame | round trip tested |
 | `bbox_angular_extent` | width/height in rad (deg properties) | angle between mid-edge rays; **not** a physical size |
 | `angular_rate` | rad/s, plus azimuth/elevation rates | camera-relative; needs `t1 > t0`; image y down = negative elevation |
 | `image_heading` | degrees in `[0, 360)` | `atan2(-vy, vx)` counterclockwise from image right; `None` below 1 px/s; **not aircraft yaw** |

@@ -32,6 +32,37 @@ def _finite(value, name):
     return float(value)
 
 
+ROUND_TRIP_TOL_PX = 0.01   # undistort-then-project must return the pixel within this
+
+
+def _undistort(cal, x: float, y: float) -> np.ndarray:
+    """Normalized undistorted coordinates for an original-frame pixel."""
+    if cal.dist is None:
+        return (np.array([x, y]) - cal.matrix[:2, 2]) / np.array([cal.matrix[0, 0], cal.matrix[1, 1]])
+    point = np.array([[[x, y]]], dtype=np.float64)
+    return cv2.undistortPoints(point, cal.matrix, cal.dist, None, np.eye(3), np.eye(3), _ITER)[0, 0]
+
+
+def _project(cal, ray) -> tuple[float, float]:
+    pixel, _ = cv2.projectPoints(np.asarray(ray, dtype=float).reshape(1, 1, 3), np.zeros(3), np.zeros(3),
+                                 cal.matrix, cal.dist if cal.dist is not None else np.zeros(5))
+    return float(pixel[0, 0, 0]), float(pixel[0, 0, 1])
+
+
+def _reprojection_error_px(cal, x: float, y: float) -> float:
+    n = _undistort(cal, x, y)
+    px, py = _project(cal, (n[0], n[1], 1.0))
+    return math.hypot(px - x, py - y)
+
+
+def _worst_round_trip_px(cal) -> float:
+    """Worst undistort->project error over a 21x13 grid spanning the frame, corners included."""
+    if cal.dist is None:
+        return 0.0
+    xs, ys = np.linspace(0, cal.width, 21), np.linspace(0, cal.height, 13)
+    return max(_reprojection_error_px(cal, float(x), float(y)) for x in xs for y in ys)
+
+
 @dataclass(frozen=True)
 class Calibration:
     camera_id: str
@@ -71,6 +102,10 @@ class Calibration:
             raise GeometryError("zoom: must be positive")
         object.__setattr__(self, "K", tuple(tuple(float(v) for v in row) for row in k))
         object.__setattr__(self, "distortion_coefficients", tuple(coeffs))
+        worst = _worst_round_trip_px(self)
+        if worst > ROUND_TRIP_TOL_PX:
+            raise GeometryError(
+                f"distortion model is not invertible over the image (re-projection error {worst:.3g} px)")
 
     @classmethod
     def from_dict(cls, data: dict) -> "Calibration":
@@ -226,27 +261,29 @@ class CameraModel:
         cal = self.calibration
         if not (0 <= x <= cal.width and 0 <= y <= cal.height):
             return Ray(None, {"direction": "pixel lies outside the calibrated original frame"})
-        point = np.array([[[x, y]]], dtype=np.float64)
-        if cal.dist is None:
-            normalized = (point[0, 0] - cal.matrix[:2, 2]) / np.array([cal.matrix[0, 0], cal.matrix[1, 1]])
-        else:
-            normalized = cv2.undistortPoints(point, cal.matrix, cal.dist, None, np.eye(3), np.eye(3), _ITER)[0, 0]
+        normalized = _undistort(cal, x, y)
+        error = _reprojection_error_px(cal, x, y)
+        if not error <= ROUND_TRIP_TOL_PX:
+            return Ray(None, {"direction": f"undistortion failed to converge (re-projection error {error:.3g} px)"})
         ray = np.array([normalized[0], normalized[1], 1.0])
         ray /= np.linalg.norm(ray)
         return Ray(tuple(float(c) for c in ray))
 
     def ray_to_pixel(self, ray: tuple[float, float, float], transform: ImageTransform = IDENTITY
                      ) -> tuple[float, float] | None:
-        """Project a ray (z > 0) back to a pixel in ``transform``'s image, applying distortion."""
+        """Project a ray (z > 0) to a pixel in ``transform``'s image, applying distortion.
+
+        Returns ``None`` when the pixel falls outside the calibrated original frame."""
         if self.calibration is None:
             raise GeometryError("calibration unavailable")
         r = np.array(ray, dtype=float)
         if r.shape != (3,) or not np.all(np.isfinite(r)) or r[2] <= 0:
             raise GeometryError("ray must be finite with positive z")
         cal = self.calibration
-        pixel, _ = cv2.projectPoints(r.reshape(1, 1, 3), np.zeros(3), np.zeros(3), cal.matrix,
-                                     cal.dist if cal.dist is not None else np.zeros(5))
-        return transform.from_original(float(pixel[0, 0, 0]), float(pixel[0, 0, 1]))
+        x, y = _project(cal, r)
+        if not (0 <= x <= cal.width and 0 <= y <= cal.height):
+            return None
+        return transform.from_original(x, y)
 
     @staticmethod
     def _angle(a, b) -> float:

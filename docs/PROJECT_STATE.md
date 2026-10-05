@@ -81,7 +81,7 @@ independence is operational only.
 | 006 | 1627560 class/box not asserted in a test; airplane scored per anchor instead of YOLOX argmax-class selection (undocumented); confirm weight license before release | AERIS-007+/release |
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
 | 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
-| 011 | Strongly distorted calibrations with a non-monotonic polynomial inside the frame give silently wrong rays (add a re-projection/monotonicity check); `ray_to_pixel` never returns None for rays far off axis; SE degrees-of-freedom (n-2) not pinned by a test | AERIS-012 or a camera follow-up |
+| 011 | Fixed 2026-10-05 after acceptance (invertibility check, `ray_to_pixel` None outside frame, SE n-2 test); post-acceptance change not under a formal receipt or fresh review | Closed (see commit) |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
