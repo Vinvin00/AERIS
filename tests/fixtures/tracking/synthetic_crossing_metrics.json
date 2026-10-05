@@ -1,0 +1,36 @@
+{
+  "A_missing_frames_6_7_8": {
+    "hota": 0.757614408414158,
+    "idf1": 0.8571428571428571,
+    "idfn": 7,
+    "idfp": 0,
+    "idtp": 21,
+    "predicted_only_positions_excluded": 3,
+    "tracker_counters": {
+      "births": 2,
+      "births_suppressed": 0,
+      "deleted": 0,
+      "duplicates_dropped": 0,
+      "gated_pairs": 22,
+      "steps": 14
+    }
+  },
+  "clean": {
+    "hota": 0.8571428571428571,
+    "idf1": 0.9230769230769231,
+    "idfn": 4,
+    "idfp": 0,
+    "idtp": 24,
+    "predicted_only_positions_excluded": 0,
+    "tracker_counters": {
+      "births": 2,
+      "births_suppressed": 0,
+      "deleted": 0,
+      "duplicates_dropped": 0,
+      "gated_pairs": 26,
+      "steps": 14
+    }
+  },
+  "note": "Plumbing check only. No identity-labeled real video exists, so no real tracking performance is claimed.",
+  "scene": "synthetic: A moves right 200 px/s, B left 200 px/s, 8 px vertical offset, 14 frames at 10 fps, oracle detections from synthetic truth"
+}

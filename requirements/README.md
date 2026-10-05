@@ -15,3 +15,5 @@ frozen ML training environment.
   needed by the HOTA and Identity API calls. This is a version pin, not a hash lock.
 - `detection-macos-arm64-py314.txt`: ONNX Runtime 1.30.0 (CPU) and graph-inspection
   `onnx` used by the AERIS-006 baseline. Version pin only; Linux and Python 3.11/3.12 untested.
+- AERIS-009 tracker needs only `scipy==1.17.1` (extra `tracking`), already pinned by
+  `evaluation-macos-arm64-py314.txt`. Linux and Python 3.11/3.12 untested.

@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006 and AERIS-008 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006, AERIS-008 and AERIS-009 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -55,6 +55,11 @@ artifact store before moving machines. Do not commit private source data or secr
   review. ffprobe PTS with marked inferred fallback; mixed-source helper closes the
   AERIS-001 follow-up. No owned real video exists; the real sample is derived from one
   still photo. ffprobe is an unpinned external tool.
+- AERIS-009 Kalman tracker (`python/aeris/tracking/tracker.py`, `configs/tracker/`,
+  `docs/tracking.md`, ADR 009), accepted 2026-10-05 on attempt 02 (attempt 01 was escalated
+  because AC3 needed identity-labeled real video; AC3 was amended by PLAN-001, and AERIS-021
+  now carries the real-video requirement, deferred). 141 full-suite tests, fresh review.
+  **No real tracking performance exists.** Defaults are untuned.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -70,6 +75,7 @@ independence is operational only.
 | 002 N3 | FGVC recall-only smoke check needs a fixed detection budget (top-k or pre-fixed score threshold) or it rewards box spam | AERIS-005/006 |
 | 006 | 1627560 class/box not asserted in a test; airplane scored per anchor instead of YOLOX argmax-class selection (undocumented); confirm weight license before release | AERIS-007+/release |
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
+| 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)

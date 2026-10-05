@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "state_order": ["cx_px", "cy_px", "vx_px_s", "vy_px_s", "w_px", "h_px"],
+  "accel_sigma_px_s2": 200.0,
+  "size_sigma_px_sqrt_s": 4.0,
+  "initial_velocity_sigma_px_s": 100.0,
+  "r_position_frac": 0.05,
+  "r_size_frac": 0.1,
+  "r_floor_px": 1.0,
+  "gate_chi2": 13.277,
+  "confirm_hits": 3,
+  "tentative_timeout_s": 0.5,
+  "max_coast_s": 1.0,
+  "duplicate_iou": 0.95,
+  "birth_suppress_iou": 0.5,
+  "notes": {
+    "status": "Engineering defaults. NOT tuned on real video; no identity-labeled real footage exists. Choose final values on a development set and record them before comparing candidates.",
+    "gate_chi2": "chi-square 0.99 quantile, 4 degrees of freedom (cx, cy, w, h).",
+    "R": "Measurement noise comes from box size (fractions of w/h with a pixel floor), not from detector confidence; no validated confidence-to-R method exists.",
+    "timeouts": "All lifecycle timeouts are seconds, not frames. Tentative tracks survive misses up to tentative_timeout_s; confirmed tracks coast as 'lost' for max_coast_s.",
+    "duplicate_iou": "Two same-class detections with IoU >= this in one frame are treated as one (lower score dropped)."
+  }
+}
