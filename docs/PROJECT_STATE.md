@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006, AERIS-008 and AERIS-009 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006, AERIS-008, AERIS-009 and AERIS-011 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -60,6 +60,11 @@ artifact store before moving machines. Do not commit private source data or secr
   because AC3 needed identity-labeled real video; AC3 was amended by PLAN-001, and AERIS-021
   now carries the real-video requirement, deferred). 141 full-suite tests, fresh review.
   **No real tracking performance exists.** Defaults are untuned.
+- AERIS-011 camera geometry (`python/aeris/estimation/camera.py`, `docs/camera_model.md`,
+  ADR 011), accepted 2026-10-05 on attempt 01 after 160 full-suite tests and fresh review.
+  Rays verified against an independent distortion model on analytic/synthetic cameras only;
+  no real calibration exists. Angular claims are suppressed without calibration, after
+  camera motion or on a zoom mismatch; no range, approach or yaw claims.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -76,6 +81,7 @@ independence is operational only.
 | 006 | 1627560 class/box not asserted in a test; airplane scored per anchor instead of YOLOX argmax-class selection (undocumented); confirm weight license before release | AERIS-007+/release |
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
 | 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
+| 011 | Strongly distorted calibrations with a non-monotonic polynomial inside the frame give silently wrong rays (add a re-projection/monotonicity check); `ray_to_pixel` never returns None for rays far off axis; SE degrees-of-freedom (n-2) not pinned by a test | AERIS-012 or a camera follow-up |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
