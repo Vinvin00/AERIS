@@ -330,7 +330,12 @@
         "configs/tracker/*",
         "pyproject.toml",
         "requirements/*",
-        "docs/decisions/009-*.md"
+        "docs/decisions/009-*.md",
+        "docs/decisions/PLAN-001-*.md",
+        "orchestration/tasks.json",
+        "docs/ROADMAP.md",
+        "docs/dataset.md",
+        "docs/PROJECT_STATE.md"
       ],
       "acceptance": {
         "AC1": "Crossing, missing, duplicate and empty detections test stable IDs and lifecycle timeout in seconds",

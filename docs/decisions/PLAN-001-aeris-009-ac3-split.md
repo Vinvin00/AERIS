@@ -58,3 +58,15 @@ code. Carried to 021's development split: non-consecutive tentative hits and the
 default acceleration sigma. Not checked: `tools/orchestrate.py` has no gate-scoped
 "request through a gate" logic that treats deferred tasks specially; only `status`,
 `prepare` (refuses deferred tasks) and `lint` handle them.
+
+## Mechanical consequence: AERIS-009 write scope
+
+The orchestrator keeps attempt 01's file snapshot as the ownership baseline for every retry,
+so the planning files changed by this plan (and committed in a5f2561) appear in AERIS-009's
+change list and would be rejected as out of scope. AERIS-009's `write_globs` therefore
+also list exactly those planning files (this plan, `orchestration/tasks.json`,
+`docs/ROADMAP.md`, `docs/dataset.md`, `docs/PROJECT_STATE.md`). This widens the task's
+authority over `orchestration/tasks.json` for the duration of AERIS-009 only; the final
+AERIS-009 reviewer is asked to confirm that the only changes to those files are the ones
+described here. Attempt 01 was closed with `abandon` (escalated), attempt 02 re-verifies the
+same tracker code against the amended AC3.
