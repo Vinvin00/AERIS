@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "run_at": "2026-10-06T08:40:50.383528+00:00",
+  "command": [
+    "PYTHONPATH=python",
+    "/Users/vincenzo/Desktop/Projects/AERIS/.venv/bin/python",
+    "scripts/smoke_onnx.py",
+    "--output-dir",
+    "benchmarks/runs/onnx-smoke-2026-10-06-03"
+  ],
+  "code_revision": "95854eba192e127672e483ed3808f1fafd8fe32e",
+  "source_fingerprint": "7ac83320f1c5201e17137d55bff3d4766a33abf44982c23f14bc54d5c42f86b9",
+  "source_dirty": true,
+  "input_kind": "six-frame pan derived from a still photograph; not real video",
+  "source": {
+    "id": "FGVC-Aircraft-2013b/1143132",
+    "sha256": "7f23ee17e7be6871d8489e1be3bfd877b5e01f59bb806fd558aa9b80fb719ef1",
+    "rights": "Non-commercial research only; no redistribution of image or clip",
+    "manifest": "configs/data/source_manifest.json"
+  },
+  "config_sha256": "06a982d55b62ea8ff7cd64c544ca16b7f18147ca5083338be8cc8939e95b9cc8",
+  "model_sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+  "execution_provider": [
+    "CPUExecutionProvider"
+  ],
+  "precision": "float32",
+  "environment": {
+    "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.14.6",
+    "packages": {
+      "numpy": "2.5.3",
+      "opencv-python-headless": "5.0.0.93",
+      "onnxruntime": "1.30.0"
+    }
+  },
+  "dependency_lock_sha256": "d7918b06bf7139765eae67b63efc39abc3252e7c3972ef6a139d39f022ca419a",
+  "random_seed": null,
+  "seed_reason": "No random transformations; crop x=4*i, y=100, size=640x400, 10 fps",
+  "artifact_sha256": {
+    "input.mp4": "b38b8d5a3d139c448690e19a2871d93f7cce8b91922e89c4f9e3c9fc94ee7ed0",
+    "overlay.mp4": "a708e798a91259f7166b5b65917688176c45042b014234c56033a5f7a8e96e3c"
+  },
+  "accuracy": null,
+  "accuracy_reason": "No exhaustively labeled real video; smoke inference only",
+  "result": {
+    "video": "/Users/vincenzo/Desktop/Projects/AERIS/benchmarks/runs/onnx-smoke-2026-10-06-03/input.mp4",
+    "sequence_id": "fgvc-1143132-photo-pan",
+    "detector": "yolox-tiny-coco/onnxruntime-cpu",
+    "width": 640,
+    "height": 400,
+    "nominal_fps": 10.0,
+    "timestamp_source": "decode_pts",
+    "timestamp_reason": null,
+    "timestamp_policy": "pts_or_inferred",
+    "first_timestamp_s": 0.0,
+    "decoded_frames": 6,
+    "processed_frames": 6,
+    "skipped_frames": {
+      "stride": 0
+    },
+    "rendered": true,
+    "render_note": null,
+    "stage_summary": {
+      "decode": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.00020816700998693705,
+        "p95_s": 0.00024082516320049762,
+        "total_s": 0.0022863760823383927
+      },
+      "preprocess": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.0005310829728841782,
+        "p95_s": 0.0010585163719952107,
+        "total_s": 0.004618415958248079
+      },
+      "inference": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.010984957916662097,
+        "p95_s": 0.014025108213536442,
+        "total_s": 0.07832520687952638
+      },
+      "postprocess": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.0009704590775072575,
+        "p95_s": 0.0012177829630672932,
+        "total_s": 0.005229000234976411
+      },
+      "render": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.0012696250341832638,
+        "p95_s": 0.0022050505969673393,
+        "total_s": 0.02245724992826581
+      },
+      "total": {
+        "samples": 5,
+        "warmup_excluded": 1,
+        "p50_s": 0.014545042999088764,
+        "p95_s": 0.018198458082042634,
+        "total_s": 0.11291624908335507
+      }
+    },
+    "wall_clock_s": 0.1539455420570448,
+    "frames": [
+      {
+        "frame_index": 0,
+        "timestamp_s": 0.0,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.001192667055875063,
+          "preprocess": 0.0012086250353604555,
+          "inference": 0.018363166018389165,
+          "postprocess": 0.0008282910566776991,
+          "render": 0.015946957981213927,
+          "total": 0.03753970714751631
+        }
+      },
+      {
+        "frame_index": 1,
+        "timestamp_s": 0.1,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.00020733301062136889,
+          "preprocess": 0.0003411669749766588,
+          "inference": 0.010735124931670725,
+          "postprocess": 0.0009704590775072575,
+          "render": 0.0022909590043127537,
+          "total": 0.014545042999088764
+        }
+      },
+      {
+        "frame_index": 2,
+        "timestamp_s": 0.2,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.0002417919458821416,
+          "preprocess": 0.0010912079596892,
+          "inference": 0.014132375014014542,
+          "postprocess": 0.0012329579330980778,
+          "render": 0.0018614169675856829,
+          "total": 0.018559749820269644
+        }
+      },
+      {
+        "frame_index": 3,
+        "timestamp_s": 0.3,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.00023695803247392178,
+          "preprocess": 0.0009277500212192535,
+          "inference": 0.010513541987165809,
+          "postprocess": 0.0005754170706495643,
+          "render": 0.0004927079426124692,
+          "total": 0.012746375054121017
+        }
+      },
+      {
+        "frame_index": 4,
+        "timestamp_s": 0.4,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.0001994590274989605,
+          "preprocess": 0.0005310829728841782,
+          "inference": 0.013596041011624038,
+          "postprocess": 0.0011570830829441547,
+          "render": 0.0012696250341832638,
+          "total": 0.016753291129134595
+        }
+      },
+      {
+        "frame_index": 5,
+        "timestamp_s": 0.5,
+        "detections": 1,
+        "timings_s": {
+          "decode": 0.00020816700998693705,
+          "preprocess": 0.0005185829941183329,
+          "inference": 0.010984957916662097,
+          "postprocess": 0.00046479201409965754,
+          "render": 0.0005955829983577132,
+          "total": 0.012772082933224738
+        }
+      }
+    ],
+    "detections": [
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 0,
+        "timestamp_s": 0.0,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 11.10699462890625,
+          "y_min": 41.23582458496094,
+          "x_max": 640.0,
+          "y_max": 376.09765625
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9353076219558716,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      },
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 1,
+        "timestamp_s": 0.1,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 7.26312255859375,
+          "y_min": 45.97943115234375,
+          "x_max": 640.0,
+          "y_max": 373.7054443359375
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9364330768585205,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      },
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 2,
+        "timestamp_s": 0.2,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 6.007354736328125,
+          "y_min": 37.99061584472656,
+          "x_max": 640.0,
+          "y_max": 375.1728515625
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9252682328224182,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      },
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 3,
+        "timestamp_s": 0.3,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 6.29949951171875,
+          "y_min": 36.172332763671875,
+          "x_max": 639.5842895507812,
+          "y_max": 375.08123779296875
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9164799451828003,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      },
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 4,
+        "timestamp_s": 0.4,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 3.712646484375,
+          "y_min": 41.0357666015625,
+          "x_max": 640.0,
+          "y_max": 374.9322509765625
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9316627979278564,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      },
+      {
+        "schema_version": 1,
+        "sequence_id": "fgvc-1143132-photo-pan",
+        "frame_index": 5,
+        "timestamp_s": 0.5,
+        "width": 640,
+        "height": 400,
+        "bbox": {
+          "x_min": 5.849029541015625,
+          "y_min": 34.98675537109375,
+          "x_max": 640.0,
+          "y_max": 372.5281982421875
+        },
+        "class_id": 0,
+        "class_mapping_version": "aeris-aircraft-v1",
+        "score": 0.9091744422912598,
+        "model_provenance": "yolox-tiny-coco@427cc366d34e/onnxruntime-cpu",
+        "availability_reason": {}
+      }
+    ],
+    "timing_scope": "perf_counter wall-clock on this machine; decode excludes ffprobe; not a benchmark"
+  }
+}

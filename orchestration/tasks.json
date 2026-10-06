@@ -818,6 +818,46 @@
         "unit"
       ],
       "budget": "Blocked until the owner supplies footage source and rights, a capture/session plan and an annotation budget (see docs/dataset.md). No work may start before then; activation needs a separately reviewed change."
+    },
+    {
+      "id": "MAINT-001",
+      "title": "Publication CI, truthful documentation and ONNX smoke evidence",
+      "objective": "Owner-requested maintenance before publishing existing history: macOS C++ CI, accurate README with AI contribution disclosure, and bounded inference using existing local model and sample. Preserve existing authorship and scientific gates.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/detection.md",
+        "docs/video.md"
+      ],
+      "write_globs": [
+        ".github/workflows/ci.yml",
+        "README.md",
+        "docs/publication.md",
+        "scripts/smoke_onnx.py",
+        "benchmarks/onnx_smoke.json",
+        "orchestration/tasks.json"
+      ],
+      "acceptance": {
+        "AC1": "C++ foundation CI runs on macOS and local configure/build/ctest checks pass without removing tests",
+        "AC2": "README describes implemented modules and missing evidence accurately, records AI contribution transparently, and smoke reproduction commands work",
+        "AC3": "Existing real ONNX model processes a bounded photo-derived clip and produces detections plus hashed provenance; no real-video accuracy claim"
+      },
+      "required_artifacts": [
+        "README.md",
+        "docs/publication.md",
+        "scripts/smoke_onnx.py",
+        "benchmarks/onnx_smoke.json"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "detection",
+        "video",
+        "cpp-configure",
+        "cpp-build",
+        "cpp-test"
+      ],
+      "budget": "No downloads, training, paid resources, or new datasets. Existing local model and three-image sample only; max three attempts. Git push and CI follow-up are authorized by the owner and recorded separately from task acceptance."
     }
   ]
 }

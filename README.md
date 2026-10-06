@@ -2,9 +2,20 @@
 
 Monocular aircraft detection, tracking and image-space trajectory estimation.
 
-**Status: engineering foundation and agent orchestration kit.** The perception
-pipeline is planned, not implemented. No aircraft accuracy or runtime results are
-claimed. Start with [the operating guide](docs/START_HERE.md).
+**Status: research components with a working pretrained detector.** YOLOX-Tiny
+ONNX inference, timestamp-aware video decoding, Kalman tracking, metric adapters
+and camera geometry are implemented. The integrated CLI and forecasting models
+are still planned. No real-video detection accuracy or tracking performance has
+been measured. Start with [the operating guide](docs/START_HERE.md).
+
+The [ONNX smoke record](benchmarks/onnx_smoke.json) records real CPU inference on
+a six-frame clip derived from one aircraft photograph. This demonstrates model
+execution and overlay generation; it is not a real-video benchmark. Reproduce it
+with [these instructions](docs/publication.md).
+
+Development used AI agents for substantial implementation, documentation and
+review. Existing commits retain their attribution; Codex performed the publication
+maintenance described in [the contribution record](docs/publication.md).
 
 - [Feasibility review and corrections](docs/FEASIBILITY.md)
 - [Revised roadmap](docs/ROADMAP.md)
@@ -18,7 +29,6 @@ claimed. Start with [the operating guide](docs/START_HERE.md).
 python3 tools/check_tests.py
 python3 tools/orchestrate.py lint
 python3 tools/orchestrate.py status
-python3 tools/orchestrate.py prepare AERIS-001
 ```
 
 Requires Python >=3.11; C++ foundation requires CMake >=3.20 and C++20. Use `rtk`
@@ -28,7 +38,7 @@ as a prefix if available. See the guide for full environment/build/review comman
 python/aeris/          Python reference package; task-owned modules added incrementally
 cpp/                  C++20 foundation; complete runtime is a later task
 configs/              Data/model/tracker/camera/evaluation configurations
-tests/                Workflow tests now; behavioral/integration fixtures as developed
+tests/                Workflow, component and synthetic behavioral tests; local model smoke tests
 tools/                Offline orchestration and nonempty-test gates
 orchestration/        Task DAG, prompts, templates; ignored local run evidence
 docs/                 Reviewed plan, contracts, decisions and operating instructions
