@@ -1,0 +1,470 @@
+{
+ "note": "Plumbing and model-behaviour evidence only. No real trajectories exist; no calibration or real accuracy is claimed. 'tight' = process_noise {2:1.0,3:0.5}; 'default' = module defaults (loose, untuned).",
+ "results": {
+  "default/A": {
+   "constant_acceleration": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.761,
+      "0.9": 0.985,
+      "0.95": 0.985
+     },
+     "matched": 67,
+     "missed": 2,
+     "rmse_px": 3.008,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.877,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 65,
+     "missed": 2,
+     "rmse_px": 8.164,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.968,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 63,
+     "missed": 2,
+     "rmse_px": 22.622,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 58,
+     "missed": 2,
+     "rmse_px": 67.856,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 48,
+     "missed": 2,
+     "rmse_px": 245.327,
+     "support": 50
+    }
+   },
+   "constant_velocity": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.868,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 68,
+     "missed": 1,
+     "rmse_px": 2.609,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.97,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 66,
+     "missed": 1,
+     "rmse_px": 5.091,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 64,
+     "missed": 1,
+     "rmse_px": 9.374,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 59,
+     "missed": 1,
+     "rmse_px": 16.131,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 49,
+     "missed": 1,
+     "rmse_px": 32.098,
+     "support": 50
+    }
+   }
+  },
+  "default/B": {
+   "constant_acceleration": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.761,
+      "0.9": 0.985,
+      "0.95": 0.985
+     },
+     "matched": 67,
+     "missed": 2,
+     "rmse_px": 3.011,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.877,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 65,
+     "missed": 2,
+     "rmse_px": 8.183,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.968,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 63,
+     "missed": 2,
+     "rmse_px": 22.689,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 58,
+     "missed": 2,
+     "rmse_px": 68.149,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 48,
+     "missed": 2,
+     "rmse_px": 246.663,
+     "support": 50
+    }
+   },
+   "constant_velocity": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.868,
+      "0.9": 0.985,
+      "0.95": 1.0
+     },
+     "matched": 68,
+     "missed": 1,
+     "rmse_px": 2.659,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.97,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 66,
+     "missed": 1,
+     "rmse_px": 5.447,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.984,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 64,
+     "missed": 1,
+     "rmse_px": 11.25,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 59,
+     "missed": 1,
+     "rmse_px": 27.584,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 1.0,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 49,
+     "missed": 1,
+     "rmse_px": 90.744,
+     "support": 50
+    }
+   }
+  },
+  "tight/A": {
+   "constant_acceleration": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.881,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 67,
+     "missed": 2,
+     "rmse_px": 0.976,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.862,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 65,
+     "missed": 2,
+     "rmse_px": 2.607,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.873,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 63,
+     "missed": 2,
+     "rmse_px": 7.524,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 0.845,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 58,
+     "missed": 2,
+     "rmse_px": 26.004,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 0.854,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 48,
+     "missed": 2,
+     "rmse_px": 103.444,
+     "support": 50
+    }
+   },
+   "constant_velocity": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.926,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 68,
+     "missed": 1,
+     "rmse_px": 0.61,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.924,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 66,
+     "missed": 1,
+     "rmse_px": 0.962,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.922,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 64,
+     "missed": 1,
+     "rmse_px": 1.614,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 0.949,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 59,
+     "missed": 1,
+     "rmse_px": 3.048,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 0.959,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 49,
+     "missed": 1,
+     "rmse_px": 6.373,
+     "support": 50
+    }
+   }
+  },
+  "tight/B": {
+   "constant_acceleration": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.881,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 67,
+     "missed": 2,
+     "rmse_px": 0.99,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.877,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 65,
+     "missed": 2,
+     "rmse_px": 2.674,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.873,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 63,
+     "missed": 2,
+     "rmse_px": 7.753,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 0.845,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 58,
+     "missed": 2,
+     "rmse_px": 26.844,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 0.854,
+      "0.9": 1.0,
+      "0.95": 1.0
+     },
+     "matched": 48,
+     "missed": 2,
+     "rmse_px": 106.872,
+     "support": 50
+    }
+   },
+   "constant_velocity": {
+    "0.1": {
+     "coverage_matched": {
+      "0.5": 0.029,
+      "0.9": 0.059,
+      "0.95": 0.074
+     },
+     "matched": 68,
+     "missed": 1,
+     "rmse_px": 12.897,
+     "support": 69
+    },
+    "0.25": {
+     "coverage_matched": {
+      "0.5": 0.015,
+      "0.9": 0.045,
+      "0.95": 0.045
+     },
+     "matched": 66,
+     "missed": 1,
+     "rmse_px": 18.099,
+     "support": 67
+    },
+    "0.5": {
+     "coverage_matched": {
+      "0.5": 0.0,
+      "0.9": 0.031,
+      "0.95": 0.031
+     },
+     "matched": 64,
+     "missed": 1,
+     "rmse_px": 28.625,
+     "support": 65
+    },
+    "1.0": {
+     "coverage_matched": {
+      "0.5": 0.0,
+      "0.9": 0.0,
+      "0.95": 0.017
+     },
+     "matched": 59,
+     "missed": 1,
+     "rmse_px": 57.011,
+     "support": 60
+    },
+    "2.0": {
+     "coverage_matched": {
+      "0.5": 0.0,
+      "0.9": 0.0,
+      "0.95": 0.0
+     },
+     "matched": 49,
+     "missed": 1,
+     "rmse_px": 142.703,
+     "support": 50
+    }
+   }
+  }
+ },
+ "scene": "synthetic, 70 frames at 10 fps, 1 px Gaussian measurement noise (seed 1), oracle measurements from synthetic truth; A: constant velocity (60,-20) px/s; B: constant acceleration (40,0) px/s^2"
+}

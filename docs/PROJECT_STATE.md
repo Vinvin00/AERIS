@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006, AERIS-008, AERIS-009 and AERIS-011 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006, AERIS-008, AERIS-009, AERIS-010 and AERIS-011 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -65,6 +65,13 @@ artifact store before moving machines. Do not commit private source data or secr
   Rays verified against an independent distortion model on analytic/synthetic cameras only;
   no real calibration exists. Angular claims are suppressed without calibration, after
   camera motion or on a zoom mismatch; no range, approach or yaw claims.
+- AERIS-010 causal forecasts (`python/aeris/estimation/trajectory.py`,
+  `docs/trajectory_estimation.md`, ADR 010), accepted 2026-10-06 on attempt 02 (attempt 01 was
+  closed by a separate owner-directed session before any forecast code existed; PLAN-002 widened
+  the write scope to the MAINT-001 files) after 179 full-suite tests and fresh review.
+  Constant-velocity and separately specified acceleration filters, visible misses, errors and
+  interval coverage on synthetic data only. **No real forecast accuracy or calibration exists**;
+  the acceleration model is not generally better than constant velocity (see docs).
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -82,6 +89,7 @@ independence is operational only.
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
 | 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
 | 011 | Fixed 2026-10-05 after acceptance (invertibility check, `ray_to_pixel` None outside frame, SE n-2 test); post-acceptance change not under a formal receipt or fresh review | Closed (see commit) |
+| 010 | Update mutates axis state before a PSD failure so a track can be left half-updated (compute on copies, commit once); chi-square 0.5 constant not asserted; eligible_truth does not reject duplicate identity timestamps (unreachable via evaluate_forecasts) | AERIS-012 or a trajectory follow-up |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
