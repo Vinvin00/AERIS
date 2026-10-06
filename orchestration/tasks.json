@@ -373,7 +373,14 @@
         "tests/unit/*trajectory*",
         "tests/fixtures/trajectory/*",
         "docs/trajectory_estimation.md",
-        "docs/decisions/010-*.md"
+        "docs/decisions/010-*.md",
+        "docs/decisions/PLAN-002-*.md",
+        "orchestration/tasks.json",
+        ".github/workflows/ci.yml",
+        "README.md",
+        "docs/publication.md",
+        "scripts/smoke_onnx.py",
+        "benchmarks/onnx_smoke.json"
       ],
       "acceptance": {
         "AC1": "Forecasts use past/current observations only and timestamp horizons 0.1/0.25/0.5/1/2 seconds",
