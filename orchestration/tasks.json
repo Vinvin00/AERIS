@@ -912,6 +912,41 @@
       "budget": "Blocked until the owner supplies rights-cleared real data with complete box labels grouped for development and holdout (see docs/dataset.md). No work may start before then; activation needs a separately reviewed change."
     },
     {
+      "id": "MAINT-002",
+      "title": "Public repository safety audit and README refresh",
+      "objective": "Owner-requested publication preparation: inspect all reachable Git history and tracked files for secrets, private artifacts and rights concerns; improve README and ignore rules without changing scientific contracts.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/publication.md",
+        "docs/detection.md",
+        "docs/trajectory_estimation.md",
+        "models/README.md"
+      ],
+      "write_globs": [
+        "README.md",
+        ".gitignore",
+        "docs/publication_safety.md",
+        "tools/audit_publication.py",
+        "orchestration/tasks.json"
+      ],
+      "acceptance": {
+        "AC1": "A reproducible read-only audit covers reachable Git blobs, commit metadata and the current tracked tree; findings and limitations are documented without exposing secrets.",
+        "AC2": "README accurately explains implemented components, setup, evidence limits, AI contributions and unresolved licensing.",
+        "AC3": "Ignore rules exclude common credentials and local session files; existing governance and unit checks pass."
+      },
+      "required_artifacts": [
+        "README.md",
+        "docs/publication_safety.md",
+        "tools/audit_publication.py"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "No downloads, dependency installation, training, history rewriting or GitHub visibility changes. Max three attempts. Independent review by a separate agent session required."
+    },
+    {
       "id": "TOOL-001",
       "title": "Orchestrator: rebase retry baselines over committed external changes",
       "objective": "Stop retries from treating already-committed, out-of-scope changes made by other work as the task's own (the PLAN-001, PLAN-002 and PLAN-003 write-scope workarounds). The first attempt records base_commit; a retry baseline overlays the current content of files that are outside write_globs, not on a protected-path denylist, present and byte-identical to HEAD, and changed only by commits in base_commit..HEAD that touch no write_globs file. Each overlaid file is recorded in base.json and shown in prepare output and in the implementer and reviewer packets. Every Git error, non-ancestor base, merge commit or missing base fails closed; only a repository without .git behaves as before. In-scope changes, uncommitted changes, scope checks and all gates are unchanged.",
