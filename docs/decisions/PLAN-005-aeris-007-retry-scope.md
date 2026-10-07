@@ -23,4 +23,4 @@ This is the fourth scope widening and shows the remaining gap in TOOL-001: accep
 paths or to a task's own contract cannot be overlaid. A follow-up tooling task should add an explicit,
 audited coordinator override for exactly those cases (recorded in PROJECT_STATE). The stray untracked
 file `:memory:.ses` left by another session was moved out of the repository (to the scratchpad) because
-it would otherwise fail the scope check; nothing in it was read beyond its 51-byte size and type.
+it would otherwise fail the scope check; it held only a timestamp and a session UUID (51 bytes) and is kept in the scratchpad if the owner wants it back.
