@@ -10,6 +10,25 @@ maximum; after that the coordinator must revise the plan or obtain a missing dec
 The CLI reports dependency readiness; the evidence directory records finer-grained
 attempt state. A ready task may already have an open attempt; `prepare` resumes it.
 
+### Retry baselines over committed external changes
+
+The first `prepare` records `base_commit` (HEAD) and whether the tree was dirty. On `--retry` the
+baseline is the first attempt's baseline overlaid with files that are (1) outside the task's
+`write_globs`, (2) not protected (`orchestration/gates.json`, `tools/`, `tests/test_orchestration.py`,
+`orchestration/prompts/`, `.github/`, `AGENTS.md`, `docs/CONTRACTS.md`), (3) present in HEAD with
+working-tree bytes equal to HEAD, and (4) changed only by commits in `base_commit..HEAD` that touch no
+`write_globs` file. `orchestration/tasks.json` also needs the task's own entry unchanged. At most 50 files
+are overlaid; each is recorded in `base.json` (`rebased`: path, SHA-256, commits, action), printed to
+stderr by `prepare`, and listed in `implementer.md` and `reviewer.md`. Anything else, including all
+uncommitted and in-scope work, stays the task's delta. Every Git failure, a non-ancestor `base_commit`
+(rewritten history), a merge commit in the range or a missing `base_commit` stops the retry (fail
+closed); only a directory without `.git` keeps the old behaviour. An attempt that predates this rule
+needs `prepare --retry --base-commit <commit it was prepared on>`, which must be an ancestor of HEAD and
+reproduce the recorded file hashes. A refused `prepare` leaves no half-made attempt.
+
+Residual risk: the rule cannot tell an implementer's own out-of-scope commit from another session's, so
+the audit list is advisory and the independent reviewer must check it.
+
 ## Mandatory gates
 
 1. Dependencies accepted; task is not deferred; no other active writer owns checkout.

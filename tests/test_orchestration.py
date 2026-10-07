@@ -1,6 +1,8 @@
 """Exercise the real acceptance path and failures in disposable repositories."""
 
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -251,6 +253,270 @@ class DiscoveryTests(unittest.TestCase):
             result = subprocess.run([sys.executable, str(runner), str(target)], capture_output=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b"No tests discovered", result.stderr)
+
+
+
+class GitRetryTests(unittest.TestCase):
+    """TOOL-001: retry baselines over committed external changes, in disposable Git repositories."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.files = {name: "Test fixture context\n" for name in [
+            "AGENTS.md", "docs/PROJECT_STATE.md", "docs/CONTRACTS.md",
+            "orchestration/prompts/implementer.md", "orchestration/prompts/reviewer.md"]}
+        self.files.update({"notes/f.txt": "v0\n", "notes/old.txt": "old\n", "notes/gone.txt": "gone\n",
+                           "tools/helper.py": "print('x')\n"})
+        self.tasks = [{"id": "T1", "title": "Fixture task", "objective": "Implement fixture",
+                       "status": "planned", "depends_on": [], "read": [], "write_globs": ["src/*"],
+                       "acceptance": {"AC1": "Works"}, "required_artifacts": ["src/result.txt"],
+                       "checks": ["check"], "budget": "Offline fixture"}]
+        for name, text in self.files.items():
+            self.put(name, text)
+        write(self.root / "orchestration/tasks.json", {"tasks": self.tasks})
+        write(self.root / "orchestration/gates.json", {
+            "checks": {"check": {"argv": ["{python}", "-c", "print('ok')"], "timeout_s": 10}}})
+        self.git("init", "-q")
+        self.git("config", "user.email", "t@example.invalid")
+        self.git("config", "user.name", "tester")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "initial")
+        self.branch = self.git("rev-parse", "--abbrev-ref", "HEAD").strip()
+        self.base_head = self.git("rev-parse", "HEAD").strip()
+        self.flow = Workflow(self.root)
+
+    def git(self, *args):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        return subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True,
+                              text=True, env=env).stdout
+
+    def put(self, name, text):
+        path = self.root / name
+        if text is None:
+            path.unlink()
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def commit_files(self, changes, message="external"):
+        for name, text in changes.items():
+            self.put(name, text)
+        self.git("add", "-A", "--", *changes)
+        self.git("commit", "-q", "-m", message)
+
+    def start(self):
+        """First attempt with some uncommitted in-scope work, then closed."""
+        self.flow.prepare("T1")
+        self.put("src/result.txt", "implemented\n")
+        self.flow.abandon("T1", "closed for test")
+
+    def retry(self, **kw):
+        self.flow = Workflow(self.root)
+        return self.flow.prepare("T1", retry=True, **kw)
+
+    def base(self):
+        return read(self.flow.attempt("T1") / "base.json")
+
+    def delta(self):
+        from tools.orchestrate import changed, inventory
+        return changed(self.base()["files"], inventory(self.root))
+
+    def test_first_attempt_records_base_commit_and_dirty_flag(self):
+        self.flow.prepare("T1")
+        base = self.base()
+        self.assertEqual(base["base_commit"], self.base_head)
+        self.assertFalse(base["tree_dirty_at_base"])
+
+    def test_clean_external_commit_is_rebased_audited_and_packeted(self):
+        self.start()
+        self.commit_files({"notes/ext.txt": "external\n"})
+        packet = Path(self.retry()).read_text()
+        base = self.base()
+        self.assertEqual(self.delta(), ["src/result.txt"])
+        entry = base["rebased"][0]
+        self.assertEqual((entry["path"], entry["action"]), ("notes/ext.txt", "overlay"))
+        self.assertEqual(len(entry["sha256"]), 64)
+        self.assertEqual(self.flow.last_rebased, base["rebased"])
+        self.assertIn("audit list", packet)
+        self.assertIn("notes/ext.txt", packet)
+        self.assertIn("notes/ext.txt", self.flow._rebased_note(self.flow.attempt("T1")))
+
+    def test_baseline_keeps_attempt_one_work_visible(self):
+        self.start()
+        self.commit_files({"notes/ext.txt": "external\n"})
+        self.retry()
+        self.assertIn("src/result.txt", self.delta())
+
+    def test_commit_touching_in_scope_and_out_of_scope_files_is_not_trusted(self):
+        self.start()
+        self.commit_files({"src/other.txt": "task\n", "notes/mixed.txt": "mixed\n"}, "mixed")
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.delta(), ["notes/mixed.txt", "src/other.txt", "src/result.txt"])
+
+    def test_in_scope_committed_change_stays_in_the_delta(self):
+        self.start()
+        self.commit_files({"src/committed.txt": "task work\n"})
+        self.retry()
+        self.assertIn("src/committed.txt", self.delta())
+
+    def test_file_tainted_by_a_mixed_commit_stays_untrusted_even_if_later_reverted(self):
+        self.start()
+        self.commit_files({"src/x.txt": "x\n", "notes/f.txt": "tainted\n"}, "mixed")
+        self.commit_files({"notes/f.txt": "v1\n"}, "pure later edit")
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertIn("notes/f.txt", self.delta())
+
+    def test_revert_to_base_content_leaves_no_delta_and_no_entry(self):
+        self.start()
+        self.commit_files({"notes/f.txt": "v1\n"})
+        self.commit_files({"notes/f.txt": "v0\n"})
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.delta(), ["src/result.txt"])
+
+    def test_rename_and_delete_by_external_commits(self):
+        self.start()
+        self.commit_files({"notes/old.txt": None, "notes/new.txt": "old\n"}, "rename")
+        self.commit_files({"notes/gone.txt": None}, "delete")
+        self.retry()
+        actions = {(r["path"], r["action"]) for r in self.base()["rebased"]}
+        self.assertEqual(actions, {("notes/old.txt", "drop"), ("notes/new.txt", "overlay"),
+                                   ("notes/gone.txt", "drop")})
+        self.assertEqual(self.delta(), ["src/result.txt"])
+
+    def test_dirty_untracked_and_hidden_out_of_scope_files_stay_in_the_delta(self):
+        self.start()
+        self.commit_files({"notes/d.txt": "committed\n", "notes/s.txt": "committed\n"})
+        self.put("notes/d.txt", "edited after commit\n")
+        self.put("notes/s.txt", "hidden edit\n")
+        self.git("update-index", "--assume-unchanged", "notes/s.txt")
+        self.put("notes/untracked.txt", "new\n")
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.delta(), ["notes/d.txt", "notes/s.txt", "notes/untracked.txt", "src/result.txt"])
+
+    def test_protected_paths_are_never_rebased(self):
+        self.start()
+        self.commit_files({"tools/helper.py": "print('weakened')\n"}, "tool")
+        self.commit_files({"AGENTS.md": "changed\n"}, "agents")
+        self.commit_files({"orchestration/prompts/reviewer.md": "lenient\n"}, "prompt")
+        gates = read(self.root / "orchestration/gates.json")
+        gates["checks"]["check"]["argv"] = ["{python}", "-c", "pass"]
+        write(self.root / "orchestration/gates.json", gates)
+        self.git("add", "-A", "--", "orchestration/gates.json")
+        self.git("commit", "-q", "-m", "gate")
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.delta(), ["AGENTS.md", "orchestration/gates.json",
+                                        "orchestration/prompts/reviewer.md", "src/result.txt",
+                                        "tools/helper.py"])
+
+    def test_tasks_json_is_rebased_only_when_the_tasks_own_entry_is_unchanged(self):
+        self.start()
+        other = {"id": "T9", "title": "Other", "objective": "o", "status": "planned", "depends_on": [],
+                 "read": [], "write_globs": ["other/*"], "acceptance": {"AC1": "x"},
+                 "required_artifacts": ["other/a.txt"], "checks": ["check"], "budget": "b"}
+        write(self.root / "orchestration/tasks.json", {"tasks": self.tasks + [other]})
+        self.git("add", "-A", "--", "orchestration/tasks.json")
+        self.git("commit", "-q", "-m", "add unrelated task")
+        self.retry()
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["orchestration/tasks.json"])
+        self.assertEqual(self.delta(), ["src/result.txt"])
+
+    def test_own_task_entry_edit_is_not_rebased(self):
+        self.flow.prepare("T1")
+        self.flow.abandon("T1", "closed for test")
+        edited = [dict(self.tasks[0], budget="loosened")]
+        write(self.root / "orchestration/tasks.json", {"tasks": edited})
+        self.git("add", "-A", "--", "orchestration/tasks.json")
+        self.git("commit", "-q", "-m", "edit own contract")
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertIn("orchestration/tasks.json", self.delta())
+
+    def test_rewritten_history_fails_closed(self):
+        self.start()
+        self.git("checkout", "-q", "--orphan", "rewritten")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "rewritten history")
+        with self.assertRaisesRegex(GateError, "not an ancestor"):
+            self.retry()
+        self.assertFalse((self.root / "orchestration/runs/T1/attempt-02").exists())   # no half-made attempt
+
+    def test_merge_commit_in_range_fails_closed(self):
+        self.start()
+        self.git("switch", "-q", "-c", "side")
+        self.commit_files({"notes/side.txt": "s\n"})
+        self.git("switch", "-q", self.branch)
+        self.commit_files({"notes/main.txt": "m\n"})
+        self.git("merge", "-q", "--no-ff", "-m", "merge", "side")
+        with self.assertRaisesRegex(GateError, "Merge"):
+            self.retry()
+
+    def test_git_errors_fail_closed(self):
+        self.start()
+        (self.root / ".git/HEAD").write_text("garbage\n")
+        with self.assertRaisesRegex(GateError, "Git failed"):
+            self.retry()
+
+    def test_missing_git_binary_fails_closed_not_open(self):
+        self.start()
+        import unittest.mock as mock
+        with mock.patch("tools.orchestrate.subprocess.run", side_effect=FileNotFoundError("git")):
+            with self.assertRaisesRegex(GateError, "Git failed"):
+                self.retry()
+
+    def test_without_a_git_directory_behaviour_is_unchanged(self):
+        self.start()
+        shutil.rmtree(self.root / ".git")
+        self.put("notes/ext.txt", "external\n")
+        self.retry()
+        self.assertNotIn("rebased", self.base())
+        self.assertEqual(self.delta(), ["notes/ext.txt", "src/result.txt"])
+        with self.assertRaisesRegex(GateError, "needs a Git checkout"):
+            self.flow.abandon("T1", "again")
+            self.flow.prepare("T1", retry=True, base_commit=self.base_head)
+
+    def test_more_than_the_cap_of_rebased_files_is_refused(self):
+        self.start()
+        self.commit_files({f"notes/bulk{i}.txt": "x\n" for i in range(51)}, "bulk")
+        with self.assertRaisesRegex(GateError, "limit"):
+            self.retry()
+
+    def test_legacy_attempt_needs_a_verified_explicit_base_commit(self):
+        self.start()
+        path = self.flow.attempt("T1") / "base.json"
+        legacy = read(path)
+        del legacy["base_commit"]
+        write(path, legacy)
+        self.commit_files({"notes/f.txt": "v1\n"})
+        with self.assertRaisesRegex(GateError, "predates TOOL-001"):
+            self.retry()
+        with self.assertRaisesRegex(GateError, "does not match the recorded baseline"):
+            self.retry(base_commit=self.git("rev-parse", "HEAD").strip())
+        self.retry(base_commit=self.base_head)
+        self.assertEqual(self.base()["base_commit"], self.base_head)
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["notes/f.txt"])
+
+    def test_explicit_base_commit_cannot_override_a_recorded_one(self):
+        self.start()
+        self.commit_files({"notes/ext.txt": "external\n"})
+        other = self.git("rev-parse", "HEAD").strip()
+        with self.assertRaisesRegex(GateError, "already recorded"):
+            self.retry(base_commit=other)
+
+    def test_third_attempt_recomputes_from_the_first_baseline(self):
+        self.start()
+        self.commit_files({"notes/a.txt": "a\n"})
+        self.retry()
+        self.flow.abandon("T1", "again")
+        self.commit_files({"notes/b.txt": "b\n"})
+        self.retry()
+        self.assertEqual(sorted(r["path"] for r in self.base()["rebased"]), ["notes/a.txt", "notes/b.txt"])
+        self.assertEqual(self.delta(), ["src/result.txt"])
 
 
 if __name__ == "__main__":

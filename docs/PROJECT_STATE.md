@@ -72,6 +72,14 @@ artifact store before moving machines. Do not commit private source data or secr
   Constant-velocity and separately specified acceleration filters, visible misses, errors and
   interval coverage on synthetic data only. **No real forecast accuracy or calibration exists**;
   the acceleration model is not generally better than constant velocity (see docs).
+- TOOL-001 orchestrator retry baselines (`tools/orchestrate.py`, `tests/test_orchestration.py`,
+  `docs/EVALUATION_LOOP.md`, ADR TOOL-001, PLAN-004), accepted 2026-10-07 on attempt 01 after 218
+  tests and an adversarial independent review that found no bypass. A retry baseline now overlays
+  clean, unprotected, out-of-scope files changed only by commits touching no write_globs file
+  (audited in `base.json`, `prepare` output and the packets); Git errors fail closed. Limits: the
+  denylist (verifier and contract paths) and a task's own `tasks.json` entry are never overlaid, so
+  retries after accepted tooling or contract changes still need explicit handling; the audit list
+  is advisory.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -90,6 +98,7 @@ independence is operational only.
 | 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
 | 011 | Fixed 2026-10-05 after acceptance (invertibility check, `ray_to_pixel` None outside frame, SE n-2 test); post-acceptance change not under a formal receipt or fresh review | Closed (see commit) |
 | 010 | Half-update on PSD failure and the chi-square 0.5 assertion fixed 2026-10-07 after acceptance (atomic update, quantile test); post-acceptance change without a fresh independent review. Still open: `eligible_truth` does not reject duplicate identity timestamps (unreachable via `evaluate_forecasts`) | Mostly closed |
+| TOOL-001 | Direct `subprocess.run` calls in `rebase_candidates`/`_verify_explicit_base`/`merge-base` skip the `GIT_*` env scrub that `_git` applies; `_commit_files` raises UnicodeDecodeError (still fail-closed) on non-UTF-8 paths; no explicit coordinator override for accepted changes to denylisted paths or a task's own contract (would remove the last widening need) | follow-up tooling task |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)

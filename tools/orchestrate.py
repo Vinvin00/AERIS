@@ -18,6 +18,10 @@ IGNORED_PREFIXES = ("orchestration/runs/", "data/raw/", "data/processed/",
                     "data/annotations/", "models/checkpoints/", "models/onnx/",
                     "models/tensorrt/", "experiments/runs/", "benchmarks/runs/")
 DIMENSIONS = ("correctness", "tests", "reproducibility", "contracts", "scope")
+# Never overlaid into a retry baseline: a weakened verifier or contract must not be committable-then-retried.
+REBASE_DENYLIST = ("orchestration/gates.json", "tools/", "tests/test_orchestration.py",
+                   "orchestration/prompts/", ".github/", "AGENTS.md", "docs/CONTRACTS.md")
+REBASE_MAX_FILES = 50
 
 
 class GateError(ValueError):
@@ -96,6 +100,7 @@ def changed(before, after):
 class Workflow:
     def __init__(self, root=ROOT):
         self.root = root.resolve()
+        self.last_rebased = []
         self.runs = self.root / "orchestration/runs"
         self.tasks = read(self.root / "orchestration/tasks.json")["tasks"]
         self.gates = read(self.root / "orchestration/gates.json")["checks"]
@@ -164,7 +169,99 @@ class Workflow:
         require(folders, f"Prepare {task_id} first")
         return folders[-1]
 
-    def prepare(self, task_id, retry=False):
+    # -- retry baselines over committed external changes (TOOL-001) ---------------------
+    def _git(self, *args, text=True):
+        """Read-only Git. Any failure raises: a retry baseline is never guessed."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        try:
+            done = subprocess.run(["git", "-C", str(self.root), *args], capture_output=True,
+                                  text=text, timeout=60, env=env)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise GateError(f"Git failed ({' '.join(args[:2])}): {exc}") from exc
+        require(done.returncode == 0, f"Git failed ({' '.join(args[:3])}): "
+                f"{(done.stderr if text else done.stderr.decode(errors='replace')).strip()[:200]}")
+        return done.stdout
+
+    def _has_git(self):
+        return (self.root / ".git").exists()
+
+    def _head(self):
+        out = self._git("rev-parse", "--verify", "HEAD").strip()
+        require(len(out) == 40, "Unexpected HEAD value from Git")
+        return out
+
+    def _commit_files(self, commit):
+        out = self._git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--no-renames", "--root",
+                        commit, text=False)
+        return [name.decode() for name in out.split(b"\0") if name]
+
+    def _verify_explicit_base(self, commit, original):
+        """A legacy attempt has no recorded base_commit; the given one must reproduce its snapshot."""
+        for name, expected in original.items():
+            probe = subprocess.run(["git", "-C", str(self.root), "cat-file", "-e", f"{commit}:{name}"],
+                                   capture_output=True)
+            if probe.returncode != 0:
+                continue                      # untracked when the baseline was taken
+            require(digest(self._git("show", f"{commit}:{name}", text=False)) == expected,
+                    f"--base-commit does not match the recorded baseline ({name})")
+
+    def rebase_candidates(self, task, original, base_commit, explicit, current):
+        """Files to overlay onto the original baseline, as ``({path: sha256|None}, audit list)``."""
+        head = self._head()
+        commit = self._git("rev-parse", "--verify", f"{base_commit}^{{commit}}").strip()
+        ancestor = subprocess.run(["git", "-C", str(self.root), "merge-base", "--is-ancestor", commit, head],
+                                  capture_output=True)
+        require(ancestor.returncode == 0, "base_commit is not an ancestor of HEAD "
+                "(history was rewritten); refusing to rebase the retry baseline")
+        if explicit:
+            self._verify_explicit_base(commit, original)
+        commits = [c for c in self._git("rev-list", "--reverse", f"{commit}..{head}").split() if c]
+        touched, tainted_files = {}, set()
+        for c in commits:
+            require(len(self._git("rev-list", "--parents", "-n", "1", c).split()) == 2,
+                    f"Merge or root commit {c[:10]} in the retry range; refusing to rebase")
+            files = self._commit_files(c)
+            if any(fnmatch.fnmatchcase(f, pattern) for f in files for pattern in task["write_globs"]):
+                tainted_files.update(files)   # task work (or a mixed commit): trust none of its files
+            else:
+                for f in files:
+                    touched.setdefault(f, []).append(c[:10])
+        overlay, audit = {}, []
+        for path in sorted(touched):
+            if path in tainted_files or path.startswith(REBASE_DENYLIST):
+                continue
+            if any(fnmatch.fnmatchcase(path, pattern) for pattern in task["write_globs"]):
+                continue
+            if path == "orchestration/tasks.json" and not self._own_task_unchanged(task, commit):
+                continue
+            probe = subprocess.run(["git", "-C", str(self.root), "cat-file", "-e", f"{head}:{path}"],
+                                   capture_output=True)
+            target = local(self.root, path)
+            if probe.returncode != 0:                    # absent in HEAD: a trusted commit deleted it
+                if target.exists() or path not in original:
+                    continue
+                overlay[path] = None
+                audit.append({"path": path, "sha256": None, "commits": touched[path], "action": "drop"})
+                continue
+            committed = self._git("show", f"{head}:{path}", text=False)
+            if not target.is_file() or target.is_symlink() or target.read_bytes() != committed:
+                continue                                 # dirty, untracked or hidden by a Git flag
+            new = digest(committed)
+            if path in current and original.get(path) != new:
+                overlay[path] = new
+                audit.append({"path": path, "sha256": new, "commits": touched[path], "action": "overlay"})
+        require(len(audit) <= REBASE_MAX_FILES,
+                f"{len(audit)} files would be rebased (limit {REBASE_MAX_FILES}); refusing")
+        return commit, overlay, audit
+
+    def _own_task_unchanged(self, task, commit):
+        try:
+            before = json.loads(self._git("show", f"{commit}:orchestration/tasks.json"))["tasks"]
+        except (GateError, ValueError, KeyError):
+            return False
+        return any(t.get("id") == task["id"] and t == task for t in before)
+
+    def prepare(self, task_id, retry=False, base_commit=None):
         self.lint()
         task = self.task(task_id)
         accepted = self.state()["accepted"]
@@ -192,15 +289,42 @@ class Workflow:
                     and file_hash(dep_folder / "review.json") == entry["review_sha256"],
                     f"Accepted dependency evidence changed: {dep}")
         folder = self.runs / task_id / f"attempt-{len(attempts) + 1:02d}"
-        folder.mkdir(parents=True)
         files = inventory(self.root)
         # Preserve the original ownership baseline across retries.
-        original = read(attempts[0] / "base.json")["files"] if attempts else files
+        first = read(attempts[0] / "base.json") if attempts else None
+        original = first["files"] if attempts else files
+        base_files, rebased, recorded = dict(original), [], (first or {}).get("base_commit")
+        if not attempts and self._has_git():
+            recorded = self._head()
+        if attempts and self._has_git():
+            require(not (recorded and base_commit and base_commit != recorded),
+                    "base_commit is already recorded for this task; do not pass --base-commit")
+            recorded = recorded or base_commit
+            require(recorded, "This attempt has no recorded base_commit (it predates TOOL-001); "
+                    "retry with --base-commit <commit the first attempt was prepared on>")
+            recorded, overlay, rebased = self.rebase_candidates(task, original, recorded,
+                                                                not (first or {}).get("base_commit"), files)
+            for name, new_hash in overlay.items():
+                if new_hash is None:
+                    base_files.pop(name, None)
+                else:
+                    base_files[name] = new_hash
+        else:
+            require(not base_commit, "--base-commit needs a Git checkout and an earlier attempt")
         base = {"task_id": task_id, "attempt": len(attempts) + 1, "created_at": now(),
-                "files": original, "packet_fingerprint": fingerprint(files)}
+                "files": base_files, "packet_fingerprint": fingerprint(files)}
+        if recorded:
+            base["base_commit"] = recorded
+        if not attempts and self._has_git():
+            base["tree_dirty_at_base"] = bool(self._git("status", "--porcelain").strip())
+        if attempts and self._has_git():
+            base["rebased"] = rebased
+            base["head_at_retry"] = self._head()
+        self.last_rebased = rebased
+        folder.mkdir(parents=True)          # only after every check passed: a refusal leaves no half attempt
         write(folder / "base.json", base)
         if not attempts:
-            for name in original:
+            for name in base_files:
                 target = folder / "source-before" / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((self.root / name).read_bytes())
@@ -227,6 +351,13 @@ class Workflow:
             sections.append(f"\n## Accepted dependency {dep}\n" + json.dumps(entry, indent=2) + "\n")
             dep_folder = local(self.root, entry["evidence_dir"])
             sections.append((dep_folder / "report.json").read_text())
+        if rebased:
+            sections.append("\n## Baseline rebased over external commits (audit list)\n"
+                            "These files are outside this task's write scope, clean in Git, and were changed only by "
+                            "commits touching no write_globs file since the first attempt. They are NOT this task's "
+                            "changes. The reviewer must check them:\n"
+                            + "".join(f"- {r['action']} `{r['path']}` sha256 {r['sha256']} commits {', '.join(r['commits'])}\n"
+                                      for r in rebased))
         if attempts:
             for name in ("feedback.md", "report.json"):
                 path = attempts[-1] / name
@@ -315,8 +446,17 @@ class Workflow:
             + "Read implementer.md, base.json, report.json, verification.json, every check log,\n"
             + "and the actual changed source files. Use Git diff where available. Fill review.json.\n"
             + f"Original source snapshot: orchestration/runs/{task_id}/attempt-01/source-before/\n"
-            + "Compare that snapshot with current files, including deleted files. Git diff is also useful.\n")
+            + "Compare that snapshot with current files, including deleted files. Git diff is also useful.\n"
+            + self._rebased_note(folder))
         return receipt
+
+    def _rebased_note(self, folder):
+        rebased = read(folder / "base.json").get("rebased") or []
+        if not rebased:
+            return ""
+        return ("\n## Baseline rebased over external commits (audit these)\n"
+                + "".join(f"- {r['action']} `{r['path']}` commits {', '.join(r['commits'])}\n" for r in rebased)
+                + "Confirm none of these is task work or a weakened verifier; they were excluded from the delta.\n")
 
     def evaluate(self, task_id):
         task, folder = self.task(task_id), self.attempt(task_id)
@@ -404,13 +544,17 @@ def main():
         child.add_argument("task")
         if command == "prepare":
             child.add_argument("--retry", action="store_true")
+            child.add_argument("--base-commit", default=None,
+                               help="commit the first attempt was prepared on (legacy attempts only)")
         if command == "abandon":
             child.add_argument("--reason", required=True)
     args = parser.parse_args()
     try:
         flow = Workflow()
         if args.command == "prepare":
-            result = flow.prepare(args.task, args.retry)
+            result = flow.prepare(args.task, args.retry, args.base_commit)
+            for item in getattr(flow, "last_rebased", []):
+                print(f"REBASED {item['action']} {item['path']} commits {','.join(item['commits'])}", file=sys.stderr)
         elif args.command == "abandon":
             result = flow.abandon(args.task, args.reason)
         elif args.command == "changes":
