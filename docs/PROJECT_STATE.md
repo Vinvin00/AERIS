@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006, AERIS-008, AERIS-009, AERIS-010 and AERIS-011 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006, AERIS-007, AERIS-008, AERIS-009, AERIS-010, AERIS-011 and TOOL-001 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -80,6 +80,12 @@ artifact store before moving machines. Do not commit private source data or secr
   denylist (verifier and contract paths) and a task's own `tasks.json` entry are never overlaid, so
   retries after accepted tooling or contract changes still need explicit handling; the audit list
   is advisory.
+- AERIS-007 offline baseline protocol (`benchmarks/baseline_manifest.json`,
+  `configs/evaluation/regression_schema.json`, `docs/baseline.md`, ADR 007, PLAN-003/005), accepted
+  2026-10-07 on attempt 02 after 218 tests and fresh review that recomputed every digest. The
+  manifest is explicitly `smoke_not_a_baseline`; on the three partially annotated FGVC images the
+  metric report is unavailable (`no_complete_annotations`). **No measured baseline, split or
+  threshold exists**; those are the deferred AERIS-022.
 
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
@@ -99,6 +105,7 @@ independence is operational only.
 | 011 | Fixed 2026-10-05 after acceptance (invertibility check, `ray_to_pixel` None outside frame, SE n-2 test); post-acceptance change not under a formal receipt or fresh review | Closed (see commit) |
 | 010 | Half-update on PSD failure and the chi-square 0.5 assertion fixed 2026-10-07 after acceptance (atomic update, quantile test); post-acceptance change without a fresh independent review. Still open: `eligible_truth` does not reject duplicate identity timestamps (unreachable via `evaluate_forecasts`) | Mostly closed |
 | TOOL-001 | Direct `subprocess.run` calls in `rebase_candidates`/`_verify_explicit_base`/`merge-base` skip the `GIT_*` env scrub that `_git` applies; `_commit_files` raises UnicodeDecodeError (still fail-closed) on non-UTF-8 paths; no explicit coordinator override for accepted changes to denylisted paths or a task's own contract (would remove the last widening need) | follow-up tooling task |
+| 007 | Regression-schema reference checker lets NaN threshold/tolerance, duplicate seeds, a draft with split hashes or freeze fields, and a hash with a trailing newline pass; `baseline_manifest_sha256` is not checked against the manifest; R6 `min_support` untested; docs wording "null-effect seed list" unclear | AERIS-015 enforcement or a contract-change task |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
@@ -110,4 +117,4 @@ gates). AERIS-015 and 017 depend on 022, which blocks 016 and 018 transitively. 
 and AERIS-007's real-measurement criteria were split out by
 `docs/decisions/PLAN-001-aeris-009-ac3-split.md` and `PLAN-003-aeris-007-split.md`.
 
-Next action: AERIS-007 (offline protocol half) is prepared and ready to implement; then AERIS-012.
+Next action: AERIS-012 (integrated Python MVP) is ready; AERIS-022 and AERIS-021 stay deferred.

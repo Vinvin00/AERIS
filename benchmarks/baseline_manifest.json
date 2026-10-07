@@ -1,0 +1,131 @@
+{
+  "artifacts_not_in_git": [
+    "models/onnx/yolox_tiny.onnx",
+    "data/raw/g1-bounded-sample/images/*.jpg"
+  ],
+  "code_revision": "f0bf6700f800430d387401b5508d523f26e91812",
+  "code_revision_note": "Revision at creation; the tests recompute the digests below instead of trusting it.",
+  "configs": {
+    "configs/detector/baseline.json": "06a982d55b62ea8ff7cd64c544ca16b7f18147ca5083338be8cc8939e95b9cc8"
+  },
+  "created": "2026-10-07",
+  "created_by_task": "AERIS-007",
+  "dataset": {
+    "annotations_archive_sha256": "50e4419bd330b68a2e85dbcb32339d31120190efe6944682e87c9b431f5f202a",
+    "annotations_jsonl_sha256": "bc2e41c43742b92cffc1ce1b31de82e9826baad8191ef1a0e8c7b507732e4301",
+    "class_mapping_version": "aeris-aircraft-v1",
+    "dataset_id": "fgvc-aircraft-2013b",
+    "dataset_json_sha256": "cf10bc5faf036f1aa02db8270d2ed17ce339c8f2de226898107ccaaf3cf1ffd6",
+    "full_archive_verified": false,
+    "images": [
+      {
+        "annotation_status": "partial",
+        "detections_at_score_floor": 1,
+        "file": "1143132.jpg",
+        "height": 678,
+        "labeled_objects": 1,
+        "sequence_id": "fgvc-1143132",
+        "sha256": "7f23ee17e7be6871d8489e1be3bfd877b5e01f59bb806fd558aa9b80fb719ef1",
+        "size_bytes": 258434,
+        "width": 1000
+      },
+      {
+        "annotation_status": "partial",
+        "detections_at_score_floor": 1,
+        "file": "1627560.jpg",
+        "height": 1079,
+        "labeled_objects": 1,
+        "sequence_id": "fgvc-1627560",
+        "sha256": "28e4f4aa581475a1611315794d3dda1e3884647c28331b2f7a1ca62003383408",
+        "size_bytes": 376545,
+        "width": 1600
+      },
+      {
+        "annotation_status": "partial",
+        "detections_at_score_floor": 0,
+        "file": "1885942.jpg",
+        "height": 812,
+        "labeled_objects": 1,
+        "sequence_id": "fgvc-1885942",
+        "sha256": "a34c4c01b9f19b007ce5c565c80fac2120089f2baecce3e6688992e2df01ccb9",
+        "size_bytes": 539783,
+        "width": 1200
+      }
+    ],
+    "model_input_crop_bottom_px": 20,
+    "raw_prefix_sha256": "c713c8721b6d8eb4899ac773e7383be6b3ddc48a13fc0743b7aecba752ba9b3c",
+    "rights": "Non-commercial research only; images are not redistributed and not in Git (configs/data/source_manifest.json)",
+    "splits": {
+      "development": null,
+      "holdout": null,
+      "reason": "No complete-label set exists, so no regression development split or holdout can be frozen; all three images carry FGVC's official 'train' split and are used only as a smoke sample."
+    }
+  },
+  "dependency_locks": {
+    "requirements/data-macos-arm64-py314.txt": "7f5c6b9c768fccfac0e3f6105cb51f139306b0f1c6f3758f0bec2189e6baa288",
+    "requirements/detection-macos-arm64-py314.txt": "d7918b06bf7139765eae67b63efc39abc3252e7c3972ef6a139d39f022ca419a",
+    "requirements/evaluation-macos-arm64-py314.txt": "8e71bca993d72c02f0b956ef46d2a16023c66e960aacd1335dfdbf8caa36c191"
+  },
+  "environment": {
+    "execution_provider": [
+      "CPUExecutionProvider"
+    ],
+    "input_resolution": [
+      416,
+      416
+    ],
+    "machine": "arm64",
+    "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "packages": {
+      "numpy": "2.5.3",
+      "onnxruntime": "1.30.0",
+      "opencv-python-headless": "5.0.0.93",
+      "scipy": "1.17.1"
+    },
+    "precision": "float32",
+    "python": "3.14.6"
+  },
+  "evaluator": {
+    "iou_threshold": 0.5,
+    "max_detections_per_frame": 100,
+    "module": "python/aeris/evaluation/metrics.py",
+    "pycocotools": "2.0.11",
+    "score_threshold": 0.5,
+    "score_threshold_note": "0.5 is a placeholder required by the API; it was NOT selected on validation data and is not an operating threshold.",
+    "sha256": "3305e957334ddf31ee9e3876d6e7d3f6949606834e552fdf495aff5dc708b93a",
+    "trackeval": "1.3.0"
+  },
+  "manifest_id": "aeris-smoke-baseline-manifest-2026-10-07",
+  "model": {
+    "code_license": "Apache-2.0 (github.com/Megvii-BaseDetection/YOLOX, per repository license metadata)",
+    "name": "yolox-tiny-coco",
+    "path": "models/onnx/yolox_tiny.onnx",
+    "pretraining_data": "MS COCO 2017 train (known overlap risk with any COCO-derived evaluation data)",
+    "sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+    "size_bytes": 20219662,
+    "source_url": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_tiny.onnx",
+    "weight_license": "not separately stated by the release; assumed to follow the repository Apache-2.0 license. UNVERIFIED legal position, see docs/detection.md"
+  },
+  "planning_change": "docs/decisions/PLAN-003-aeris-007-split.md",
+  "random_seed": null,
+  "reproduce": [
+    "PYTHONPATH=python .venv/bin/python tools/check_tests.py tests/unit/test_baseline.py",
+    "docs/baseline.md lists the shasum commands for every digest above"
+  ],
+  "schema_version": 1,
+  "seed_reason": "No random operation: fixed images, deterministic ONNX Runtime CPU inference",
+  "smoke_measurement": {
+    "ap50": null,
+    "ap50_95": null,
+    "detections_total": 2,
+    "explanation": "All three frames are partial annotations (one main aircraft boxed, not exhaustive), so the evaluator excludes them from every score; no AP, size-bin recall, negative-frame error or false-positive rate exists. Detection counts are shown only as provenance.",
+    "metric_report_available": false,
+    "reason": "no_complete_annotations",
+    "skipped_frames": {
+      "partial": 3,
+      "unlabeled": 0
+    }
+  },
+  "status": "smoke_not_a_baseline",
+  "status_reason": "Only three partially annotated FGVC still images exist; complete labels, a development split and a holdout do not. This manifest makes the smoke measurement reproducible. It is not a measured baseline and sets no thresholds. The real baseline is deferred task AERIS-022."
+}

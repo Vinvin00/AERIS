@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "$comment": "Contract for the future regression configuration (AERIS-015 enforces it, AERIS-022 fills it from a measured real baseline). Uses only: type, enum, required, properties, items, minItems, minimum, pattern. Cross-field rules are listed under 'rules'. This repository holds no regression.json: no threshold value exists without a measured real development set.",
+  "type": "object",
+  "required": ["schema_version", "protocol_id", "status", "baseline_manifest_sha256", "dataset", "metrics", "unavailable_policy", "freeze"],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "protocol_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["draft", "frozen"]},
+    "baseline_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dataset": {
+      "type": "object",
+      "required": ["development_split_sha256", "holdout_split_sha256", "holdout_opened"],
+      "properties": {
+        "development_split_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "holdout_split_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "holdout_opened": {"type": "boolean"}
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "direction", "support_key", "min_support", "threshold", "tolerance", "rationale", "repeatability"],
+        "properties": {
+          "name": {"type": "string"},
+          "direction": {"type": "string", "enum": ["higher_is_better", "lower_is_better"]},
+          "support_key": {"type": "string"},
+          "min_support": {"type": "integer", "minimum": 1},
+          "threshold": {"type": ["number", "null"]},
+          "tolerance": {"type": ["number", "null"], "minimum": 0},
+          "rationale": {"type": ["string", "null"]},
+          "repeatability": {
+            "type": "object",
+            "required": ["runs", "seeds", "observed_std"],
+            "properties": {
+              "runs": {"type": ["integer", "null"], "minimum": 2},
+              "seeds": {"type": ["array", "null"]},
+              "observed_std": {"type": ["number", "null"], "minimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "unavailable_policy": {"type": "string", "enum": ["fail_closed"]},
+    "freeze": {
+      "type": "object",
+      "required": ["frozen_at", "frozen_by_commit", "before_candidate_comparison"],
+      "properties": {
+        "frozen_at": {"type": ["string", "null"]},
+        "frozen_by_commit": {"type": ["string", "null"]},
+        "before_candidate_comparison": {"type": ["boolean", "null"]}
+      }
+    }
+  },
+  "rules": [
+    {"id": "R1", "text": "status draft: every metric threshold, tolerance and rationale is null and repeatability runs/observed_std are null (no value without a measured real development set)."},
+    {"id": "R2", "text": "status frozen: every metric has non-null threshold, tolerance and nonempty rationale, repeatability.runs >= 2 with a seeds list of that length and a non-null observed_std."},
+    {"id": "R3", "text": "status frozen: tolerance >= repeatability.observed_std (a gate may not be tighter than measured noise)."},
+    {"id": "R4", "text": "status frozen: freeze.frozen_at and frozen_by_commit are set and before_candidate_comparison is true; development and holdout split hashes are set and different."},
+    {"id": "R5", "text": "holdout_opened is false in any regression configuration; the holdout is opened only by release evaluation."},
+    {"id": "R6", "text": "Metric names are unique; a metric whose support is below min_support is unavailable, and unavailable_policy fail_closed means missing or unavailable metrics fail rather than pass."}
+  ]
+}
