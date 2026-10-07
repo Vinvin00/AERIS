@@ -62,19 +62,23 @@ class _Axis:
         p = f @ self.p @ f.T + q
         return f @ self.x, (p + p.T) / 2
 
-    def update(self, z: float, t: float, sigma: float) -> None:
-        self.x, self.p = self.propagate(t - self.t)
+    def updated(self, z: float, t: float, sigma: float):
+        """Posterior ``(x, p)`` after a measurement; pure, so a failure leaves this axis untouched."""
+        x, p = self.propagate(t - self.t)
         h = np.zeros((1, self.order))
         h[0, 0] = 1.0
-        s = float((h @ self.p @ h.T)[0, 0]) + sigma**2
-        gain = (self.p @ h.T) / s
-        self.x = self.x + (gain * (z - float((h @ self.x)[0]))).ravel()
+        s = float((h @ p @ h.T)[0, 0]) + sigma**2
+        gain = (p @ h.T) / s
+        x = x + (gain * (z - float((h @ x)[0]))).ravel()
         ikh = np.eye(self.order) - gain @ h
-        self.p = ikh @ self.p @ ikh.T + gain @ gain.T * sigma**2     # Joseph form
-        self.p = (self.p + self.p.T) / 2
-        if not np.all(np.isfinite(self.p)) or np.linalg.eigvalsh(self.p).min() < -1e-8 * max(1.0, self.p.max()):
+        p = ikh @ p @ ikh.T + gain @ gain.T * sigma**2     # Joseph form
+        p = (p + p.T) / 2
+        if not np.all(np.isfinite(p)) or np.linalg.eigvalsh(p).min() < -1e-8 * max(1.0, p.max()):
             raise TrajectoryError("covariance lost positive semi-definiteness")
-        self.t, self.n = t, self.n + 1
+        return x, p
+
+    def commit(self, x, p, t: float) -> None:
+        self.x, self.p, self.t, self.n = x, p, t, self.n + 1
 
 
 DEFAULTS = {
@@ -116,8 +120,10 @@ class TrajectoryForecaster:
             return
         if timestamp_s <= axes[0].t:
             raise TrajectoryError(f"track {track_id}: timestamp {timestamp_s} does not exceed {axes[0].t}")
-        for axis, c in zip(axes, center):
-            axis.update(c, timestamp_s, sigma_px)
+        # Compute both axes first and commit together: a failure must not leave a half-updated track.
+        posteriors = [axis.updated(c, timestamp_s, sigma_px) for axis, c in zip(axes, center)]
+        for axis, (x, p) in zip(axes, posteriors):
+            axis.commit(x, p, timestamp_s)
 
     def forecast(self, track_id: str, issue_time_s: float,
                  horizons: tuple[float, ...] = PREDICTION_HORIZONS_S) -> list[PredictionRecord]:

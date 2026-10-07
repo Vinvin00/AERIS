@@ -159,6 +159,29 @@ class CausalityTests(unittest.TestCase):
             with self.assertRaises(TrajectoryError):
                 f.update("T", t, (12, 10))
 
+    def test_failed_update_leaves_the_track_unchanged(self):
+        f = TrajectoryForecaster("s", "constant_acceleration")
+        for i in range(4):
+            f.update("T", round(i * 0.1, 6), (100 + 10 * i, 200), 1.0)
+        before = f.forecast("T", 0.3)
+        x_axis, y_axis = f._axes["T"]
+        real = y_axis.updated
+        y_axis.updated = lambda *a: (_ for _ in ()).throw(TrajectoryError("boom"))   # y fails after x succeeded
+        try:
+            with self.assertRaises(TrajectoryError):
+                f.update("T", 0.4, (150, 200), 1.0)
+        finally:
+            y_axis.updated = real
+        assert (x_axis.t, x_axis.n, y_axis.t, y_axis.n) == (0.3, 4, 0.3, 4)
+        assert [(p.center, p.covariance) for p in f.forecast("T", 0.3)] == [(p.center, p.covariance) for p in before]
+        f.update("T", 0.4, (150, 200), 1.0)                  # the same measurement is still accepted afterwards
+        assert x_axis.n == 5 and y_axis.n == 5
+
+    def test_chi_square_quantiles_are_the_2_dof_values(self):
+        for level, expected in ((0.5, 1.3862943611198906), (0.9, 4.605170185988092), (0.95, 5.991464547107979)):
+            assert abs(tj.CHI2_2DOF[level] - (-2 * math.log(1 - level))) < 1e-12 and \
+                abs(tj.CHI2_2DOF[level] - expected) < 1e-12
+
     def test_input_and_config_validation(self):
         with self.assertRaises(TrajectoryError):
             TrajectoryForecaster("s", "jerky")

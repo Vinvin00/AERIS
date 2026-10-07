@@ -29,7 +29,7 @@ covariance in original-frame pixels, `target = issue + horizon`. The state is pr
 
 ## Causality and misses (AC1, AC2)
 
-`update` rejects non-increasing timestamps; `forecast` raises if the issue time precedes a
+`update` is atomic: both axes are computed first and committed together, so a failure (for example a PSD violation on extreme input) leaves the track unchanged. It rejects non-increasing timestamps; `forecast` raises if the issue time precedes a
 measurement already received; a test shows that corrupting every measurement after the
 issue time changes no earlier forecast. A forecast that cannot be made (unknown track, fewer
 than 2 / 3 updates, last measurement older than 1 s) is **still returned**, with a null

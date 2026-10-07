@@ -89,7 +89,7 @@ independence is operational only.
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |
 | 009 | Tentative hits are non-consecutive; velocity test overrides default accel sigma 200 with 2.0; equal-score simultaneous births get IDs by input order | AERIS-021 development split |
 | 011 | Fixed 2026-10-05 after acceptance (invertibility check, `ray_to_pixel` None outside frame, SE n-2 test); post-acceptance change not under a formal receipt or fresh review | Closed (see commit) |
-| 010 | Update mutates axis state before a PSD failure so a track can be left half-updated (compute on copies, commit once); chi-square 0.5 constant not asserted; eligible_truth does not reject duplicate identity timestamps (unreachable via evaluate_forecasts) | AERIS-012 or a trajectory follow-up |
+| 010 | Half-update on PSD failure and the chi-square 0.5 assertion fixed 2026-10-07 after acceptance (atomic update, quantile test); post-acceptance change without a fresh independent review. Still open: `eligible_truth` does not reject duplicate identity timestamps (unreachable via `evaluate_forecasts`) | Mostly closed |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 ## Owner decisions blocking real video evidence (not G1)
