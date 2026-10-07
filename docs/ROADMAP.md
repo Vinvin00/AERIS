@@ -3,17 +3,17 @@
 Tasks and exact dependencies are in `orchestration/tasks.json`. A milestone is
 complete only after its tasks have evidence and independent review.
 
-Milestone membership: G1 = 001–003; G2 = 004–007; G3 = 008–009 plus deferred 021 (real-video MOT evidence);
+Milestone membership: G1 = 001–003; G2 = 004–007 plus deferred 022 (real measured baseline); G3 = 008–009 plus deferred 021 (real-video MOT evidence);
 G4 = 010–011; G5 = 012, 013, 015, 017; G6 = 014, 016; G7 = 018.
 All IDs use the `AERIS-` prefix. Requests through a gate include all earlier gates.
 IDs 019 and 020 are optional extensions and are not included in G7. Unlike them, deferred
-021 *is* a prerequisite of 018, so G7 stays blocked until real tracking evidence exists.
+021 and 022 gate G5-G7 (through 015, 017, 016 and 018), so those stay blocked until real tracking and baseline evidence exist.
 
 | Gate | Work | Exit evidence | Approximate focused effort |
 |---|---|---|---|
 | G0 | Foundation and orchestration (this delivery) | Offline checks, C++ contract check, tested review loop | Delivered scaffold |
 | G1 | Contracts, data audit, adapters, QA | Licensed/provenanced manifest, split report, validator tests, real visual samples | 30–50 h |
-| G2 | Evaluation, baseline model, early export | Synthetic analytical fixtures, real baseline, export parity evidence | 35–60 h |
+| G2 | Evaluation, baseline model, early export | Synthetic analytical fixtures, real baseline (requires deferred AERIS-022; not met until the owner supplies complete labels), export parity evidence | 35–60 h |
 | G3 | Video and tracking | Correct timestamp/dropout behavior, MOT report on real identities (requires deferred AERIS-021; not met until the owner supplies labeled footage) | 40–70 h |
 | G4 | Forecasts and calibrated geometry | Causal horizon evaluation, pixel mode, optional calibrated rays | 35–60 h |
 | G5 | Python MVP, robustness, regression | End-to-end artifacts, versioned benchmark, failure examples | 60–110 h |

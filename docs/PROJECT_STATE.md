@@ -96,7 +96,9 @@ independence is operational only.
 
 Footage source and rights, capture sessions (at least 6), annotation tool, and approval
 of the 24 h annotation/review budget. See `docs/dataset.md`. These also block the deferred
-AERIS-021 (real-video tracking evidence), which AERIS-018 now depends on; AERIS-009's AC3 was
-split by `docs/decisions/PLAN-001-aeris-009-ac3-split.md`.
+AERIS-021 (real-video tracking evidence) and AERIS-022 (real measured baseline and frozen
+gates). AERIS-015 and 017 depend on 022, which blocks 016 and 018 transitively. AERIS-009's AC3
+and AERIS-007's real-measurement criteria were split out by
+`docs/decisions/PLAN-001-aeris-009-ac3-split.md` and `PLAN-003-aeris-007-split.md`.
 
-Next action: `status`, then `prepare` the next ready task.
+Next action: AERIS-007 (offline protocol half) is prepared and ready to implement; then AERIS-012.

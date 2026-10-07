@@ -232,7 +232,7 @@
     {
       "id": "AERIS-007",
       "title": "Measured baseline and gate selection",
-      "objective": "Run a real labeled baseline, freeze a development regression split, and define reviewable performance thresholds from measured repeatability.",
+      "objective": "Record the reproducibility manifest, metric report schema and threshold-selection protocol for the baseline on the bounded smoke sample; the real measured baseline and frozen thresholds are carried by AERIS-022.",
       "status": "planned",
       "depends_on": [
         "AERIS-005",
@@ -248,16 +248,21 @@
         "configs/evaluation/*",
         "docs/baseline.md",
         "tests/unit/*baseline*",
-        "docs/decisions/007-*.md"
+        "docs/decisions/007-*.md",
+        "docs/decisions/PLAN-003-*.md",
+        "orchestration/tasks.json",
+        "docs/ROADMAP.md",
+        "docs/dataset.md",
+        "docs/PROJECT_STATE.md"
       ],
       "acceptance": {
-        "AC1": "Real data/model/config/environment/artifact digests make the baseline reproducible",
-        "AC2": "AP, size recall, negatives and supports are reported without copying illustrative plan numbers",
-        "AC3": "Thresholds and tolerance rationale are frozen before candidate comparisons; final holdout is separate"
+        "AC1": "Model, configuration, dependency/environment and sample digests are recorded so the offline smoke measurement is reproducible, and the manifest states that it is not a real baseline",
+        "AC2": "The metric report covers AP, size-bin recall, negatives and supports, returns unavailable with reasons when complete labels are absent, and never copies illustrative plan numbers",
+        "AC3": "A regression-config schema and threshold-selection protocol (repeatability procedure, rationale, development/holdout separation, freeze before candidate comparison) are recorded and no threshold value is set without a measured real development set; real measurement and frozen thresholds are carried by AERIS-022"
       },
       "required_artifacts": [
         "benchmarks/baseline_manifest.json",
-        "configs/evaluation/regression.json",
+        "configs/evaluation/regression_schema.json",
         "docs/baseline.md",
         "tests/unit/test_baseline.py"
       ],
@@ -568,7 +573,8 @@
       "depends_on": [
         "AERIS-007",
         "AERIS-012",
-        "AERIS-013"
+        "AERIS-013",
+        "AERIS-022"
       ],
       "read": [
         "docs/FEASIBILITY.md",
@@ -645,7 +651,8 @@
       "status": "planned",
       "depends_on": [
         "AERIS-007",
-        "AERIS-008"
+        "AERIS-008",
+        "AERIS-022"
       ],
       "read": [
         "docs/FEASIBILITY.md",
@@ -865,6 +872,44 @@
         "cpp-test"
       ],
       "budget": "No downloads, training, paid resources, or new datasets. Existing local model and three-image sample only; max three attempts. Git push and CI follow-up are authorized by the owner and recorded separately from task acceptance."
+    },
+    {
+      "id": "AERIS-022",
+      "title": "Real measured baseline and frozen gates",
+      "objective": "Run the accepted detector on rights-cleared real data with complete labels, report AP, size-bin recall, negatives and supports on a frozen development split, and freeze thresholds from measured repeatability before any candidate comparison. Carries the real-measurement half of the original AERIS-007 criteria.",
+      "status": "deferred",
+      "depends_on": [
+        "AERIS-005",
+        "AERIS-006",
+        "AERIS-007"
+      ],
+      "read": [
+        "docs/FEASIBILITY.md",
+        "docs/ROADMAP.md",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "benchmarks/real_baseline_manifest.json",
+        "configs/evaluation/regression.json",
+        "docs/real_baseline.md",
+        "tests/unit/*real_baseline*",
+        "docs/decisions/022-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Real data, model, configuration, environment and artifact digests make the measured baseline reproducible, with provenance, rights and split recorded",
+        "AC2": "AP, size-bin recall, negative-frame errors and supports are measured on complete-label real data and reported without copying illustrative plan numbers",
+        "AC3": "Thresholds and tolerance rationale are frozen from measured repeatability before candidate comparisons, and the final holdout stays separate and unopened"
+      },
+      "required_artifacts": [
+        "benchmarks/real_baseline_manifest.json",
+        "configs/evaluation/regression.json",
+        "docs/real_baseline.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Blocked until the owner supplies rights-cleared real data with complete box labels grouped for development and holdout (see docs/dataset.md). No work may start before then; activation needs a separately reviewed change."
     }
   ]
 }
