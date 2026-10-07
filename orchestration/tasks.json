@@ -253,7 +253,13 @@
         "orchestration/tasks.json",
         "docs/ROADMAP.md",
         "docs/dataset.md",
-        "docs/PROJECT_STATE.md"
+        "docs/PROJECT_STATE.md",
+        "docs/decisions/PLAN-004-*.md",
+        "docs/decisions/PLAN-005-*.md",
+        "docs/decisions/TOOL-001-*.md",
+        "docs/EVALUATION_LOOP.md",
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py"
       ],
       "acceptance": {
         "AC1": "Model, configuration, dependency/environment and sample digests are recorded so the offline smoke measurement is reproducible, and the manifest states that it is not a real baseline",
