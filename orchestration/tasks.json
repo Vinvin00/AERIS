@@ -910,6 +910,40 @@
         "unit"
       ],
       "budget": "Blocked until the owner supplies rights-cleared real data with complete box labels grouped for development and holdout (see docs/dataset.md). No work may start before then; activation needs a separately reviewed change."
+    },
+    {
+      "id": "TOOL-001",
+      "title": "Orchestrator: rebase retry baselines over committed external changes",
+      "objective": "Stop retries from treating already-committed, out-of-scope changes made by other work as the task's own (the PLAN-001, PLAN-002 and PLAN-003 write-scope workarounds). The first attempt records base_commit; a retry baseline overlays the current content of files that are outside write_globs, not on a protected-path denylist, present and byte-identical to HEAD, and changed only by commits in base_commit..HEAD that touch no write_globs file. Each overlaid file is recorded in base.json and shown in prepare output and in the implementer and reviewer packets. Every Git error, non-ancestor base, merge commit or missing base fails closed; only a repository without .git behaves as before. In-scope changes, uncommitted changes, scope checks and all gates are unchanged.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py",
+        "docs/EVALUATION_LOOP.md"
+      ],
+      "write_globs": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py",
+        "docs/EVALUATION_LOOP.md",
+        "docs/decisions/TOOL-001-*.md"
+      ],
+      "acceptance": {
+        "AC1": "The first prepare records base_commit (HEAD) and whether the tree was dirty; a retry fails closed if base_commit is missing, not an ancestor of HEAD, or the range holds a merge commit or a Git error, and a legacy attempt without base_commit needs an explicit --base-commit that is an ancestor of HEAD and whose tracked files match the recorded base hashes",
+        "AC2": "Only files outside write_globs and outside a denylist (orchestration/gates.json, tools/, tests/test_orchestration.py, orchestration/prompts/, .github/, AGENTS.md, docs/CONTRACTS.md), present in HEAD with working-tree bytes equal to HEAD, and changed solely by commits touching no write_globs file are folded into base[files]; orchestration/tasks.json is eligible only if the retrying task's own entry is unchanged; at most 50 files; each is recorded in base.json as {path, sha256, commits}",
+        "AC3": "Disposable-repository tests cover: mixed in/out-of-scope commit not rebased; implementer out-of-scope commit rebased and audited (documented residual risk); tainted-then-reverted file; amend/rebase/reset makes the base a non-ancestor; merge commit; revert to base content; rename and delete; dirty, assume-unchanged and skip-worktree files; denylisted paths; own tasks.json entry changed; Git error, missing git and no .git; the 50-file cap; legacy base.json with and without --base-commit; and the abuse tests are shown to fail against the pre-change tool",
+        "AC4": "The rebased paths and commits are printed by prepare and listed in implementer.md and reviewer.md; the rule, its denylist and residual risks are documented; the existing orchestration tests pass unmodified and base[files] plus source-before keep their meaning"
+      },
+      "required_artifacts": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py",
+        "docs/decisions/TOOL-001-retry-baseline.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Offline tooling change only: no dependencies, downloads or gate edits; Git is invoked read-only. Max three attempts. A separate independent review must try to abuse the rule."
     }
   ]
 }
