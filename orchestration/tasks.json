@@ -921,7 +921,7 @@
       "id": "MAINT-002",
       "title": "Public repository safety audit and README refresh",
       "objective": "Owner-requested publication preparation: inspect all reachable Git history and tracked files for secrets, private artifacts and rights concerns; improve README and ignore rules without changing scientific contracts.",
-      "status": "planned",
+      "status": "deferred",
       "depends_on": [],
       "read": [
         "docs/publication.md",
@@ -985,6 +985,41 @@
         "unit"
       ],
       "budget": "Offline tooling change only: no dependencies, downloads or gate edits; Git is invoked read-only. Max three attempts. A separate independent review must try to abuse the rule."
+    },
+    {
+      "id": "MAINT-003",
+      "title": "Public repository safety audit and README refresh",
+      "objective": "Replacement for MAINT-002 (see docs/decisions/PLAN-006-maint-003-replacement.md). Owner-requested publication preparation: inspect all reachable Git history and tracked files for secrets, private artifacts and rights concerns; improve README and ignore rules without changing scientific contracts.",
+      "status": "planned",
+      "depends_on": [],
+      "read": [
+        "docs/publication.md",
+        "docs/detection.md",
+        "docs/trajectory_estimation.md",
+        "models/README.md"
+      ],
+      "write_globs": [
+        "README.md",
+        ".gitignore",
+        "docs/publication_safety.md",
+        "tools/audit_publication.py",
+        "orchestration/tasks.json"
+      ],
+      "acceptance": {
+        "AC1": "A reproducible read-only audit covers reachable Git blobs, commit metadata and the current tracked tree; findings and limitations are documented without exposing secrets.",
+        "AC2": "README accurately explains implemented components, setup, evidence limits, AI contributions and unresolved licensing.",
+        "AC3": "Ignore rules exclude common credentials and local session files; existing governance and unit checks pass."
+      },
+      "required_artifacts": [
+        "README.md",
+        "docs/publication_safety.md",
+        "tools/audit_publication.py"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "No downloads, dependency installation, training, history rewriting or GitHub visibility changes. Max three attempts. Independent review by a separate agent session required."
     }
   ]
 }
