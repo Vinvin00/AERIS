@@ -20,3 +20,25 @@ models/tensorrt/*
 orchestration/runs/
 experiments/runs/
 benchmarks/runs/
+
+# Credentials, keys and local session files (never commit; see docs/publication_safety.md)
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+.netrc
+.npmrc
+.pypirc
+credentials.json
+secrets.json
+secrets.yaml
+secrets.yml
+*.ses
+.claude/
+.codex/
+.aws/
+.ssh/
+.*.partial-*/

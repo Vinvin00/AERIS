@@ -2,20 +2,33 @@
 
 Monocular aircraft detection, tracking and image-space trajectory estimation.
 
-**Status: research components with a working pretrained detector.** YOLOX-Tiny
-ONNX inference, timestamp-aware video decoding, Kalman tracking, metric adapters
-and camera geometry are implemented. The integrated CLI and forecasting models
-are still planned. No real-video detection accuracy or tracking performance has
-been measured. Start with [the operating guide](docs/START_HERE.md).
+**Status: research components, no real-video evidence yet.** Implemented and accepted
+through the project's review process: canonical data records and dataset QA, analytic
+ground-truth fixtures, metric adapters (COCO AP, TrackEval HOTA/IDF1), a pretrained YOLOX-Tiny
+ONNX detector baseline, timestamp-aware video decoding, Kalman tracking, causal image-space
+forecasts, calibrated camera-relative geometry, and a baseline manifest with a threshold
+protocol. An integrated recorded-video CLI (`python -m aeris`, see [the MVP guide](docs/mvp.md))
+is written and tested but **not accepted**: its real-clip criterion is open. No owned
+real aircraft video exists, so no detection accuracy, tracking performance or forecast
+error has been measured. Start with [the operating guide](docs/START_HERE.md).
 
 The [ONNX smoke record](benchmarks/onnx_smoke.json) records real CPU inference on
 a six-frame clip derived from one aircraft photograph. This demonstrates model
 execution and overlay generation; it is not a real-video benchmark. Reproduce it
 with [these instructions](docs/publication.md).
 
-Development used AI agents for substantial implementation, documentation and
-review. Existing commits retain their attribution; Codex performed the publication
-maintenance described in [the contribution record](docs/publication.md).
+## AI contributions
+
+Development used AI agents (Claude and Codex) for substantial implementation,
+documentation and review, coordinated through the task registry in
+`orchestration/tasks.json`. Commits keep their `Co-authored-by` trailers; see
+[the contribution record](docs/publication.md). The repository owner is
+accountable for the project; AI output is not evidence of human validation.
+
+## Repository safety
+
+[The publication audit](docs/publication_safety.md) covers history, metadata and tracked
+files. Rerun it with `python3 tools/audit_publication.py`.
 
 - [Feasibility review and corrections](docs/FEASIBILITY.md)
 - [Revised roadmap](docs/ROADMAP.md)
@@ -51,5 +64,7 @@ The MVP assumes recorded RGB footage and a fixed camera. Pixel motion is observa
 metric range is conditional research. TensorRT/Jetson is an optional NVIDIA extension.
 See the feasibility review for limitations and primary sources.
 
-No project distribution license has been selected. Dataset, model and dependency
-terms must be recorded before adoption; no third-party footage or weights are bundled.
+**Licensing is unresolved.** No project distribution license has been selected, so the code
+is all rights reserved by default. YOLOX-Tiny weights (code Apache-2.0, weight terms unverified)
+and the FGVC sample carry their own terms and are not redistributed; no third-party footage
+or weights are bundled. Record dataset, model and dependency terms before adoption.
