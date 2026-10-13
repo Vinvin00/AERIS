@@ -987,6 +987,24 @@
       "budget": "Offline tooling change only: no dependencies, downloads or gate edits; Git is invoked read-only. Max three attempts. A separate independent review must try to abuse the rule."
     },
     {
+      "id": "UI-001",
+      "title": "Native desktop demonstration app",
+      "objective": "Provide a local Qt desktop interface for explaining AERIS, choosing a bundled-on-demand sample or a user video, running the existing recorded-video CLI, and inspecting honest results. The CLI remains under separate AERIS-012 acceptance; the UI must not claim measured perception quality.",
+      "status": "planned",
+      "depends_on": ["AERIS-010", "AERIS-011"],
+      "read": ["docs/mvp.md", "docs/CONTRACTS.md", "python/aeris/cli.py", "docs/publication.md"],
+      "write_globs": ["python/aeris/ui/*", "python/aeris/__init__.py", "pyproject.toml", "tests/ui/*", "docs/ui.md", "docs/decisions/UI-001-*.md"],
+      "acceptance": {
+        "AC1": "A native landing screen explains the project, its demo workflow, and the distinction between tracks/forecasts and measured accuracy in plain language.",
+        "AC2": "A sample collection is usable without supplying a file, clearly identifies synthetic versus recorded footage, and supports an optional user-selected video without mixing labels or truth into runtime input.",
+        "AC3": "The app runs the recorded-video CLI without freezing the interface, reports progress and failures, and lets users inspect the overlay, track summary, metric availability, and output folder.",
+        "AC4": "The app handles missing model/video dependencies, cancellation and repeated runs, documents installation and sample provenance, and passes governance and unit checks plus focused UI tests."
+      },
+      "required_artifacts": ["python/aeris/ui/app.py", "python/aeris/ui/samples.py", "tests/ui/test_ui.py", "docs/ui.md"],
+      "checks": ["governance", "unit"],
+      "budget": "One local desktop slice; max three attempts. PySide6 installation may use one bounded wheel download in the existing venv (under 200 MB). Generate up to three tiny synthetic samples locally; one existing CC0 recorded excerpt may be offered if present and may be retrieved on demand under 35 MB after checksum and rights verification. No videos, checkpoints or credentials in Git, no paid compute, no model training."
+    },
+    {
       "id": "MAINT-003",
       "title": "Public repository safety audit and README refresh",
       "objective": "Replacement for MAINT-002 (see docs/decisions/PLAN-006-maint-003-replacement.md). Owner-requested publication preparation: inspect all reachable Git history and tracked files for secrets, private artifacts and rights concerns; improve README and ignore rules without changing scientific contracts.",
