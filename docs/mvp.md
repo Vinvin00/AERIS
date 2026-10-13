@@ -5,7 +5,7 @@ recorded video -> detections -> tracks -> forecasts and writes a new directory. 
 modules without changing them: the AERIS-008 video pipeline, the AERIS-006 YOLOX baseline, the AERIS-009
 tracker, the AERIS-010 forecasters, the AERIS-011 camera geometry and the AERIS-005 evaluators.
 **It makes no accuracy claim.** The detector operating score, tracker and forecaster settings are untuned
-defaults, and the only real-model evidence is a smoke run on a clip derived from one photograph.
+defaults. The recorded-video run below is an artifact smoke check, not a perception benchmark.
 
 ## Outputs
 
@@ -51,11 +51,34 @@ calibrations, detector, render and overlay-size/count failures with no partial o
 nonfinite score rejection, and the choice of raw detection
 centers for the forecasters. A local-only test runs the real baseline on the photo-derived clip.
 
-Local real-model run (2026-10-07, `benchmarks/runs/mvp-smoke-2026-10-07/`, Git-ignored): eight 640x400 frames at
-10 fps cropped from one FGVC photograph (not real video), YOLOX-Tiny on ONNX Runtime CPU. One track, eight detections,
-60 forecasts, `decode_pts` timestamps, truth metrics unavailable; inference p50 about 12.8 ms and track step about
-0.25 ms per frame on this Mac (7 samples after warmup). Hashes are in that run's manifest. **No real video exists**:
-AC1's "bounded real clip" remains unmet until an owned or licensed recorded clip is provided and run.
+Local recorded-video smoke run (2026-10-13, `benchmarks/runs/aeris-012-tangier-real-2026-10-13/`, Git-ignored):
+60 frames at 10 fps and 640x360, YOLOX-Tiny on ONNX Runtime CPU. The run produced all six artifacts. It recorded
+59 detector outputs, 38 above the configured tracking score, one track, 58 track rows and 550 prediction records.
+The 58 post-warmup samples had inference p50 0.011894 s and total p50 0.013027 s on this Mac. These are local
+smoke measurements, not throughput or accuracy claims. There are no annotations; truth-dependent results are null
+with reasons. The camera pans, while the MVP assumes a fixed camera, so the boxes and forecasts demonstrate artifact
+generation only. The run manifest records the exact input and artifact hashes.
+
+### Recorded clip provenance and reproduction
+
+The source is [Plane landing at Tangier airport over Sidi Kacem beach](https://commons.wikimedia.org/wiki/File:Plane_landing_at_Tangier_airport_over_Sidi_Kacem_beach.webm),
+filmed by Ideophagous on 2024-11-16 and published under CC0 1.0. The original WebM is 66.866 s,
+1920x1080, 32,107,848 bytes; SHA-256 `4b6df4c458cc542e296dc469523cbc8513042a3b11244fc2c2cb99cc9ecabc6f`.
+The acquisition budget for this task was one rights-cleared source under 35 MB and one six-second excerpt. Store
+the downloaded source in ignored `data/raw/sample_videos/tangier-landing-source.webm`, then make the excerpt with:
+
+```sh
+ffmpeg -ss 48 -i data/raw/sample_videos/tangier-landing-source.webm -t 6 \
+  -vf fps=10,scale=640:360 -an -c:v mpeg4 -q:v 4 \
+  data/raw/sample_videos/tangier-landing-6s.mp4
+```
+
+The derived MP4 is 321,156 bytes, SHA-256 `0a7a60f544b302981df3c14254944be8637a7e4584eeb34105f4ea9bc11a22e3`.
+Run `PYTHONPATH=python ORT_DISABLE_TELEMETRY=1 .venv/bin/python -m aeris
+data/raw/sample_videos/tangier-landing-6s.mp4 --output benchmarks/runs/aeris-012-tangier-real-2026-10-13
+--sequence-id tangier-landing-smoke --warmup-frames 2` on a checkout with the documented local model.
+Neither video is committed to Git. The earlier photo-derived smoke run remains documented in its local manifest;
+it is a synthetic-motion test and supplies no real video evidence.
 
 ## Limits
 
