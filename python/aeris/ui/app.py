@@ -19,7 +19,7 @@ from PySide6.QtCore import QProcess, QProcessEnvironment, QStandardPaths, QThrea
 from PySide6.QtGui import QDesktopServices, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFrame, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
-    QPlainTextEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget,
+    QPlainTextEdit, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget,
 )
 from PySide6.QtCore import QUrl
 
@@ -72,8 +72,9 @@ def metric_summary(directory: Path) -> str:
 class DemoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AERIS · recorded video demo")
-        self.resize(1080, 850)
+        self.setWindowTitle("AERIS // Recorded Video Analysis")
+        self.resize(1180, 760)
+        self.setMinimumSize(720, 520)
         self.selected_video: Path | None = None
         self.output_dir: Path | None = None
         self.worker: SampleWorker | None = None
@@ -86,141 +87,255 @@ class DemoWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.setCentralWidget(self.pages)
         self.pages.addWidget(self._landing_page())
+        workspace_scroll = QScrollArea()
+        workspace_scroll.setWidgetResizable(True)
+        workspace_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        workspace_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.pages.addWidget(workspace_scroll)
         central = QWidget()
-        self.pages.addWidget(central)
+        central.setObjectName("workspace")
+        workspace_scroll.setWidget(central)
         layout = QVBoxLayout(central)
-        back = QPushButton("← About AERIS")
+        layout.setContentsMargins(28, 18, 28, 24)
+        layout.setSpacing(10)
+        top = QHBoxLayout()
+        top.addWidget(QLabel("AERIS  /  ANALYSIS CONSOLE"), alignment=Qt.AlignmentFlag.AlignVCenter)
+        top.addStretch()
+        back = QPushButton("←  OVERVIEW")
         back.clicked.connect(lambda: self.pages.setCurrentIndex(0))
-        layout.addWidget(back, alignment=Qt.AlignmentFlag.AlignLeft)
-        heading = QLabel("AERIS · See what the current aircraft pipeline does")
-        heading.setStyleSheet("font-size: 23px; font-weight: 700; padding: 8px 0")
+        top.addWidget(back)
+        layout.addLayout(top)
+        heading = QLabel("RECORDED VIDEO  /  LOCAL ANALYSIS")
+        heading.setObjectName("pageHeading")
         layout.addWidget(heading)
         intro = QLabel(
-            "Choose a recorded sample or your own video. Run the current detector, tracker, "
-            "and image-space forecasts, then inspect the overlay and counts. A box or track "
-            "is not a measured accuracy result; without annotations, AP, HOTA, IDF1 and "
-            "forecast accuracy remain unavailable. Bird clips expose current false positives."
+            "Choose a recorded sample or your own file. The pipeline draws detections, tracks "
+            "and image-space forecasts. Without annotations, accuracy remains unavailable. "
+            "Bird clips expose current false positives."
         )
         intro.setWordWrap(True)
+        intro.setObjectName("subtleText")
         layout.addWidget(intro)
 
-        samples_box = QGroupBox("Recorded sample collection · downloaded only when needed")
+        samples_box = QGroupBox("01  /  SOURCE SELECTION")
         samples_layout = QVBoxLayout(samples_box)
+        samples_layout.setSpacing(8)
         row = QHBoxLayout()
         self.sample_combo = QComboBox()
+        self.sample_combo.setMinimumWidth(240)
         for sample in SAMPLES:
             self.sample_combo.addItem(sample.title, sample.slug)
         self.sample_combo.currentIndexChanged.connect(self._describe_sample)
         row.addWidget(self.sample_combo, 1)
-        self.prepare_button = QPushButton("Use sample")
+        self.prepare_button = QPushButton("LOAD SAMPLE")
         self.prepare_button.clicked.connect(self.use_sample)
         row.addWidget(self.prepare_button)
-        self.source_button = QPushButton("Source + license")
+        self.source_button = QPushButton("SOURCE / LICENSE")
         self.source_button.clicked.connect(self.open_source)
         row.addWidget(self.source_button)
         samples_layout.addLayout(row)
         self.sample_info = QLabel()
         self.sample_info.setWordWrap(True)
+        self.sample_info.setObjectName("sampleInfo")
         samples_layout.addWidget(self.sample_info)
         layout.addWidget(samples_box)
 
-        actions = QHBoxLayout()
-        self.choose_button = QPushButton("Choose my video…")
-        self.choose_button.clicked.connect(self.choose_video)
-        actions.addWidget(self.choose_button)
-        self.run_button = QPushButton("Run AERIS")
-        self.run_button.clicked.connect(self.run_aeris)
-        actions.addWidget(self.run_button)
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.cancel)
-        self.cancel_button.setEnabled(False)
-        actions.addWidget(self.cancel_button)
-        self.replay_button = QPushButton("Replay overlay")
-        self.replay_button.clicked.connect(self.replay)
-        actions.addWidget(self.replay_button)
-        self.folder_button = QPushButton("Open output folder")
-        self.folder_button.clicked.connect(self.open_output)
-        actions.addWidget(self.folder_button)
-        layout.addLayout(actions)
+        working = QHBoxLayout()
+        working.setSpacing(12)
+        feed = QFrame()
+        feed.setObjectName("panel")
+        feed_layout = QVBoxLayout(feed)
+        feed_layout.setContentsMargins(14, 14, 14, 14)
+        feed_layout.setSpacing(10)
+        feed_layout.addWidget(QLabel("02  /  VISUAL FEED"))
+        self.video_label = QLabel("NO VIDEO LOADED")
+        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_label.setMinimumHeight(250)
+        self.video_label.setObjectName("videoFeed")
+        feed_layout.addWidget(self.video_label, 1)
+        working.addWidget(feed, 3)
 
+        control = QFrame()
+        control.setObjectName("panel")
+        control_layout = QVBoxLayout(control)
+        control_layout.setContentsMargins(12, 12, 12, 12)
+        control_layout.setSpacing(6)
+        control_layout.addWidget(QLabel("03  /  RUN CONTROL"))
         self.status = QLabel("Choose a sample or a video to begin.")
         self.status.setWordWrap(True)
-        layout.addWidget(self.status)
-        self.video_label = QLabel("Video preview")
-        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.video_label.setMinimumHeight(360)
-        self.video_label.setStyleSheet("background: #101820; color: #dce5ea; border-radius: 5px")
-        layout.addWidget(self.video_label, 1)
+        self.status.setObjectName("statusText")
+        control_layout.addWidget(self.status)
+        control_layout.addSpacing(4)
+        self.choose_button = QPushButton("CHOOSE MY VIDEO")
+        self.choose_button.clicked.connect(self.choose_video)
+        control_layout.addWidget(self.choose_button)
+        self.run_button = QPushButton("RUN ANALYSIS  →")
+        self.run_button.setObjectName("primaryAction")
+        self.run_button.clicked.connect(self.run_aeris)
+        control_layout.addWidget(self.run_button)
+        self.cancel_button = QPushButton("CANCEL RUN")
+        self.cancel_button.clicked.connect(self.cancel)
+        self.cancel_button.setEnabled(False)
+        control_layout.addWidget(self.cancel_button)
+        self.replay_button = QPushButton("REPLAY OVERLAY")
+        self.replay_button.clicked.connect(self.replay)
+        control_layout.addWidget(self.replay_button)
+        self.folder_button = QPushButton("OPEN OUTPUT FOLDER")
+        self.folder_button.clicked.connect(self.open_output)
+        control_layout.addWidget(self.folder_button)
+        control_layout.addStretch()
+        working.addWidget(control, 1)
+        layout.addLayout(working)
+
+        self.output_heading = QLabel("04  /  RUN OUTPUT")
+        layout.addWidget(self.output_heading)
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
+        self.details.setMinimumHeight(130)
         self.details.setMaximumHeight(180)
         layout.addWidget(self.details)
+        self.output_heading.setVisible(False)
+        self.details.setVisible(False)
+        layout.addWidget(QLabel("UNLABELED DEMO  //  COUNTS ARE OUTPUTS, NOT ACCURACY SCORES"))
         self.play_timer = QTimer(self)
         self.play_timer.timeout.connect(self._next_frame)
         self._describe_sample()
         self._set_busy(False)
         self.pages.setCurrentIndex(0)
+        self._apply_theme()
 
     def _landing_page(self) -> QWidget:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         page = QWidget()
-        page.setStyleSheet("background: #f5f3ed; color: #1c2935;")
+        page.setObjectName("landing")
+        scroll.setWidget(page)
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(64, 50, 64, 45)
-        layout.setSpacing(20)
-        eyebrow = QLabel("AERIS  /  RECORDED VIDEO RESEARCH")
-        eyebrow.setStyleSheet("color: #176e72; font-weight: 700; letter-spacing: 2px;")
-        layout.addWidget(eyebrow)
-        title = QLabel("See what AERIS sees\nin a recorded video.")
-        title.setStyleSheet("font-size: 42px; font-weight: 700;")
-        layout.addWidget(title)
+        layout.setContentsMargins(30, 22, 30, 28)
+        layout.setSpacing(18)
+        header = QHBoxLayout()
+        header.addWidget(QLabel("AERIS  /  SYSTEM OVERVIEW"))
+        header.addStretch()
+        header.addWidget(QLabel("RECORDED VIDEO  ·  LOCAL EXECUTION"))
+        layout.addLayout(header)
+
+        hero = QFrame()
+        hero.setObjectName("heroPanel")
+        hero_layout = QHBoxLayout(hero)
+        hero_layout.setContentsMargins(28, 26, 28, 26)
+        hero_layout.setSpacing(26)
+        copy = QVBoxLayout()
+        copy.setSpacing(13)
+        kicker = QLabel("AIRCRAFT PERCEPTION / RESEARCH DEMO")
+        kicker.setObjectName("accentLabel")
+        copy.addWidget(kicker)
+        title = QLabel("AERIS")
+        title.setObjectName("heroTitle")
+        copy.addWidget(title)
+        subtitle = QLabel("RECORDED-VIDEO ANALYSIS")
+        subtitle.setObjectName("heroSubtitle")
+        copy.addWidget(subtitle)
         intro = QLabel(
-            "AERIS looks for aircraft, follows them across frames, and draws short path "
-            "forecasts. Pick one of the recorded examples or use your own video, run the "
-            "pipeline locally, then inspect its overlay and data."
+            "AERIS looks for aircraft in recorded footage, follows detections across frames, "
+            "and draws short image-space forecasts. Select an example or your own video, "
+            "run the pipeline locally, and inspect the result."
         )
         intro.setWordWrap(True)
-        intro.setStyleSheet("font-size: 18px; color: #40515b;")
-        layout.addWidget(intro)
-        buttons = QHBoxLayout()
-        explore = QPushButton("Explore sample videos  →")
-        explore.setStyleSheet("background: #176e72; color: white; padding: 13px 18px;"
-                              "border-radius: 8px; font-weight: 700;")
+        intro.setObjectName("heroDescription")
+        copy.addWidget(intro)
+        actions = QHBoxLayout()
+        explore = QPushButton("OPEN SAMPLE LIBRARY  →")
+        explore.setObjectName("primaryAction")
         explore.clicked.connect(lambda: self.pages.setCurrentIndex(1))
-        buttons.addWidget(explore)
-        own = QPushButton("Choose my video")
-        own.setStyleSheet("background: white; padding: 13px 18px; border-radius: 8px;")
+        actions.addWidget(explore)
+        own = QPushButton("USE MY VIDEO")
         own.clicked.connect(self.choose_video)
-        buttons.addWidget(own)
-        buttons.addStretch()
-        layout.addLayout(buttons)
-        cards = QHBoxLayout()
+        actions.addWidget(own)
+        actions.addStretch()
+        copy.addLayout(actions)
+        copy.addStretch()
+        artifacts = QLabel("OUTPUT  /  OVERLAY.MP4  ·  TRACKS.CSV  ·  METRICS.JSON  ·  MANIFEST")
+        artifacts.setObjectName("artifactLabel")
+        copy.addWidget(artifacts)
+        hero_layout.addLayout(copy, 3)
+
+        flow = QFrame()
+        flow.setObjectName("flowPanel")
+        flow.setMinimumWidth(230)
+        flow_layout = QVBoxLayout(flow)
+        flow_layout.setContentsMargins(16, 16, 16, 16)
+        flow_layout.setSpacing(13)
+        label = QLabel("PIPELINE / 01—03")
+        label.setObjectName("accentLabel")
+        flow_layout.addWidget(label)
         for number, heading, detail in (
-            ("01", "Choose", "Seven recorded examples are available. You can also open a local file."),
-            ("02", "Run", "The existing detector, tracker and forecaster process the video."),
-            ("03", "Inspect", "See the overlay and counts, with accuracy marked unavailable without labels."),
+            ("01", "INPUT", "Recorded video"),
+            ("02", "PROCESS", "Detect · track · forecast"),
+            ("03", "REVIEW", "Overlay · counts · manifest"),
         ):
-            card = QFrame()
-            card.setObjectName("stepCard")
-            card.setStyleSheet("QFrame#stepCard { background: white; border: 1px solid #d9e0de;"
-                               "border-radius: 10px; padding: 12px; }")
-            content = QVBoxLayout(card)
-            content.setAlignment(Qt.AlignmentFlag.AlignTop)
-            content.setSpacing(8)
-            content.addWidget(QLabel(number))
-            heading_label = QLabel(heading)
-            heading_label.setStyleSheet("font-size: 19px; font-weight: 700; border: none;")
-            content.addWidget(heading_label)
-            detail_label = QLabel(detail)
-            detail_label.setWordWrap(True)
-            detail_label.setStyleSheet("border: none;")
-            content.addWidget(detail_label)
-            cards.addWidget(card)
-        layout.addLayout(cards)
-        layout.addStretch()
-        note = QLabel("Research demo · unlabeled footage · no validated accuracy claim")
-        note.setStyleSheet("color: #65747b;")
-        layout.addWidget(note)
-        return page
+            stage = QLabel(f"{number}   {heading}\n{detail}")
+            stage.setObjectName("flowStage")
+            stage.setWordWrap(True)
+            flow_layout.addWidget(stage)
+        flow_layout.addStretch()
+        mode = QLabel("MODE  /  OFFLINE FILE\nTRUTH /  NOT SUPPLIED")
+        mode.setObjectName("flowMode")
+        flow_layout.addWidget(mode)
+        hero_layout.addWidget(flow, 1)
+        layout.addWidget(hero, 1)
+
+        foot = QHBoxLayout()
+        foot.addWidget(QLabel("DATA STATUS  /  UNLABELED DEMONSTRATION"))
+        foot.addStretch()
+        foot.addWidget(QLabel("ACCURACY  /  UNAVAILABLE WITHOUT GROUND TRUTH"))
+        layout.addLayout(foot)
+        return scroll
+
+    def _apply_theme(self):
+        self.setStyleSheet("""
+            QMainWindow, QStackedWidget, QScrollArea, QWidget#landing, QWidget#workspace,
+            QScrollArea > QWidget > QWidget { background: #080d11; color: #dce8eb; }
+            QLabel { color: #dce8eb; background: transparent; font-family: Menlo, monospace;
+                font-size: 11px; }
+            QLabel#pageHeading { color: #f1f8f8; font-family: Arial, sans-serif;
+                font-size: 23px; font-weight: 700; }
+            QLabel#subtleText, QLabel#sampleInfo { color: #94a9ad; font-size: 12px; }
+            QLabel#statusText { color: #e0f0d5; font-size: 12px; padding: 3px 0; }
+            QLabel#accentLabel { color: #b4dbad; letter-spacing: 2px; font-weight: 700; }
+            QLabel#heroTitle { color: #f2f7f4; font-family: Arial, sans-serif;
+                font-size: 70px; font-weight: 800; letter-spacing: 6px; }
+            QLabel#heroSubtitle { color: #b9d0d0; font-size: 15px; letter-spacing: 3px; }
+            QLabel#heroDescription { color: #a6bac0; font-family: Arial, sans-serif;
+                font-size: 15px; line-height: 1.35; }
+            QLabel#flowStage { color: #dbe8e7; background: #101a1f;
+                border-left: 2px solid #8bc89a; padding: 12px; }
+            QLabel#flowMode, QLabel#artifactLabel { color: #668188; font-size: 10px; }
+            QLabel#videoFeed { background: #030608; color: #638087;
+                border: 1px solid #294047; font-size: 13px; }
+            QFrame#heroPanel, QFrame#panel, QGroupBox { background: #0e171c;
+                border: 1px solid #273a40; border-radius: 2px; }
+            QFrame#flowPanel { background: #0a1115; border: 1px solid #294047; }
+            QGroupBox { margin-top: 12px; padding: 13px 12px 12px 12px;
+                color: #afc5c7; font: 700 11px Menlo; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; }
+            QPushButton { background: #142127; color: #dce8eb; border: 1px solid #365059;
+                border-radius: 2px; padding: 7px 11px; font: 700 11px Menlo; }
+            QPushButton:hover { background: #20353b; border-color: #8fc6a0; }
+            QPushButton:disabled { background: #11191d; color: #62777d; border-color: #26363c; }
+            QPushButton#primaryAction { background: #a9d39e; color: #081109;
+                border-color: #c7e5b9; }
+            QPushButton#primaryAction:hover { background: #c7e5b9; }
+            QPushButton#primaryAction:disabled { background: #182522; color: #6d897d;
+                border-color: #2f463f; }
+            QComboBox, QPlainTextEdit { background: #080f13; color: #e0ebec;
+                border: 1px solid #365059; padding: 8px; font: 12px Menlo; }
+            QComboBox QAbstractItemView { background: #0e171c; color: #e0ebec;
+                selection-background-color: #24413b; }
+            QScrollBar:vertical { background: #0a1115; width: 9px; }
+            QScrollBar::handle:vertical { background: #405b61; min-height: 28px; }
+        """)
 
     def _sample(self) -> Sample:
         return next(item for item in SAMPLES if item.slug == self.sample_combo.currentData())
@@ -320,6 +435,8 @@ class DemoWindow(QMainWindow):
                 "--input-note", "Unlabeled local UI demonstration; no accuracy claim"]
         self.process.start(sys.executable, args)
         self.status.setText("Running AERIS… The interface remains usable; processing may take a moment.")
+        self.output_heading.setVisible(True)
+        self.details.setVisible(True)
         self.details.setPlainText("Starting recorded-video pipeline…")
         self._set_busy(True)
 
@@ -350,6 +467,8 @@ class DemoWindow(QMainWindow):
         self._set_busy(False)
 
     def _show_output(self, directory: Path):
+        self.output_heading.setVisible(True)
+        self.details.setVisible(True)
         try:
             self.details.setPlainText(metric_summary(directory))
         except (OSError, ValueError, KeyError) as exc:

@@ -53,29 +53,46 @@ class RequiredRunnerUITests(unittest.TestCase):
             }))
             self.assertIn("Detection accuracy: unavailable", metric_summary(directory))
 
-
-def test_window_lists_samples_without_media_or_model():
-    script = """
+    def test_dark_landing_and_compact_workspace_reach_controls(self):
+        script = """
 from aeris.ui import ensure_qt_plugins_visible
 ensure_qt_plugins_visible()
 from aeris.ui.app import QApplication, DemoWindow, QPushButton
 app = QApplication([])
 window = DemoWindow()
+window.show()
+app.processEvents()
 assert window.pages.currentIndex() == 0
 explore = next(button for button in window.pages.widget(0).findChildren(QPushButton)
-               if button.text().startswith('Explore sample videos'))
+               if button.text().startswith('OPEN SAMPLE LIBRARY'))
+assert '#080d11' in window.styleSheet()
 explore.click()
 assert window.pages.currentIndex() == 1
 assert window.sample_combo.count() == 7
 assert any('Bird clips expose current false positives' in label.text()
            for label in window.centralWidget().findChildren(type(window.sample_info)))
 assert not window.run_button.isEnabled()
+for width, height in ((1080, 850), (900, 600)):
+    window.resize(width, height)
+    app.processEvents()
+    scroll = window.pages.widget(1)
+    assert scroll.horizontalScrollBar().maximum() == 0
+    for control in (window.prepare_button, window.choose_button, window.run_button,
+                    window.cancel_button, window.replay_button, window.folder_button):
+        scroll.ensureWidgetVisible(control)
+        app.processEvents()
+        assert control.isVisibleTo(scroll)
 window.close()
 """
-    env = os.environ.copy()
-    env["QT_QPA_PLATFORM"] = "offscreen"
-    python_root = str(Path(__file__).resolve().parents[2] / "python")
-    env["PYTHONPATH"] = python_root + os.pathsep + env.get("PYTHONPATH", "")
-    result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True,
-                            text=True, timeout=20, check=False)
-    assert result.returncode == 0, result.stderr
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        import PySide6
+
+        env["QT_QPA_PLATFORM_PLUGIN_PATH"] = str(
+            Path(PySide6.__file__).parent / "Qt/plugins/platforms"
+        )
+        python_root = str(Path(__file__).resolve().parents[2] / "python")
+        env["PYTHONPATH"] = python_root + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True,
+                                text=True, timeout=20, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)

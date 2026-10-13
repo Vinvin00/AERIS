@@ -1,9 +1,12 @@
 # Local desktop demo
 
-The app opens on a landing page that explains what AERIS does and how to try it.
-**Explore sample videos** opens the recorded sample picker; **Choose my video**
+The app opens on a dark analysis-console landing page that explains what AERIS does and how to try it.
+**Open sample library** opens the recorded sample picker; **Use my video**
 opens a local file chooser. The second screen keeps preview, run controls, status,
-and results together so a first-time visitor can follow the whole demo.
+and results together so a first-time visitor can follow the whole demo. On smaller
+desktop windows the workspace scrolls vertically; the sample picker and run controls
+remain visible at 900×600. The output panel appears when a run begins or a saved
+result is loaded. Its counts are runtime outputs, not measured accuracy.
 
 Run the Qt app with `PYTHONPATH=python .venv/bin/python -m aeris.ui.app` after
 installing the `desktop` extra (`.venv/bin/python -m pip install -e '.[desktop]'`).

@@ -1005,6 +1005,24 @@
       "budget": "One local desktop slice; max three attempts. PySide6 installation may use one bounded wheel download in the existing venv (under 200 MB). Generate up to three tiny synthetic samples locally; one existing CC0 recorded excerpt may be offered if present and may be retrieved on demand under 35 MB after checksum and rights verification. No videos, checkpoints or credentials in Git, no paid compute, no model training."
     },
     {
+      "id": "UI-002",
+      "title": "Dark aerospace desktop interface and responsive layout",
+      "objective": "Redesign the accepted desktop demo as a serious dark aerospace analysis console and remove clipped content at compact desktop sizes while preserving its sample, own-video, run and result behavior.",
+      "status": "planned",
+      "depends_on": ["UI-001"],
+      "read": ["docs/ui.md", "python/aeris/ui/app.py", "tests/ui/test_ui.py"],
+      "write_globs": ["python/aeris/ui/app.py", "tests/ui/*", "docs/ui.md", "docs/decisions/UI-002-*.md"],
+      "acceptance": {
+        "AC1": "Landing and workspace use a consistent dark, high-contrast aerospace console design with clear hierarchy and no fabricated measurements or operational targeting language.",
+        "AC2": "Landing and workspace remain usable without clipped controls or text at 1080x850 and 900x600, with visual captures inspected at both sizes.",
+        "AC3": "Sample selection, own-video choice, source credits, analysis run and cancellation, overlay preview, honest metric availability and output-folder access remain usable.",
+        "AC4": "Focused UI checks and the required governance and unit gates pass; documentation records the layout and verification evidence."
+      },
+      "required_artifacts": ["python/aeris/ui/app.py", "tests/ui/test_ui.py", "docs/ui.md"],
+      "checks": ["governance", "unit"],
+      "budget": "One offline visual-design slice, max three attempts. No dependency install, media acquisition, model change, training, or gate/contract change. Independent review required."
+    },
+    {
       "id": "MAINT-003",
       "title": "Public repository safety audit and README refresh",
       "objective": "Replacement for MAINT-002 (see docs/decisions/PLAN-006-maint-003-replacement.md). Owner-requested publication preparation: inspect all reachable Git history and tracked files for secrets, private artifacts and rights concerns; improve README and ignore rules without changing scientific contracts.",
