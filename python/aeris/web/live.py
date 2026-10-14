@@ -1,7 +1,8 @@
 """Live detection loop: camera / stream / paced file -> detect -> track -> forecast -> MJPEG.
 
-Timestamps are seconds on a monotonic clock since the session started, so they are
-strictly increasing and independent of the source. If inference is slower than the
+Timestamps are seconds since the session started and strictly increasing. Paced files
+use media time (frame position / container fps) so inference jitter does not turn into
+apparent motion; cameras and streams use monotonic arrival time. If inference is slower than the
 source, frames are dropped (camera: always the newest; file: skipped to stay real time)
 and counted. Nothing here is a benchmark; rates are wall-clock on this machine.
 """
@@ -12,7 +13,7 @@ import time
 
 import cv2
 
-from aeris.cli import DEFAULT_MIN_SCORE, MEASUREMENT_SIGMA_PX, draw_states
+from aeris.cli import DEFAULT_MIN_SCORE, draw_states, measurement_sigma_px
 from aeris.estimation.trajectory import TrajectoryForecaster
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 
@@ -62,7 +63,7 @@ class LiveSession:
             tracker = KalmanTracker("live")
             forecaster = TrajectoryForecaster("live", "constant_velocity")
             start = time.monotonic()
-            last_t, index, position, ema = 0.0, 0, 0, None
+            last_t, index, position, ema = -1.0, 0, 0, None
             self._set(state="running", message="Live")
             while not self._stop.is_set():
                 if self.paced and fps > 0:
@@ -80,7 +81,8 @@ class LiveSession:
                     return
                 position += 1
                 t0 = time.perf_counter()
-                t = max(time.monotonic() - start, last_t + 1e-6)
+                t = (position - 1) / fps if fps > 0 else time.monotonic() - start
+                t = max(t, last_t + 1e-6)
                 last_t = t
                 height, width = frame.shape[:2]
                 prepared = self.stages.preprocess(frame)
@@ -92,7 +94,8 @@ class LiveSession:
                 forecasts = {}
                 for s in states:
                     if s.observed and s.measurement_center_px is not None:
-                        forecaster.update(s.track_id, t, s.measurement_center_px, MEASUREMENT_SIGMA_PX)
+                        forecaster.update(s.track_id, t, s.measurement_center_px,
+                                          measurement_sigma_px(s, tracker.cfg))
                 for s in states:
                     if s.lifecycle != TENTATIVE:
                         for r in forecaster.forecast(s.track_id, t):

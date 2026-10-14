@@ -40,7 +40,6 @@ from aeris.video import pipeline
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MIN_SCORE = 0.3     # untuned; NOT validation-selected
-MEASUREMENT_SIGMA_PX = 1.0  # forecaster measurement noise; untuned
 ARTIFACTS = ("overlay.mp4", "tracks.csv", "predictions.jsonl", "metrics.json", "benchmark.json")
 TRACK_COLUMNS = (
     "sequence_id", "frame_index", "timestamp_s", "track_id", "class_id", "lifecycle", "observed",
@@ -161,6 +160,12 @@ def _cell(value):
     return repr(float(value)) if isinstance(value, float) else str(value)
 
 
+def measurement_sigma_px(state, tracker_cfg: dict) -> float:
+    """Forecaster measurement noise: the tracker's box-relative position noise on the larger
+    box side, with its pixel floor. Untuned; detector center jitter grows with box size."""
+    return max(tracker_cfg["r_floor_px"], tracker_cfg["r_position_frac"] * max(state.size))
+
+
 def draw_states(frame, items) -> None:
     """Draw track boxes, IDs, lifecycle and the 1 s forecast line onto ``frame`` in place."""
     colors = {"tentative": (160, 160, 160), "confirmed": (0, 255, 0), "lost": (0, 165, 255)}
@@ -253,7 +258,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                 if z is None:
                     raise CliError(f"observed track {state.track_id} has no assigned measurement")
                 for f in forecasters.values():
-                    f.update(state.track_id, t, z, MEASUREMENT_SIGMA_PX)
+                    f.update(state.track_id, t, z, measurement_sigma_px(state, tracker.cfg))
         for state in states:
             if state.lifecycle == TENTATIVE:
                 continue

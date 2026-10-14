@@ -1073,6 +1073,23 @@
       "required_artifacts": ["python/aeris/tracking/tracker.py", "python/aeris/cli.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/decisions/023-exact-tracker-measurements.md"],
       "checks": ["governance", "unit", "tracking", "trajectory", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
+    },
+    {
+      "id": "AERIS-024",
+      "title": "Forecast measurement timing and box-relative noise",
+      "objective": "Stabilize forecast direction by timing paced live files with media time instead of processing time and by giving the forecasters the tracker's box-relative measurement noise instead of a fixed 1 px.",
+      "status": "planned",
+      "depends_on": ["AERIS-009", "AERIS-010", "AERIS-023"],
+      "read": ["docs/web.md", "docs/trajectory_estimation.md", "docs/tracking.md"],
+      "write_globs": ["python/aeris/web/live.py", "python/aeris/cli.py", "tests/ui/test_web.py", "docs/web.md", "docs/decisions/024-*.md"],
+      "acceptance": {
+        "AC1": "Paced file sources in the live loop are timestamped with media time, unaffected by inference delay, and timestamps stay strictly increasing and start at zero",
+        "AC2": "The batch CLI and live loop pass the tracker's box-relative position noise with its pixel floor to the forecasters; no fixed 1 px constant remains",
+        "AC3": "Tests fail on the previous code and pass on the new code; no real accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/web/live.py", "python/aeris/cli.py", "tests/ui/test_web.py", "docs/decisions/024-forecast-measurement-timing-and-noise.md"],
+      "checks": ["governance", "unit", "trajectory", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }

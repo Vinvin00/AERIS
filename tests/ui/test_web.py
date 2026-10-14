@@ -104,3 +104,44 @@ class WebUITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveTimingTests(unittest.TestCase):
+    def test_paced_file_uses_media_time_despite_slow_inference(self):
+        import time
+        import cv2
+        import numpy as np
+        from aeris.web.live import LiveSession
+
+        class SlowStages:
+            def __init__(self):
+                self.times = []
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                time.sleep(0.013)                     # jitter source: not a multiple of 1/fps
+            def postprocess(self, raw, prepared, *, timestamp_s, **_):
+                self.times.append(timestamp_s)
+                return []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "clip.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (64, 48))
+            for _ in range(12):
+                writer.write(np.zeros((48, 64, 3), np.uint8))
+            writer.release()
+            stages = SlowStages()
+            session = LiveSession(path, stages, paced=True, label="clip")
+            session.start()
+            session._thread.join(timeout=10)
+        self.assertEqual(session.stats["state"], "ended")
+        self.assertGreater(len(stages.times), 3)
+        for t in stages.times:                        # every timestamp is a frame time k / 20
+            self.assertAlmostEqual(t * 20, round(t * 20), places=6)
+
+    def test_forecast_sigma_follows_box_size(self):
+        from types import SimpleNamespace
+        from aeris.cli import measurement_sigma_px
+        cfg = {"r_floor_px": 1.0, "r_position_frac": 0.05}
+        self.assertEqual(measurement_sigma_px(SimpleNamespace(size=(200.0, 80.0)), cfg), 10.0)
+        self.assertEqual(measurement_sigma_px(SimpleNamespace(size=(8.0, 4.0)), cfg), 1.0)

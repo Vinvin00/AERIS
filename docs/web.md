@@ -35,8 +35,9 @@ button) runs the pipeline as the video plays; the whole file is not processed fi
 **Export full run files** keeps the batch CLI path. A secondary row runs the detector, tracker and 1 s forecast frame by
 frame on a camera (`camera:N`), an `rtsp://`/`http(s)://` stream, or the selected clip
 played at real time, and streams the annotated feed to the page as MJPEG
-(`python/aeris/web/live.py`). Timestamps are monotonic seconds since the session
-started. If inference is slower than the source, frames are dropped and counted. Live
+(`python/aeris/web/live.py`). Timestamps are seconds since the session started: media
+time (frame position / container fps) for a paced clip, so inference jitter does not
+appear as motion, and monotonic arrival time for a camera or stream (AERIS-024). If inference is slower than the source, frames are dropped and counted. Live
 sessions write no run artifacts and compute no metrics; rates shown are wall-clock on
 this machine, not a benchmark. Verified on a paced file only; a physical camera or
 network stream has not been exercised.
