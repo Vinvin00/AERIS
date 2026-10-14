@@ -155,28 +155,31 @@ def _summary(values):
             "p95_s": float(np.percentile(values, 95)), "total_s": float(sum(values))}
 
 
-def _measurement(state, detections):
-    """Raw center of the detection the tracker just used (nearest same-class center), else the state."""
-    best, best_distance = None, max(state.size) + 1e-9
-    for d in detections:
-        if d.class_id != state.class_id:
-            continue
-        cx, cy = (d.bbox.x_min + d.bbox.x_max) / 2, (d.bbox.y_min + d.bbox.y_max) / 2
-        distance = math.hypot(cx - state.center[0], cy - state.center[1])
-        if distance <= best_distance:
-            best, best_distance = (cx, cy), distance
-    return best or state.center
-
-
 def _cell(value):
     if value is None:
         return ""
     return repr(float(value)) if isinstance(value, float) else str(value)
 
 
+def draw_states(frame, items) -> None:
+    """Draw track boxes, IDs, lifecycle and the 1 s forecast line onto ``frame`` in place."""
+    colors = {"tentative": (160, 160, 160), "confirmed": (0, 255, 0), "lost": (0, 165, 255)}
+    for state, forecast in items:
+        color = colors[state.lifecycle]
+        if state.bbox is not None:
+            b = state.bbox
+            cv2.rectangle(frame, (round(b.x_min), round(b.y_min)),
+                          (round(b.x_max), round(b.y_max)), color, 2)
+        cx, cy = round(state.center[0]), round(state.center[1])
+        label = f"{state.track_id} {state.lifecycle[0]}" + ("" if state.observed else " pred")
+        cv2.putText(frame, label, (max(0, cx - 20), max(12, cy - 14)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
+        if forecast is not None:
+            cv2.line(frame, (cx, cy), (round(forecast[0]), round(forecast[1])), color, 1)
+
+
 def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -> float:
     """Second pass: draw track boxes, IDs, lifecycle and the 1 s constant-velocity forecast."""
-    colors = {"tentative": (160, 160, 160), "confirmed": (0, 255, 0), "lost": (0, 165, 255)}
     capture = cv2.VideoCapture(str(video))
     if not capture.isOpened():
         raise CliError(f"cannot reopen {video} for rendering")
@@ -192,18 +195,7 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
                                          fps if fps and math.isfinite(fps) else 1.0, (width, height))
                 if not writer.isOpened():
                     raise CliError(f"cannot open overlay writer {out}")
-            for state, forecast in drawn.get(index, []):
-                color = colors[state.lifecycle]
-                if state.bbox is not None:
-                    b = state.bbox
-                    cv2.rectangle(frame, (round(b.x_min), round(b.y_min)),
-                                  (round(b.x_max), round(b.y_max)), color, 2)
-                cx, cy = round(state.center[0]), round(state.center[1])
-                label = f"{state.track_id} {state.lifecycle[0]}" + ("" if state.observed else " pred")
-                cv2.putText(frame, label, (max(0, cx - 20), max(12, cy - 14)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
-                if forecast is not None:
-                    cv2.line(frame, (cx, cy), (round(forecast[0]), round(forecast[1])), color, 1)
+            draw_states(frame, drawn.get(index, []))
             writer.write(frame)
             index += 1
     finally:
@@ -257,7 +249,9 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
         frame_forecasts = {}
         for state in states:
             if state.observed:
-                z = _measurement(state, detections)
+                z = state.measurement_center_px
+                if z is None:
+                    raise CliError(f"observed track {state.track_id} has no assigned measurement")
                 for f in forecasters.values():
                     f.update(state.track_id, t, z, MEASUREMENT_SIGMA_PX)
         for state in states:

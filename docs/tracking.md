@@ -37,6 +37,9 @@ accepts future data; a test shows prefix outputs equal the full-run outputs).
   center, velocity, covariance, lifecycle, `age_s`, `time_since_seen_s`, last
   measurement time, observed/predicted flag). The bbox is clipped to the frame; a
   predicted box entirely outside it is `null` with an `availability_reason`.
+  `measurement_center_px` is the original-frame center of the exact deduplicated
+  detection assigned to an observed track at this step. It is null while coasting;
+  the filtered `center` remains available but is not a new detector measurement.
 
 ## Defaults are not tuned
 

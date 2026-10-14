@@ -301,19 +301,29 @@ class FailurePathTests(PipelineCase):
         expected = {(box_at(i)[0] + box_at(i)[2]) / 2 for i in range(N)}
         assert {c[0] for _, c in seen} <= expected and len(seen) == 2 * N      # two models x N observed frames
 
-    def test_measurement_uses_the_same_class_detection_near_the_track(self):
-        from aeris.data.contracts import DetectionRecord
-        from aeris.tracking.tracker import TrackState
+    def test_forecasters_use_assigned_measurement_without_nearest_center_guess(self):
+        from dataclasses import replace
 
-        def detection(cx, cy, cls):
-            return DetectionRecord(1, "s", 0, 0.0, W, H, BBox(cx - 5, cy - 5, cx + 5, cy + 5), cls,
-                                   "aeris-aircraft-v1", 0.9, "t", {})
-        state = TrackState("s", "t1", 0, 0.0, "confirmed", (50.0, 50.0), (0.0, 0.0), (10.0, 10.0), None,
-                           ((1.0,),), 1.0, 0.0, 0.0, True, {})
-        assert cli._measurement(state, [detection(52, 51, 0)]) == (52.0, 51.0)
-        assert cli._measurement(state, [detection(52, 51, 1)]) == (50.0, 50.0)      # other class ignored
-        assert cli._measurement(state, [detection(120, 90, 0)]) == (50.0, 50.0)     # too far: keep the state
-        assert cli._measurement(state, [detection(58, 50, 0), detection(51, 50, 0)]) == (51.0, 50.0)
+        original_tracker = cli.KalmanTracker
+        observed = []
+        original_update = cli.TrajectoryForecaster.update
+
+        class MarkedTracker(original_tracker):
+            def step(self, timestamp_s, detections):
+                return [replace(s, measurement_center_px=(s.measurement_center_px[0] + 7,
+                                                           s.measurement_center_px[1]))
+                        if s.observed else s for s in super().step(timestamp_s, detections)]
+
+        def spy(self, track_id, timestamp_s, center, sigma_px=1.0):
+            observed.append((timestamp_s, center))
+            return original_update(self, track_id, timestamp_s, center, sigma_px)
+
+        with mock.patch.object(cli, "KalmanTracker", MarkedTracker), \
+                mock.patch.object(cli.TrajectoryForecaster, "update", spy):
+            assert self.run_cli("assigned") == 0
+        raw = {(box_at(i)[0] + box_at(i)[2]) / 2 for i in range(N)}
+        assert len(observed) == 2 * N
+        assert {center[0] for _, center in observed} == {value + 7 for value in raw}
 
     def test_bad_options_and_inputs_fail_cleanly(self):
         base = [str(self.clip), "--output", str(self.out("bad"))]

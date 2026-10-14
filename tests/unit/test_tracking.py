@@ -80,6 +80,20 @@ class ConfigTests(unittest.TestCase):
 
 
 class StabilityAndLifecycleTests(unittest.TestCase):
+    def test_state_reports_exact_assigned_measurement_and_none_during_coast(self):
+        tracker = KalmanTracker("s")
+        born = tracker.step(0.0, [det(0.0, 0, box(100, 100))])[0]
+        assert born.observed and born.measurement_center_px == (100.0, 100.0)
+        # The large box has a closer center but its size innovation is gated out.
+        states = tracker.step(0.1, [det(0.1, 1, box(103, 100)),
+                                    det(0.1, 1, box(100.5, 100, 100, 100))])
+        matched = next(s for s in states if s.track_id == born.track_id)
+        assert matched.observed and matched.measurement_center_px == (103.0, 100.0)
+        assert matched.center != matched.measurement_center_px  # filtered position is distinct
+        coasted = next(s for s in tracker.step(0.25, []) if s.track_id == born.track_id)
+        assert not coasted.observed and coasted.measurement_center_px is None
+        assert coasted.last_measurement_time_s == 0.1
+
     def test_crossing_keeps_ids(self):
         scene = crossing()
         _, history = run(scene)
@@ -137,6 +151,7 @@ class StabilityAndLifecycleTests(unittest.TestCase):
             states = tracker.step(t, [det(t, i, box(100 + 20 * t, 100), 0.9),
                                       det(t, i, box(100 + 20 * t + 0.5, 100), 0.5)])
         assert len(states) == 1 and tracker.counters["duplicates_dropped"] == 5
+        assert states[0].measurement_center_px == (108.0, 100.0)
 
     def test_detection_overlapping_existing_track_does_not_birth(self):
         tracker = KalmanTracker("s")

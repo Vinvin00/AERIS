@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>AERIS — Live aircraft detection</title>
+  <meta name="description" content="Local live aircraft detection, tracking and prediction research demo.">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="AERIS home"><span class="brand-mark">A</span><span>AERIS</span></a>
+    <nav aria-label="Sections"><a href="#workspace">Console</a><a href="#how">How it works</a><a href="#limits">Limits</a></nav>
+    <a class="button small primary" href="#workspace">Open console</a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <span class="pill"><i></i> Aircraft detection · tracking · prediction</span>
+          <h1><span>Detect.</span><span>Track.</span><span class="g">Predict.</span></h1>
+          <p class="lede">Pick a clip and press play. AERIS detects aircraft as the video plays, finds the aircraft, follows each one frame by frame, and projects where it is heading next. Runs on your machine. One click to try.</p>
+          <div class="hero-actions">
+            <button class="button primary big" id="hero-demo" type="button">▶&nbsp; Run the demo</button>
+            <button class="button ghost big" id="hero-own" type="button">Drop in your own clip</button>
+          </div>
+          <ul class="proof"><li><b>7</b> real recorded clips</li><li><b>100%</b> local processing</li><li><b>2</b> outputs: overlay video + track data</li></ul>
+        </div>
+        <figure class="hero-display" aria-label="Illustration of three aircraft being detected, tracked and forecast">
+          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#10231a" stroke-width="1"/></pattern>
+              <linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#3dff8b" stop-opacity="0"/><stop offset="1" stop-color="#3dff8b" stop-opacity=".22"/></linearGradient>
+            </defs>
+            <rect width="400" height="300" fill="url(#g)"/>
+            <rect class="sweep" y="0" width="90" height="300" fill="url(#sw)"><animate attributeName="x" from="-90" to="400" dur="5s" repeatCount="indefinite"/></rect>
+            <path class="trail" d="M20 250 C 90 220, 150 190, 205 150"/><path class="forecast" d="M205 150 C 250 118, 300 100, 365 70"/>
+            <path class="trail" d="M385 225 C 330 210, 280 205, 228 212"/><path class="forecast" d="M228 212 C 190 220, 150 232, 90 256"/>
+            <path class="trail" d="M40 62 C 100 70, 150 86, 190 82"/><path class="forecast" d="M190 82 C 240 78, 290 60, 355 38"/>
+            <g class="ac"><animateMotion dur="7s" repeatCount="indefinite" path="M20 250 C 90 220, 150 190, 205 150"/><rect class="box" x="-16" y="-14" width="32" height="28"/><circle r="2.4" class="dot"/><text x="-16" y="-20" class="svg-label">AIRCRAFT · T1</text></g>
+            <g class="ac"><animateMotion dur="8s" repeatCount="indefinite" path="M385 225 C 330 210, 280 205, 228 212"/><rect class="box" x="-14" y="-12" width="28" height="24"/><circle r="2.4" class="dot"/><text x="-14" y="-18" class="svg-label">AIRCRAFT · T2</text></g>
+            <g class="ac"><animateMotion dur="6s" repeatCount="indefinite" path="M40 62 C 100 70, 150 86, 190 82"/><rect class="box" x="-13" y="-11" width="26" height="22"/><circle r="2.4" class="dot"/><text x="-13" y="-17" class="svg-label">AIRCRAFT · T3</text></g>
+          </svg>
+          <span class="hud-tag">ILLUSTRATION · PIXEL SPACE</span>
+          <figcaption><span class="key k-box">Detected</span><span class="key k-trail">Tracked</span><span class="key k-fc">Predicted</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="sec console-sec" id="workspace">
+      <div class="wrap">
+        <div class="sec-label"><span class="idx">01</span><h2>Analysis console</h2><p id="next-hint" class="next-hint" aria-live="polite">Pick a source in the bar above the video to begin.</p></div>
+
+        <div class="term">
+          <div class="term-bar">
+            <span class="led" id="led"></span><b>aeris</b><span class="sep">/</span><span id="feed-name">no source</span>
+            <span class="spacer"></span><span id="elapsed" class="mono-dim"></span><span id="feed-mode" class="mode-chip">Standby</span>
+          </div>
+
+          <div class="cmd">
+            <div class="cmd-row" id="step1" data-state="active">
+              <span class="cmd-label"><i>1</i> pick a clip</span>
+              <div class="sample-grid" id="sample-grid" aria-label="Sample library"><span class="muted">Loading samples…</span></div>
+              <button class="chip upload" id="choose-file" type="button" title="MP4, MOV, WebM, AVI or OGV, up to 500 MB, copied locally">↥ your own video</button>
+              <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/ogg,.ogv" hidden>
+            </div>
+            <div class="cmd-info"><span id="sample-details" class="sample-details" aria-live="polite">Hover a sample to see what it shows.</span> <a id="source-link" class="source-link" href="#" target="_blank" rel="noopener noreferrer" hidden>source &amp; license ↗</a></div>
+            <div class="cmd-row" id="step2" data-state="locked">
+              <span class="cmd-label"><i>2</i> run it</span>
+              <button id="run-button" class="button primary" disabled>▶ Play with live detection</button>
+              <button id="export-button" class="button ghost" disabled title="Process the whole clip and save overlay, tracks and metrics files">Export full run files</button>
+              <button id="cancel-button" class="button ghost" hidden>Cancel</button>
+              <div class="status-card" data-state="idle" id="status-card">
+                <strong id="status-heading">Idle</strong><span class="sep">›</span><span id="status-message" role="status" aria-live="polite">Choose a recorded sample or your own video.</span>
+              </div>
+              <div class="progress" id="progress" hidden><span></span></div>
+            </div>
+          </div>
+
+<details class="recorded" id="recorded"><summary>Or use a camera / network stream</summary>
+          <div class="cmd-row" id="live-row">
+            <span class="cmd-label"><i>+</i> or live</span>
+            <button class="chip" id="live-camera" type="button">Camera 0</button>
+                        <input id="live-url" type="url" placeholder="rtsp:// or http(s):// stream" size="28">
+            <button class="chip" id="live-url-go" type="button">Open stream</button>
+            <button class="button ghost" id="live-stop" type="button" hidden>Stop live</button>
+            <span class="mono-dim" id="live-status" role="status" aria-live="polite"></span>
+          </div>
+
+            
+</details>
+          <div class="term-main">
+            <div class="viewport-col">
+              <div class="video-stage">
+                <div class="hud" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                <div class="empty-state"><span class="reticle"></span><strong>No source loaded</strong><small>Pick a sample in the bar above, or use your own video.</small></div>
+                <img id="live-view" alt="Live annotated feed" hidden style="width:100%;height:100%;object-fit:contain;background:#000">
+                <video id="video" controls playsinline preload="metadata" hidden></video>
+                <div class="scan" id="scan" hidden><span></span><b>Analysing · detect → track → forecast</b></div>
+              </div>
+              <div class="viewport-foot">
+                <div class="seg" role="group" aria-label="Video view">
+                  <button id="view-original" type="button" aria-pressed="false" disabled>Original</button>
+                  <button id="view-overlay" type="button" aria-pressed="false" disabled>Analysis overlay</button>
+                </div>
+                <span class="mono-dim" id="timecode">00:00.0 / 00:00.0</span>
+              </div>
+            </div>
+            <aside class="readout">
+              <div class="telemetry">
+                <div><span>Frames</span><strong id="frames-count">—</strong></div>
+                <div><span>Detections</span><strong id="detections-count">—</strong></div>
+                <div><span>Track IDs</span><strong id="tracks-count">—</strong></div>
+                <div class="dim"><span>Accuracy</span><strong>n/a</strong></div>
+              </div>
+              <div class="out-head">output</div>
+              <pre id="process-log" class="out">No process output yet.</pre>
+            </aside>
+          </div>
+
+          <div class="detail" id="step3" data-state="locked">
+            <div class="detail-head"><span class="cmd-label"><i>3</i> results</span>
+              <div class="tabs" role="tablist" id="tabs">
+                <button role="tab" data-tab="summary" aria-selected="true">Summary</button>
+                <button role="tab" data-tab="timeline" aria-selected="false">Timeline</button>
+                <button role="tab" data-tab="paths" aria-selected="false">Paths</button>
+                <button role="tab" data-tab="tracks" aria-selected="false">Tracks</button>
+                <button role="tab" data-tab="files" aria-selected="false">Files</button>
+              </div>
+            </div>
+            <div class="detail-body">
+              <div class="placeholder" id="results-placeholder"><strong>Findings appear here</strong><span>After a run: a plain-English summary first, then the timeline, path plot, track table and files.</span></div>
+              <div id="results" hidden>
+                <div class="tab-panel" data-panel="summary">
+                  <div class="summary" id="summary"></div>
+                  <p id="metric-reason" class="metric-reason"></p>
+                </div>
+                <div class="tab-panel" data-panel="timeline" hidden>
+                  <div class="panel"><div class="panel-head"><span>Track timeline</span><span class="tag" id="timeline-axis">—</span></div><div id="timeline" class="timeline"></div><p class="legend"><i class="l-conf"></i> confirmed observation <i class="l-tent"></i> tentative <i class="l-pred"></i> predicted only</p></div>
+                </div>
+                <div class="tab-panel" data-panel="paths" hidden>
+                  <div class="panel"><div class="panel-head"><span>Track paths</span><span class="tag" id="paths-axis">—</span></div><canvas id="paths" width="640" height="360"></canvas><p class="legend">Dashed segments include predicted-only states.</p></div>
+                </div>
+                <div class="tab-panel" data-panel="tracks" hidden>
+                  <div class="panel"><div class="panel-head"><span>Tracks</span><span class="tag">from tracks.csv</span></div><div class="table-wrap"><table id="track-table"><thead><tr><th>ID</th><th>First state</th><th>Last state</th><th>State rows</th><th>Confirmed rows</th><th>Mean speed</th></tr></thead><tbody></tbody></table></div></div>
+                </div>
+                <div class="tab-panel" data-panel="files" hidden>
+                  <div class="artifacts"><a href="/api/artifact/overlay.mp4" download>overlay.mp4 ↓</a><a href="/api/artifact/metrics.json" download>metrics.json ↓</a><a href="/api/artifact/tracks.csv" download>tracks.csv ↓</a><a href="/api/artifact/run_manifest.json" download>run_manifest.json ↓</a></div>
+                  <p class="output-path">Saved to <code id="output-path"></code></p>
+                  <button class="button ghost" id="again" type="button">Try another video</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="how">
+      <div class="wrap">
+        <div class="sec-label"><span class="idx">02</span><h2>How it works</h2><p>Three stages in one local workflow.</p></div>
+        <div class="steps">
+          <article><span class="num">1</span><h3>Pick a video</h3><p>Choose one of the recorded samples, or drop in your own clip of aircraft.</p></article>
+          <article><span class="num">2</span><h3>Run the analysis</h3><p>AERIS proposes aircraft detections, links them across frames into <em>tracks</em>, and projects each track a moment ahead.</p></article>
+          <article><span class="num">3</span><h3>Review the result</h3><p>Watch the annotated video, read a plain-English summary, and download the raw data.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="limits">
+      <div class="wrap">
+        <div class="sec-label"><span class="idx">03</span><h2>Honest by design</h2><p>What this demo does and does not claim.</p></div>
+        <div class="steps">
+          <article><span class="num x">!</span><h3>Not a benchmark</h3><p>Samples are unannotated smoke runs. They show the pipeline working, not how accurate it is.</p></article>
+          <article><span class="num x">!</span><h3>Accuracy stays blank</h3><p>Precision, recall and tracking scores need hand-labelled ground truth. Without it they are reported as unavailable, with the reason.</p></article>
+          <article><span class="num x">!</span><h3>Observation only</h3><p>No targeting, weapons integration or control outputs exist in this project. Everything here is for review.</p></article>
+        </div>
+        <details class="glossary"><summary>Plain-English glossary</summary>
+          <dl><dt>Detection</dt><dd>A box around something the model thinks is an aircraft in one frame.</dd>
+          <dt>Track</dt><dd>The same aircraft followed across frames. Tracks start <em>tentative</em> and become <em>confirmed</em> after repeated sightings.</dd>
+          <dt>Forecast</dt><dd>A short, constant-velocity guess of where a track moves next, in image pixels.</dd>
+          <dt>Pixel space</dt><dd>All positions are image coordinates, not real-world distances. There is no camera calibration.</dd></dl>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="wrap foot"><span>AERIS · recorded-video research demo</span><span>No targeting or control outputs</span></div></footer>
+</body>
+</html>

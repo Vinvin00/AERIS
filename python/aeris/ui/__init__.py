@@ -2,24 +2,32 @@
 
 from pathlib import Path
 import os
-import stat
+import shutil
 import sys
+import tempfile
+
+
+_plugin_copy = None
 
 
 def ensure_qt_plugins_visible():
-    """Work around managed macOS installs that mark Qt platform plugins hidden."""
+    """Expose Qt platform plugins through a process-local directory on macOS."""
+    global _plugin_copy
     if sys.platform != "darwin":
+        return
+    if _plugin_copy is not None:
         return
     import PySide6
 
     directory = Path(PySide6.__file__).parent / "Qt/plugins/platforms"
-    for path in directory.glob("libq*.dylib"):
-        flags = path.stat().st_flags
-        if flags & stat.UF_HIDDEN:
-            try:
-                os.chflags(path, flags & ~stat.UF_HIDDEN)
-            except OSError:
-                pass
+    plugins = list(directory.glob("libq*.dylib"))
+    if plugins:
+        # Some managed macOS installs hide these files from Qt even when Python's
+        # st_flags does not report UF_HIDDEN. Avoid mutating site-packages.
+        _plugin_copy = tempfile.TemporaryDirectory(prefix="aeris-qt-platforms-")
+        for path in plugins:
+            shutil.copyfile(path, Path(_plugin_copy.name) / path.name)
+        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = _plugin_copy.name
 
 
 ensure_qt_plugins_visible()

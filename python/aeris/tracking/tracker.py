@@ -47,6 +47,7 @@ class TrackState:
     last_measurement_time_s: float
     observed: bool
     availability_reason: dict = field(default_factory=dict)
+    measurement_center_px: tuple[float, float] | None = None
 
 
 @dataclass
@@ -60,6 +61,7 @@ class _Track:
     hits: int = 1
     lifecycle: str = TENTATIVE
     observed: bool = True
+    measurement_center_px: tuple[float, float] | None = None
 
 
 def _iou(a: np.ndarray, b: np.ndarray) -> float:
@@ -157,6 +159,7 @@ class KalmanTracker:
         for track in self._tracks:
             self._predict(track, dt)
             track.observed = False
+            track.measurement_center_px = None
         # Timeout in seconds, evaluated before association so a long gap cannot revive a track.
         alive = []
         for track in self._tracks:
@@ -172,6 +175,7 @@ class KalmanTracker:
                           det.bbox.x_max - det.bbox.x_min, det.bbox.y_max - det.bbox.y_min])
             self._update(track, z, self._measurement_noise(z[2], z[3]))
             track.last_seen_s, track.observed = timestamp_s, True
+            track.measurement_center_px = (float(z[0]), float(z[1]))
             track.hits += 1
             if track.hits >= self.cfg["confirm_hits"] or track.lifecycle in (CONFIRMED, LOST):
                 track.lifecycle = CONFIRMED
@@ -236,7 +240,8 @@ class KalmanTracker:
         r = self._measurement_noise(box[2], box[3])
         p = np.diag([r[0, 0], r[1, 1], sd_v**2, sd_v**2, r[2, 2], r[3, 3]])
         x = np.array([box[0], box[1], 0.0, 0.0, box[2], box[3]])
-        self._tracks.append(_Track(f"t{self._next_id}", det.class_id, x, p, timestamp_s, timestamp_s))
+        self._tracks.append(_Track(f"t{self._next_id}", det.class_id, x, p, timestamp_s, timestamp_s,
+                                   measurement_center_px=(float(box[0]), float(box[1]))))
         self._next_id += 1
         self.counters["births"] += 1
 
@@ -255,7 +260,8 @@ class KalmanTracker:
                           (cx, cy), (vx, vy), (w, h), bbox,
                           tuple(tuple(float(v) for v in row) for row in track.p),
                           timestamp_s - track.born_s, timestamp_s - track.last_seen_s,
-                          track.last_seen_s, track.observed, reason)
+                          track.last_seen_s, track.observed, reason,
+                          track.measurement_center_px)
 
 
 def _box(det: DetectionRecord) -> np.ndarray:

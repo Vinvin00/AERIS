@@ -1056,6 +1056,23 @@
         "unit"
       ],
       "budget": "No downloads, dependency installation, training, history rewriting or GitHub visibility changes. Max three attempts. Independent review by a separate agent session required."
+    },
+    {
+      "id": "AERIS-023",
+      "title": "Exact tracker measurements for causal forecasts",
+      "objective": "Pass the tracker-assigned detection center to the forecasters and make coasting explicit, removing the CLI's nearest-center reconstruction while preserving timestamp-aware pixel velocity and forecast behavior.",
+      "status": "planned",
+      "depends_on": ["AERIS-009", "AERIS-010", "AERIS-011"],
+      "read": ["docs/tracking.md", "docs/trajectory_estimation.md", "docs/mvp.md"],
+      "write_globs": ["python/aeris/tracking/tracker.py", "python/aeris/cli.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/tracking.md", "docs/mvp.md", "docs/decisions/023-*.md"],
+      "acceptance": {
+        "AC1": "Each observed tracker state exposes the exact deduplicated detection center used for its update or birth, while coasted states expose no current measurement",
+        "AC2": "The CLI updates both causal forecasters only with that exact assigned measurement and never substitutes a nearby detection or filtered track center",
+        "AC3": "Adversarial association, duplicate, missed-detection and irregular-timestamp tests preserve identity, velocity units and forecast causality; no real accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/tracking/tracker.py", "python/aeris/cli.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/decisions/023-exact-tracker-measurements.md"],
+      "checks": ["governance", "unit", "tracking", "trajectory", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }

@@ -82,8 +82,8 @@ it is a synthetic-motion test and supplies no real video evidence.
 
 ## Limits
 
-Single sequence per run; offline files only (no real-time source, queueing or dropped frames); tracker and
-forecasters use detection centers matched by nearest same-class center; angular rate uses consecutive observed
+Single sequence per run; offline files only (no real-time source, queueing or dropped frames); tracker passes its
+exact assigned detection center to both forecasters and passes no new measurement during a coast; angular rate uses consecutive observed
 centers; no apparent-size-change labels in the CSV; no camera-motion handling; the forecasters need the track to be
 confirmed first; code revision is `null` outside a Git checkout. Tested on macOS arm64, Python 3.14 only; CI runs the
 replay tests and skips the real-model test.
