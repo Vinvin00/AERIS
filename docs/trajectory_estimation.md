@@ -74,7 +74,7 @@ that the tests pin:
 ## Limits
 
 No real data; no calibrated uncertainty (empirical coverage on synthetic scenes only);
-axis-independent filters; no maneuver detection, no camera-motion compensation; defaults and
+axis-independent filters; no maneuver detection; camera-motion compensation only for the displayed arrow (see below); defaults and
 the 1 s staleness limit are untuned; max interpolation gap and eligibility come from
 AERIS-005. Tested on macOS arm64, Python 3.14.
 
@@ -92,7 +92,7 @@ the target time are scored. It does not replace labeled evaluation.
 
 ## Camera motion (AERIS-028)
 
-With `--camera-motion estimate` (and always in the web live view), `CameraMotion`
+With `--camera-motion estimate` (the CLI default since 2026-10-15, and always in the web live view), `CameraMotion`
 (`python/aeris/estimation/camera_motion.py`) fits a RANSAC similarity to Lucas-Kanade tracks of
 background corners between consecutive processed frames, with detection boxes masked out, and
 chains them into a transform from each frame to the first processed frame. A separate

@@ -37,7 +37,9 @@ directory and renamed on success, so a failure leaves nothing behind.
 
 `--detections FILE` replays detections from JSON (`{"frames": {"<index>": [{"bbox": [x0,y0,x1,y1], "class_id": 0,
 "score": 0.9}]}}`) instead of running the model: deterministic and weight-free, used by the tests and CI.
-`--min-score` (default 0.3, untuned, not validation-selected) filters detections before tracking;
+`--min-score` (default 0.3, untuned, not validation-selected) is the detection threshold: only detections at or
+above it start or confirm tracks and count in detection metrics; lower ones may only extend existing tracks (AERIS-027);
+`--camera-motion estimate|none` (default `estimate`) makes the displayed forecast arrow scene-relative (AERIS-028);
 `--stride`, `--max-frames`, `--warmup-frames`, `--timestamp-policy`, `--no-render`, `--sequence-id`,
 `--model-config`, `--input-note` (free-text provenance recorded in the manifest).
 
@@ -84,6 +86,7 @@ it is a synthetic-motion test and supplies no real video evidence.
 
 Single sequence per run; offline files only (no real-time source, queueing or dropped frames); tracker passes its
 exact assigned detection center to both forecasters and passes no new measurement during a coast; angular rate uses consecutive observed
-centers; no apparent-size-change labels in the CSV; no camera-motion handling; the forecasters need the track to be
+centers; no apparent-size-change labels in the CSV; camera motion is compensated only for the displayed arrow, not in
+tracks or written forecasts; the forecasters need the track to be
 confirmed first; code revision is `null` outside a Git checkout. Tested on macOS arm64, Python 3.14 only; CI runs the
 replay tests and skips the real-model test.

@@ -5,8 +5,13 @@ Status: implementation for independent review. Date: 2026-10-15.
 All motion was measured in image pixels. When the camera pans to follow an aircraft, which
 is common in recorded aircraft footage, the aircraft barely moves in the image: the arrow was
 hidden by the AERIS-026 gate or pointed the wrong way, and headings described the camera
-operator rather than the aircraft. The project MVP assumes a fixed camera, so this is opt-in
-for the CLI (`--camera-motion estimate`, default `none`); the web live view always uses it.
+operator rather than the aircraft. It was first opt-in for the CLI. **Owner decision
+2026-10-15, after independent review:** `--camera-motion estimate` is now the CLI default
+(use `none` for a known fixed camera); the web live view always uses it. Reason: the
+AERIS-027 low-score pass reintroduces reversed arrows without compensation (see ADR 027).
+On a fixed camera a correct fit is near identity and a failed step is identity, but a wrong
+fit on moving background (water, clouds) can add false motion there; this is a deliberate
+change to the fixed-camera MVP default, not evidence that compensation is harmless.
 
 Design:
 - `CameraMotion` estimates a similarity (translation, rotation, uniform scale) between
@@ -42,6 +47,15 @@ not a like-for-like accuracy comparison):
 Rendered overlays show the camera panning left with the aircraft; with compensation the
 arrow points left along the flight path on every sampled frame, without it the arrow is
 missing at frames 45 and 55. The live view on the same clip estimated 57 of 57 steps.
+
+Review follow-ups (2026-10-15): the pan integration test now also asserts that
+`predictions.jsonl` and `tracks.csv` are byte-identical between `none` and `estimate`; the live
+panel heading used `atan2(vy, vx)` (clockwise, 90 = down) while `tracks.csv` and CONTRACTS use
+`atan2(-vy, vx)` counterclockwise; it now matches, tested by
+`tests/ui/test_web.py::LivePanelTests`, which also covers the live gate and the live
+camera-motion failure path on blank frames. The module docstring no longer says estimation is
+"never worse": that holds only for failed steps. Motion-estimation time runs inside the frame
+hook and is not attributed to any stage in `benchmark.json` (wall clock only).
 
 Limits: errors accumulate along the chain; a moving background (waves, clouds in wind,
 other aircraft not detected) biases the estimate; zoom is modelled only as uniform scale;

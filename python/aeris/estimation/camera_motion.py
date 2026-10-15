@@ -7,9 +7,10 @@ background corners; detection boxes are masked out so aircraft do not count as b
 Estimation runs on a copy downscaled to ``max_side`` pixels for speed.
 
 When too few background corners exist (a clear sky, a blank frame) the step is recorded as
-failed and treated as *no camera motion*. That equals the uncompensated behaviour, so it is
-never worse than not estimating, but it is not a measurement; callers report the failure count.
-Errors accumulate along the chain. Parameters are untuned engineering defaults.
+failed and treated as *no camera motion*, which equals the uncompensated behaviour for that step;
+it is not a measurement, and callers report the failure count. A *successful* fit can still be
+wrong (moving water or clouds, undetected aircraft, parallax) and is then worse than not
+estimating. Errors accumulate along the chain. Parameters are untuned engineering defaults.
 """
 from __future__ import annotations
 

@@ -13,10 +13,13 @@ Two inputs made the 1 s forecast direction in the live demo unstable.
    starts from -1 so the first media time is exact.
 2. **Measurement noise.** Both forecasters received a fixed 1 px standard deviation,
    far below the jitter of a detector box center. The filter then followed each noisy
-   center. The batch CLI and the live loop now use the tracker's own box-relative
-   position noise, `max(r_floor_px, r_position_frac * max(w, h))`, from
-   `configs/tracker/baseline.json`. The forecaster takes one scalar per update, so the
-   larger box side is used.
+   center. The batch CLI and the live loop now use
+   `max(r_floor_px, r_position_frac * max(w, h))` with the tracker's fraction and floor
+   from `configs/tracker/baseline.json`. This is not identical to the tracker's own noise:
+   it uses the *filtered* box size rather than the measured one, and the forecaster takes
+   one scalar per update, so the larger side is shared by both axes. For a 200x20 box the
+   tracker's y noise is 1 px while the forecaster gets 10 px; the choice is conservative
+   for elongated boxes. (Wording corrected after independent review, 2026-10-15.)
 
 Both values are untuned engineering choices. No real forecast accuracy, direction
 error or calibration claim follows; that needs labeled real video (AERIS-021).

@@ -339,13 +339,51 @@ class LowScorePassTests(unittest.TestCase):
             states = tracker.step(t, dets, high_score=0.5)
         assert states[0].lifecycle == CONFIRMED and states[0].observed
 
-    def test_default_threshold_keeps_previous_behaviour(self):
-        a, b = KalmanTracker("s"), KalmanTracker("s")
-        for i in range(6):
-            t = round(i * 0.1, 6)
-            dets = [det(t, i, box(50 + 100 * t, 100), 0.05)]
-            assert a.step(t, dets) == b.step(t, dets, high_score=0.0)
-
     def test_high_score_must_be_a_probability(self):
         with self.assertRaises(TrackerError):
             KalmanTracker("s").step(0.0, [], high_score=1.5)
+
+
+def cluttered_scene(seed=27, frames=40):
+    """Deterministic scene: three movers with random misses, plus clutter at random scores,
+    irregular frame deltas. Used to pin the pre-AERIS-027 tracker output."""
+    import random
+    rng, t, out = random.Random(seed), 0.0, []
+    for i in range(frames):
+        t = round(t + rng.choice((0.04, 0.1, 0.1, 0.17)), 6)
+        dets = []
+        for k, (x0, y0, vx, vy) in enumerate(((40, 60, 90, 10), (360, 150, -70, 5), (200, 30, 5, 60))):
+            if rng.random() > 0.15:
+                cx, cy = x0 + vx * t + rng.gauss(0, 1.5), y0 + vy * t + rng.gauss(0, 1.5)
+                dets.append(det(t, i, box(cx, cy, 24 + 4 * k, 14), round(rng.uniform(0.1, 0.95), 3)))
+        for _ in range(rng.randint(0, 3)):
+            dets.append(det(t, i, box(rng.uniform(20, 380), rng.uniform(20, 280), 12, 10),
+                            round(rng.uniform(0.1, 0.5), 3)))
+        out.append((t, dets))
+    return out
+
+
+def snapshot(states):
+    return [[s.track_id, s.lifecycle, s.observed, round(s.center[0], 6), round(s.center[1], 6),
+             None if s.measurement_center_px is None else [round(v, 6) for v in s.measurement_center_px]]
+            for s in states]
+
+
+GOLDEN = ROOT / "tests/fixtures/tracking/pre_aeris027_cluttered_states.json"
+
+
+class PreLowScoreBehaviourTests(unittest.TestCase):
+    """AERIS-027 AC1: with high_score 0.0 every detection is high-score, so the tracker must
+    reproduce the pre-change tracker (commit c1be200) exactly, clutter and misses included."""
+
+    def test_default_matches_pre_change_golden_states(self):
+        golden, tracker = json.loads(GOLDEN.read_text()), KalmanTracker("s")
+        for (t, dets), expected in zip(cluttered_scene(), golden["frames"], strict=True):
+            assert snapshot(tracker.step(t, dets)) == expected, t
+
+    def test_low_score_pass_changes_the_cluttered_scene(self):
+        """The same scene with a 0.5 threshold must differ: otherwise the golden test above
+        would not distinguish the two code paths."""
+        a, b = KalmanTracker("s"), KalmanTracker("s")
+        pairs = [(snapshot(a.step(t, d)), snapshot(b.step(t, d, high_score=0.5))) for t, d in cluttered_scene()]
+        assert any(x != y for x, y in pairs) and b.counters["low_score_matches"] > 0

@@ -167,14 +167,19 @@ class LiveTimingTests(unittest.TestCase):
                 writer.write(np.zeros((48, 64, 3), np.uint8))
             writer.release()
             stages = SlowStages()
-            session = LiveSession(path, stages, paced=True, label="clip")
-            session.start()
-            session._thread.join(timeout=10)
+            no_pts = (None, "inferred_fps", "forced: tests the fixed-fps fallback")
+            with mock.patch("aeris.web.live.timestamp_plan", return_value=no_pts):
+                session = LiveSession(path, stages, paced=True, label="clip")
+                session.start()
+                session._thread.join(timeout=10)
         self.assertEqual(session.stats["state"], "ended")
+        self.assertEqual(session.stats["timestamp_source"], "inferred_fps")
         self.assertGreater(len(stages.times), 3)
         self.assertGreater(session.stats["dropped"], 0)
         for t in stages.times:                        # every timestamp is a frame time k / 20
             self.assertAlmostEqual(t * 20, round(t * 20), places=6)
+        self.assertEqual(stages.times[0], 0.0)        # first frame is media time zero, not 1/fps
+        self.assertTrue(all(b > a for a, b in zip(stages.times, stages.times[1:])))
 
     def test_forecast_sigma_follows_box_size(self):
         from types import SimpleNamespace
@@ -329,3 +334,41 @@ class LiveBearingTests(unittest.TestCase):
                             expected = math.degrees(math.atan((forecast["x"] - 32) / 80)) % 360
                             self.assertAlmostEqual(by_horizon[forecast["horizon_s"]]["azimuth_deg"],
                                                    expected, places=6)
+
+
+class LivePanelTests(unittest.TestCase):
+    def test_panel_heading_uses_the_tracks_csv_convention(self):
+        """A target moving up and to the right reads 45 degrees (counterclockwise from image right,
+        as camera.image_heading), not 315. Blank frames also exercise the live camera-motion
+        fallback (no background corners: counted as failed, treated as no motion)."""
+        import cv2
+        import numpy as np
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.web.live import LiveSession
+
+        class Mover:
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
+                x, y = 40 + 3 * frame_index, 200 - 3 * frame_index
+                return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
+                                        BBox(x - 12, y - 6, x + 12, y + 6), 0, "aeris-aircraft-v1", 0.9, "test", {})]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "blank.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (320, 240))
+            for _ in range(30):
+                writer.write(np.zeros((240, 320, 3), np.uint8))
+            writer.release()
+            with mock.patch("aeris.web.live.timestamp_plan", return_value=(None, "inferred_fps", "test")):
+                session = LiveSession(path, Mover(), paced=False, label="blank")
+                session.start()
+                session._thread.join(timeout=10)
+        stats = session.stats
+        self.assertIn(stats["state"], {"ended", "failed"})
+        row = stats["panel"][0]
+        self.assertAlmostEqual(row["heading_deg"], 45.0, delta=2.0)
+        self.assertEqual(stats["camera_motion"]["estimated"], 0)
+        self.assertGreater(stats["camera_motion"]["failed"], 20)

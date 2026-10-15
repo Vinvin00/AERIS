@@ -189,7 +189,8 @@ class LiveSession:
                             vx, vy = to_view @ np.array(forecaster.velocity(s.track_id, t)[0])
                             row["speed_px_s"] = math.hypot(vx, vy)
                             if heading_resolved(forecaster, s.track_id, t):
-                                row["heading_deg"] = math.degrees(math.atan2(vy, vx)) % 360  # 0=right, 90=down (image axes)
+                                # same convention as tracks.csv (camera.image_heading): CCW from image right
+                                row["heading_deg"] = math.degrees(math.atan2(-vy, vx)) % 360
                         for r in recs:
                             if r.center:  # sigma = 1-sigma position std dev at this horizon
                                 x, y = motion.from_reference(r.center)

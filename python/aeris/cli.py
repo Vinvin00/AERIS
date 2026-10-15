@@ -164,8 +164,9 @@ def _cell(value):
 
 
 def measurement_sigma_px(state, tracker_cfg: dict) -> float:
-    """Forecaster measurement noise: the tracker's box-relative position noise on the larger
-    box side, with its pixel floor. Untuned; detector center jitter grows with box size."""
+    """Forecaster measurement noise: the tracker's position-noise fraction and pixel floor, but
+    applied to the *filtered* box's larger side and shared by both axes (the forecaster takes one
+    scalar), so it is conservative for elongated boxes. Untuned."""
     return max(tracker_cfg["r_floor_px"], tracker_cfg["r_position_frac"] * max(state.size))
 
 
@@ -225,7 +226,7 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
 def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibration=None,
                  annotations=None, min_score=DEFAULT_MIN_SCORE, timestamp_policy="pts_or_inferred",
                  stride=1, max_frames=None, warmup_frames=1, render=True, command=None,
-                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="none") -> dict:
+                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="estimate") -> dict:
     """Run the whole pipeline and write the artifact set atomically. Returns the manifest."""
     input_video, output_dir = Path(input_video), Path(output_dir)
     if not input_video.is_file():
@@ -503,9 +504,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-config", type=Path, default=None,
                         help="detector config (default configs/detector/baseline.json)")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
-    parser.add_argument("--camera-motion", choices=("none", "estimate"), default="none",
+    parser.add_argument("--camera-motion", choices=("none", "estimate"), default="estimate",
                         help="estimate background motion so the forecast arrow is scene-relative "
-                             "(for panning footage); written predictions stay in image pixels")
+                             "(default; use 'none' for a known fixed camera); written predictions "
+                             "and tracks stay in image pixels")
     parser.add_argument("--tiles", type=int, default=1,
                         help="also detect on an N x N grid of overlapping crops (small/distant aircraft); 1 = full frame only")
     parser.add_argument("--stride", type=int, default=1)

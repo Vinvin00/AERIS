@@ -217,6 +217,19 @@ class AvailabilityTests(PipelineCase):
         assert len({r["track_id"] for r in rows}) == 1 and all(r["observed"] == "1" for r in rows)
         assert self.manifest()["low_score_pass"] is True
 
+    def test_low_score_pass_off_drops_sub_threshold_detections_before_tracking(self):
+        low = [i for i in range(N) if i >= 5 and i % 2 == 0]
+        data = {"frames": {str(i): [{"bbox": box_at(i), "class_id": 0, "score": 0.15 if i in low else 0.9}]
+                           for i in range(N)}}
+        self.replay.write_text(json.dumps(data))
+        with mock.patch.object(pipeline, "probe_pts", return_value=None):
+            manifest = cli.run_pipeline(self.clip, self.out("off"), stages=cli.ReplayStages(self.replay),
+                                        render=False, command=["test"], low_score_pass=False)
+        counts = self.metrics("off")["counts"]
+        assert counts["low_score_track_updates"] == 0 and manifest["low_score_pass"] is False
+        observed = {int(r["frame_index"]): r["observed"] for r in read_csv(self.out("off") / "tracks.csv")}
+        assert all(observed[i] == "0" for i in low) and observed[N - 1] == "1"     # coasts through the gaps
+
     def test_camera_motion_removes_pan_induced_arrows(self):
         """Camera pans 4 px/frame past an aircraft fixed in the scene: image-space forecasts see
         motion and draw arrows; scene-relative forecasts see none and draw no arrow."""
@@ -233,8 +246,8 @@ class AvailabilityTests(PipelineCase):
             frames[str(i)] = [{"bbox": [x0, 40, x0 + 20, 56], "class_id": 0, "score": 0.9}]
         writer.release()
         self.replay.write_text(json.dumps({"frames": frames}))
-        assert self.run_cli("fixed", clip=clip) == 0
-        assert self.run_cli("pan", ["--camera-motion", "estimate"], clip=clip) == 0
+        assert self.run_cli("fixed", ["--camera-motion", "none"], clip=clip) == 0
+        assert self.run_cli("pan", clip=clip) == 0                     # estimate is the default
         fixed, pan = self.metrics("fixed"), self.metrics("pan")
         def shown(m):
             return m["forecast_vs_detections_displayed"]["models"]["constant_velocity"]["1.0"]["issued_at_measurement"]
@@ -243,6 +256,8 @@ class AvailabilityTests(PipelineCase):
         assert fixed["forecast_vs_detections_scene"]["available"] is False
         assert pan["forecast_vs_detections_scene"]["models"]["constant_velocity"]["1.0"]["scored"] > 5
         assert self.manifest("pan")["camera_motion"] == "estimate"
+        for name in ("predictions.jsonl", "tracks.csv"):              # written outputs stay image-space
+            assert (self.out("fixed") / name).read_bytes() == (self.out("pan") / name).read_bytes(), name
 
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0
@@ -356,7 +371,7 @@ class FailurePathTests(PipelineCase):
             seen.append((timestamp_s, center))
             return original(self, track_id, timestamp_s, center, sigma_px)
         with mock.patch.object(cli.TrajectoryForecaster, "update", spy):
-            assert self.run_cli("spy") == 0
+            assert self.run_cli("spy", ["--camera-motion", "none"]) == 0   # image-space forecasters only
         expected = {(box_at(i)[0] + box_at(i)[2]) / 2 for i in range(N)}
         assert {c[0] for _, c in seen} <= expected and len(seen) == 2 * N      # two models x N observed frames
 
@@ -379,7 +394,7 @@ class FailurePathTests(PipelineCase):
 
         with mock.patch.object(cli, "KalmanTracker", MarkedTracker), \
                 mock.patch.object(cli.TrajectoryForecaster, "update", spy):
-            assert self.run_cli("assigned") == 0
+            assert self.run_cli("assigned", ["--camera-motion", "none"]) == 0   # image-space forecasters only
         raw = {(box_at(i)[0] + box_at(i)[2]) / 2 for i in range(N)}
         assert len(observed) == 2 * N
         assert {center[0] for _, center in observed} == {value + 7 for value in raw}
