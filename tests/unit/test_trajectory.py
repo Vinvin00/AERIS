@@ -10,7 +10,8 @@ from aeris.data.contracts import (
 )
 from aeris.estimation import trajectory as tj
 from aeris.estimation.trajectory import (
-    MODELS, TrajectoryError, TrajectoryForecaster, evaluate_forecasts, eligible_truth, interval_coverage,
+    MODELS, TrajectoryError, TrajectoryForecaster, eligible_truth, evaluate_forecasts,
+    forecast_vs_detections, interval_coverage,
 )
 from aeris.evaluation.metrics import forecast_metrics
 
@@ -292,3 +293,32 @@ class EvaluationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def pred(issue, horizon, center, model="cv"):
+    return PredictionRecord(1, "s", "A", issue, horizon, issue + horizon, center, None,
+                            model, {"covariance": "not supplied", **({"center": "missed"} if center is None else {})})
+
+
+class ForecastVsDetectionTests(unittest.TestCase):
+    def test_hand_computed_errors_interpolation_and_exclusions(self):
+        measured = {"A": [(0.0, (0.0, 0.0)), (0.5, (10.0, 0.0)), (1.0, (20.0, 0.0)), (2.5, (50.0, 0.0))]}
+        preds = [pred(0.0, 1.0, (20.0, 10.0)),     # 10 px off, atan(10/20) direction error
+                 pred(0.0, 0.25, (5.0, 0.0)),      # interpolated target (5, 0): exact
+                 pred(0.0, 2.0, (40.0, 0.0)),      # target inside a 1.5 s gap: not interpolated
+                 pred(0.1, 1.0, (30.0, 0.0)),      # issued between measurements: no origin
+                 pred(0.5, 0.1, (11.0, 0.0)),      # moved 2 px < min_motion: no direction
+                 pred(2.5, 0.5, (60.0, 0.0)),      # target after the last measurement: never extrapolated
+                 pred(0.0, 0.5, None)]             # unavailable forecast is ignored
+        out = forecast_vs_detections(measured, preds, models=["cv"])["models"]["cv"]
+        h1, q, h2, h01, h05 = out["1.0"], out["0.25"], out["2.0"], out["0.1"], out["0.5"]
+        assert (h1["issued_at_measurement"], h1["scored"], h1["median_error_px"]) == (1, 1, 10.0)
+        assert math.isclose(h1["median_direction_error_deg"], math.degrees(math.atan2(10, 20)))
+        assert q["median_error_px"] == 0.0 and q["median_direction_error_deg"] == 0.0
+        assert (h2["scored"], h2["unscored_no_later_measurement"], h2["median_error_px"]) == (0, 1, None)
+        assert math.isclose(h01["median_error_px"], 1.0) and h01["direction_scored"] == 0
+        assert (h05["issued_at_measurement"], h05["scored"]) == (1, 0)
+
+    def test_rejects_nonpositive_parameters(self):
+        with self.assertRaises(TrajectoryError):
+            forecast_vs_detections({}, [], models=["cv"], min_motion_px=0)

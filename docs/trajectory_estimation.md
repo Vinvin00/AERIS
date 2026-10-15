@@ -77,3 +77,16 @@ No real data; no calibrated uncertainty (empirical coverage on synthetic scenes 
 axis-independent filters; no maneuver detection, no camera-motion compensation; defaults and
 the 1 s staleness limit are untuned; max interpolation gap and eligibility come from
 AERIS-005. Tested on macOS arm64, Python 3.14.
+
+## Forecasts scored against later detections (AERIS-025)
+
+`forecast_vs_detections` scores each forecast against the same track's later assigned
+detection centers, so settings can be compared on unlabeled footage. It is written to
+`metrics.json` on every CLI run. Per model and horizon it reports position error
+(median, RMSE) and direction error: the angle between the forecast displacement and the
+measured displacement from the issue-time measurement, scored only when the target moved
+at least `min_motion_px` (5 px, untuned). Origins are exact measurements; targets may be
+interpolated across gaps up to 0.5 s, never extrapolated. **It is not ground truth:**
+detector error and identity switches leak in, and only forecasts whose track survived to
+the target time are scored. It does not replace labeled evaluation.
+

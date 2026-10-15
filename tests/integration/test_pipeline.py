@@ -185,6 +185,14 @@ class AvailabilityTests(PipelineCase):
         assert self.metrics()["counts"]["detections_at_or_above_min_score"] == N       # counts stay available
         assert "no accuracy is claimed" in self.metrics()["note"]
 
+    def test_forecasts_are_scored_against_later_detections_without_labels(self):
+        assert self.run_cli() == 0
+        fvd = self.metrics()["forecast_vs_detections"]
+        assert fvd["available"] and "not ground truth" in fvd["reference"]
+        cv = fvd["models"]["constant_velocity"]["1.0"]       # target moves +30 px/s, straight right
+        assert cv["scored"] > 10 and cv["median_error_px"] < 3
+        assert cv["direction_scored"] == cv["scored"] and cv["median_direction_error_deg"] < 2
+
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0
         rows = read_csv(self.out() / "tracks.csv")

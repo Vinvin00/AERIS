@@ -11,6 +11,7 @@ untuned defaults, and the only real-model evidence is smoke-level.
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
 import csv
 import hashlib
 import json
@@ -33,7 +34,7 @@ from aeris import __version__
 from aeris.data.contracts import BBox, DetectionRecord
 from aeris.estimation.camera import Calibration, CameraModel
 from aeris.estimation.trajectory import MODELS as FORECAST_MODELS
-from aeris.estimation.trajectory import TrajectoryForecaster, evaluate_forecasts
+from aeris.estimation.trajectory import TrajectoryForecaster, evaluate_forecasts, forecast_vs_detections
 from aeris.evaluation.metrics import TrackObservation, detection_metrics, tracking_metrics
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 from aeris.video import pipeline
@@ -243,6 +244,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     tracker = KalmanTracker(sequence_id)
     forecasters = {name: TrajectoryForecaster(sequence_id, name) for name in FORECAST_MODELS}
     track_rows, predictions, drawn, previous = [], [], {}, {}
+    measured = defaultdict(list)    # track_id -> [(t, assigned detection center)]
     all_states, track_times, forecast_times = [], [], []
     for frame in result["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
@@ -257,6 +259,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                 z = state.measurement_center_px
                 if z is None:
                     raise CliError(f"observed track {state.track_id} has no assigned measurement")
+                measured[state.track_id].append((t, z))
                 for f in forecasters.values():
                     f.update(state.track_id, t, z, measurement_sigma_px(state, tracker.cfg))
         for state in states:
@@ -346,6 +349,8 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                "operating_score_threshold": min_score,
                "operating_score_note": "untuned default, not selected on validation data",
                "truth_dependent": truth_metrics,
+               "forecast_vs_detections": forecast_vs_detections(
+                   measured, predictions, models=list(FORECAST_MODELS)),
                "note": "Truth-dependent metrics are null unless labels are supplied; no accuracy is claimed."}
 
     parent = output_dir.parent

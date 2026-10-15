@@ -1090,6 +1090,23 @@
       "required_artifacts": ["python/aeris/web/live.py", "python/aeris/cli.py", "tests/ui/test_web.py", "docs/decisions/024-forecast-measurement-timing-and-noise.md"],
       "checks": ["governance", "unit", "trajectory", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
+    },
+    {
+      "id": "AERIS-025",
+      "title": "Forecasts scored against later detections",
+      "objective": "Give every CLI run a label-free, clearly non-ground-truth score of forecast position and direction error against the same track's later assigned detections, so forecast settings can be compared on unlabeled footage.",
+      "status": "planned",
+      "depends_on": ["AERIS-010", "AERIS-023", "AERIS-024"],
+      "read": ["docs/trajectory_estimation.md", "docs/evaluation.md", "docs/mvp.md"],
+      "write_globs": ["python/aeris/estimation/trajectory.py", "python/aeris/cli.py", "tests/unit/test_trajectory.py", "tests/integration/test_pipeline.py", "docs/trajectory_estimation.md", "docs/mvp.md", "docs/decisions/025-*.md"],
+      "acceptance": {
+        "AC1": "metrics.json always contains forecast_vs_detections with per-model, per-horizon position and direction error, labelled as not ground truth",
+        "AC2": "Origins are exact issue-time measurements; targets are interpolated only within the gap limit and never extrapolated; near-stationary targets are excluded from direction error",
+        "AC3": "Hand-computed and synthetic constant-velocity tests pass; the pinned AERIS-005 evaluator and baselines are unchanged; no accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/estimation/trajectory.py", "python/aeris/cli.py", "tests/unit/test_trajectory.py", "tests/integration/test_pipeline.py", "docs/decisions/025-forecast-vs-detections.md"],
+      "checks": ["governance", "unit", "trajectory", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }

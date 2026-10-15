@@ -10,6 +10,7 @@ assumed calibrated. Parameters are untuned engineering defaults.
 """
 from __future__ import annotations
 
+import bisect
 from collections import defaultdict
 import math
 
@@ -244,3 +245,73 @@ def evaluate_forecasts(annotations: list[AnnotationRecord], predictions: list[Pr
             "interval_coverage": interval_coverage(truth, predictions, models, tuple(horizons)),
             "note": "Synthetic or caller-supplied data only. Coverage is empirical and conditional; "
                     "no calibration is claimed."}
+
+
+def forecast_vs_detections(measurements: dict, predictions: list[PredictionRecord], *,
+                           models: list[str], horizons_s: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 2.0),
+                           max_interpolation_gap_s: float = 0.5, min_motion_px: float = 5.0) -> dict:
+    """Score causal forecasts against the same track's *later detector measurements*.
+
+    ``measurements`` maps track_id to ``[(t, (x, y)), ...]`` with strictly increasing t: the
+    exact detections the tracker assigned. NOT ground truth: detector error, identity switches
+    and track loss leak in, and only forecasts whose track was still measured around the target
+    time are scored (survivor bias). Use it to compare settings on unlabeled footage, never as
+    accuracy. Forecasts are scored only when issued at a measured time, which is the origin for
+    direction error; direction is scored only when the measured displacement is at least
+    ``min_motion_px`` (untuned), since heading is undefined for a near-stationary target.
+    """
+    if max_interpolation_gap_s <= 0 or min_motion_px <= 0:
+        raise TrajectoryError("max_interpolation_gap_s and min_motion_px must be positive")
+    tol = 1e-6
+    times = {track: [t for t, _ in values] for track, values in measurements.items()}
+
+    def at(track, t, interpolate=True):
+        """Measured center at ``t``: exact, or interpolated across a gap; never extrapolated."""
+        ts, values = times.get(track, []), measurements.get(track, ())
+        i = bisect.bisect_left(ts, t - tol)
+        if i < len(ts) and abs(ts[i] - t) <= tol:
+            return values[i][1]
+        if interpolate and 0 < i < len(ts) and ts[i] - ts[i - 1] <= max_interpolation_gap_s:
+            (t0, c0), (t1, c1) = values[i - 1], values[i]
+            w = (t - t0) / (t1 - t0)
+            return (c0[0] + w * (c1[0] - c0[0]), c0[1] + w * (c1[1] - c0[1]))
+        return None
+
+    result = {}
+    for model in models:
+        per_horizon = {}
+        for horizon in horizons_s:
+            issued = errors = 0
+            dist, angles = [], []
+            for p in predictions:
+                if p.model_name != model or p.horizon_s != horizon or p.center is None:
+                    continue
+                origin = at(p.track_id, p.issue_time_s, interpolate=False)
+                if origin is None:
+                    continue
+                issued += 1
+                later = at(p.track_id, p.target_time_s)
+                if later is None:
+                    continue
+                errors += 1
+                dist.append(math.hypot(p.center[0] - later[0], p.center[1] - later[1]))
+                moved = (later[0] - origin[0], later[1] - origin[1])
+                if math.hypot(*moved) >= min_motion_px:
+                    predicted = (p.center[0] - origin[0], p.center[1] - origin[1])
+                    diff = math.atan2(predicted[1], predicted[0]) - math.atan2(moved[1], moved[0])
+                    angles.append(abs(math.degrees(math.atan2(math.sin(diff), math.cos(diff)))))
+            per_horizon[str(horizon)] = {
+                "issued_at_measurement": issued, "scored": errors,
+                "unscored_no_later_measurement": issued - errors,
+                "median_error_px": float(np.median(dist)) if dist else None,
+                "rmse_px": math.sqrt(sum(d * d for d in dist) / len(dist)) if dist else None,
+                "direction_scored": len(angles),
+                "median_direction_error_deg": float(np.median(angles)) if angles else None,
+                "p90_direction_error_deg": float(np.percentile(angles, 90)) if angles else None}
+        result[model] = per_horizon
+    return {"available": any(h["scored"] for m in result.values() for h in m.values()),
+            "reference": "later detector measurements of the same track; not ground truth",
+            "interpolation_max_gap_s": max_interpolation_gap_s, "min_motion_px": min_motion_px,
+            "models": result,
+            "note": "Detector error, identity switches and track loss leak in; survivor-biased. "
+                    "For comparing settings on unlabeled footage only; not an accuracy claim."}
