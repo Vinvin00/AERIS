@@ -13,7 +13,7 @@ import time
 
 import cv2
 
-from aeris.cli import DEFAULT_MIN_SCORE, draw_states, measurement_sigma_px
+from aeris.cli import DEFAULT_MIN_SCORE, draw_states, heading_resolved, measurement_sigma_px
 from aeris.estimation.trajectory import TrajectoryForecaster
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 
@@ -99,7 +99,7 @@ class LiveSession:
                 for s in states:
                     if s.lifecycle != TENTATIVE:
                         for r in forecaster.forecast(s.track_id, t):
-                            if r.horizon_s == 1.0 and r.center:
+                            if r.horizon_s == 1.0 and r.center and heading_resolved(forecaster, s.track_id, t):
                                 forecasts[s.track_id] = r.center
                 draw_states(frame, [(s, forecasts.get(s.track_id)) for s in states])
                 dt = time.perf_counter() - t0

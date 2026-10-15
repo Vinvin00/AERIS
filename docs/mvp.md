@@ -14,7 +14,7 @@ defaults. The recorded-video run below is an artifact smoke check, not a percept
 | `overlay.mp4` | second-pass render of track boxes, IDs, lifecycle (grey tentative, green confirmed, orange lost/predicted) and the 1 s constant-velocity forecast; dimensions and frame count are checked |
 | `tracks.csv` | one row per frame and track: state, velocity, size, box (blank if outside the frame), age, time since seen, image heading, speed, angular width/height/rate, `availability_reason` |
 | `predictions.jsonl` | contract `PredictionRecord`s for both models at 0.1/0.25/0.5/1/2 s for every non-tentative track at each frame |
-| `metrics.json` | counts (always), `forecast_vs_detections` (always; not ground truth) and truth-dependent metrics (only with labels) |
+| `metrics.json` | counts (always), `forecast_vs_detections` and `forecast_vs_detections_displayed` (always; not ground truth) and truth-dependent metrics (only with labels) |
 | `benchmark.json` | per-stage p50/p95/total (decode, preprocess, inference, postprocess, track, forecast), render total, warmup excluded and sample counts, wall clock, hardware |
 | `run_manifest.json` | code revision and dirty flag, source content fingerprint, command, input SHA-256, detector/model/config hashes, provider and precision, tracker config hash, calibration, dataset, timestamp policy and source, seed (none, with reason), environment, dependency-lock digests, artifact hashes |
 

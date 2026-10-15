@@ -1107,6 +1107,23 @@
       "required_artifacts": ["python/aeris/estimation/trajectory.py", "python/aeris/cli.py", "tests/unit/test_trajectory.py", "tests/integration/test_pipeline.py", "docs/decisions/025-forecast-vs-detections.md"],
       "checks": ["governance", "unit", "trajectory", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
+    },
+    {
+      "id": "AERIS-026",
+      "title": "Draw the forecast arrow only when heading is resolved",
+      "objective": "Hide the 1 s forecast arrow on new, slow or stationary tracks by gating it on the forecaster's velocity uncertainty, in both the batch overlay and the live demo, and report the label-free score of displayed arrows.",
+      "status": "planned",
+      "depends_on": ["AERIS-024", "AERIS-025"],
+      "read": ["docs/trajectory_estimation.md", "docs/web.md", "docs/mvp.md"],
+      "write_globs": ["python/aeris/estimation/trajectory.py", "python/aeris/cli.py", "python/aeris/web/live.py", "tests/unit/test_trajectory.py", "tests/integration/test_pipeline.py", "docs/mvp.md", "docs/decisions/026-*.md"],
+      "acceptance": {
+        "AC1": "The arrow is drawn only when speed is at least ARROW_MIN_SPEED_SIGMAS times the larger velocity standard deviation, in both batch and live paths; forecast records are unchanged",
+        "AC2": "metrics.json reports forecast_vs_detections_displayed and the threshold; a stationary target draws no arrow and a steadily moving one does",
+        "AC3": "The threshold choice and its one-clip, not-held-out evidence are recorded; no accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/cli.py", "python/aeris/estimation/trajectory.py", "tests/integration/test_pipeline.py", "docs/decisions/026-forecast-arrow-gate.md"],
+      "checks": ["governance", "unit", "trajectory", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }

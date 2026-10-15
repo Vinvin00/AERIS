@@ -151,6 +151,12 @@ class TrajectoryForecaster:
                                         ((float(ps[0, 0]), 0.0), (0.0, float(py[0, 0]))), {}))
         return records
 
+    def velocity(self, track_id: str, issue_time_s: float):
+        """Velocity (px/s) and its per-axis standard deviation propagated to ``issue_time_s``.
+        Call only for a track whose forecast at that time is available."""
+        (xs, ps), (ys, py) = (a.propagate(issue_time_s - a.t) for a in self._axes[track_id])
+        return (float(xs[1]), float(ys[1])), (math.sqrt(ps[1, 1]), math.sqrt(py[1, 1]))
+
     def _record(self, track_id, issue, horizon, center, covariance, reason):
         return PredictionRecord(1, self.sequence_id, track_id, issue, horizon, issue + horizon,
                                 center, covariance, self.model, reason)

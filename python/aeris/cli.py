@@ -41,6 +41,7 @@ from aeris.video import pipeline
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MIN_SCORE = 0.3     # untuned; NOT validation-selected
+ARROW_MIN_SPEED_SIGMAS = 1.0  # draw the 1 s arrow once speed >= 1 velocity std; one-clip choice, see ADR 026
 ARTIFACTS = ("overlay.mp4", "tracks.csv", "predictions.jsonl", "metrics.json", "benchmark.json")
 TRACK_COLUMNS = (
     "sequence_id", "frame_index", "timestamp_s", "track_id", "class_id", "lifecycle", "observed",
@@ -167,6 +168,13 @@ def measurement_sigma_px(state, tracker_cfg: dict) -> float:
     return max(tracker_cfg["r_floor_px"], tracker_cfg["r_position_frac"] * max(state.size))
 
 
+def heading_resolved(forecaster, track_id: str, t: float) -> bool:
+    """True when the forecaster's speed clearly exceeds its velocity uncertainty, so the
+    direction of the forecast arrow is meaningful; hides arrows on new or slow tracks."""
+    (vx, vy), (sx, sy) = forecaster.velocity(track_id, t)
+    return math.hypot(vx, vy) >= ARROW_MIN_SPEED_SIGMAS * max(sx, sy)
+
+
 def draw_states(frame, items) -> None:
     """Draw track boxes, IDs, lifecycle and the 1 s forecast line onto ``frame`` in place."""
     colors = {"tentative": (160, 160, 160), "confirmed": (0, 255, 0), "lost": (0, 165, 255)}
@@ -245,6 +253,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     forecasters = {name: TrajectoryForecaster(sequence_id, name) for name in FORECAST_MODELS}
     track_rows, predictions, drawn, previous = [], [], {}, {}
     measured = defaultdict(list)    # track_id -> [(t, assigned detection center)]
+    displayed = set()               # (track_id, issue time) whose arrow was drawn
     all_states, track_times, forecast_times = [], [], []
     for frame in result["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
@@ -268,8 +277,10 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
             for name, f in forecasters.items():
                 for record in f.forecast(state.track_id, t):
                     predictions.append(record)
-                    if name == "constant_velocity" and record.horizon_s == 1.0 and record.center:
+                    if (name == "constant_velocity" and record.horizon_s == 1.0 and record.center
+                            and heading_resolved(f, state.track_id, t)):
                         frame_forecasts[state.track_id] = record.center
+                        displayed.add((state.track_id, t))
         forecast_times.append(time.perf_counter() - t0)
         drawn[index] = [(s, frame_forecasts.get(s.track_id)) for s in states]
         for state in states:
@@ -351,6 +362,10 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                "truth_dependent": truth_metrics,
                "forecast_vs_detections": forecast_vs_detections(
                    measured, predictions, models=list(FORECAST_MODELS)),
+               "forecast_vs_detections_displayed": forecast_vs_detections(
+                   measured, [p for p in predictions if (p.track_id, p.issue_time_s) in displayed],
+                   models=["constant_velocity"]),
+               "arrow_min_speed_sigmas": ARROW_MIN_SPEED_SIGMAS,
                "note": "Truth-dependent metrics are null unless labels are supplied; no accuracy is claimed."}
 
     parent = output_dir.parent

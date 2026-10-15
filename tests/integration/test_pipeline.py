@@ -193,6 +193,17 @@ class AvailabilityTests(PipelineCase):
         assert cv["scored"] > 10 and cv["median_error_px"] < 3
         assert cv["direction_scored"] == cv["scored"] and cv["median_direction_error_deg"] < 2
 
+    def test_forecast_arrow_needs_a_resolved_heading(self):
+        assert self.run_cli() == 0                                  # moving target: arrows drawn
+        shown = self.metrics()["forecast_vs_detections_displayed"]["models"]["constant_velocity"]["1.0"]
+        assert shown["issued_at_measurement"] > 10 and shown["median_direction_error_deg"] < 2
+        still = {"frames": {str(i): [{"bbox": box_at(0), "class_id": 0, "score": 0.9}] for i in range(N)}}
+        self.replay.write_text(json.dumps(still))
+        assert self.run_cli("still") == 0                           # stationary target: heading undefined
+        hidden = self.metrics("still")["forecast_vs_detections_displayed"]["models"]["constant_velocity"]
+        assert all(h["issued_at_measurement"] == 0 for h in hidden.values())
+        assert self.metrics("still")["counts"]["predictions_unavailable"] < self.metrics("still")["counts"]["predictions"]
+
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0
         rows = read_csv(self.out() / "tracks.csv")

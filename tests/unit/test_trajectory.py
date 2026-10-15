@@ -295,6 +295,20 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class VelocityTests(unittest.TestCase):
+    def test_velocity_converges_and_its_uncertainty_shrinks(self):
+        f = TrajectoryForecaster("s", "constant_velocity")
+        sigmas = []
+        for i in range(20):
+            t = i / 10
+            f.update("A", t, (30.0 * t, 5.0 - 10.0 * t), 1.0)
+            sigmas.append(f.velocity("A", t)[1])
+        (vx, vy), (sx, sy) = f.velocity("A", 1.9)
+        assert abs(vx - 30.0) < 1 and abs(vy + 10.0) < 1
+        assert sigmas[-1][0] < sigmas[1][0] and sx == sy                # same noise on both axes
+        assert f.velocity("A", 2.4)[1][0] > sx                          # uncertainty grows while coasting
+
+
 def pred(issue, horizon, center, model="cv"):
     return PredictionRecord(1, "s", "A", issue, horizon, issue + horizon, center, None,
                             model, {"covariance": "not supplied", **({"center": "missed"} if center is None else {})})
