@@ -1124,6 +1124,23 @@
       "required_artifacts": ["python/aeris/cli.py", "python/aeris/estimation/trajectory.py", "tests/integration/test_pipeline.py", "docs/decisions/026-forecast-arrow-gate.md"],
       "checks": ["governance", "unit", "trajectory", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
+    },
+    {
+      "id": "AERIS-027",
+      "title": "Low-score detections extend existing tracks",
+      "objective": "Keep confirmed and lost tracks measured through brief detector score dips by matching sub-threshold detections in a second pass that can never start or confirm a track, in both batch and live paths.",
+      "status": "planned",
+      "depends_on": ["AERIS-009", "AERIS-023"],
+      "read": ["docs/tracking.md", "docs/mvp.md", "docs/web.md"],
+      "write_globs": ["python/aeris/tracking/tracker.py", "python/aeris/cli.py", "python/aeris/web/live.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/decisions/027-*.md"],
+      "acceptance": {
+        "AC1": "Detections below high_score are matched only to unmatched confirmed or lost tracks after the high-score pass; they never start a track or confirm a tentative one; high_score 0.0 reproduces previous behaviour",
+        "AC2": "The CLI tracks with every detector-kept detection and high_score = min_score while detection metrics still use only at-or-above-threshold detections; metrics and manifest record the low-score updates and setting",
+        "AC3": "Unit and CLI tests cover extension, no birth, no confirmation, lost-track recovery and the off switch; no accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/tracking/tracker.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/decisions/027-low-score-track-extension.md"],
+      "checks": ["governance", "unit", "tracking", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }
