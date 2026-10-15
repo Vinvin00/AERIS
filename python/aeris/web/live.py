@@ -18,12 +18,15 @@ from aeris.estimation.trajectory import TrajectoryForecaster
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 
 
+TILES = 2  # 2x2 crops + full frame: distant aircraft vanish at 416 px full-frame (hkia-early: 0 vs 6/6 probed frames)
+
+
 def load_stages():
     from aeris.detection import baseline
     from aeris.video import pipeline
     config = baseline.load_config()
     runner = baseline.OnnxRuntimeRunner(baseline.verified_model_path(config))
-    return pipeline.BaselineStages(config, runner)
+    return pipeline.BaselineStages(config, runner, tiles=TILES)
 
 
 class LiveSession:

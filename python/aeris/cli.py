@@ -145,7 +145,7 @@ def describe_stages(stages) -> dict:
             "detector_config_sha256": hashlib.sha256(
                 json.dumps(config, sort_keys=True).encode()).hexdigest(),
             "runtime": runner.name, "execution_provider": providers or [runner.name],
-            "precision": "float32", "input_resolution": [size, size],
+            "precision": "float32", "input_resolution": [size, size], "tiles": getattr(stages, "tiles", 1),
             "weight_license": config["model"]["weight_license"]}
 
 
@@ -467,6 +467,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-config", type=Path, default=None,
                         help="detector config (default configs/detector/baseline.json)")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
+    parser.add_argument("--tiles", type=int, default=1,
+                        help="also detect on an N x N grid of overlapping crops (small/distant aircraft); 1 = full frame only")
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--warmup-frames", type=int, default=1)
@@ -513,7 +515,7 @@ def main(argv=None) -> int:
                 runner = baseline.OnnxRuntimeRunner(model)
             except (baseline.DetectorError, ImportError) as exc:
                 raise CliError(f"cannot load the detector: {exc} (see models/README.md, or pass --detections)") from exc
-            stages = pipeline.BaselineStages(config, runner)
+            stages = pipeline.BaselineStages(config, runner, tiles=args.tiles)
         annotations, dataset_info = _load_annotations(args.annotations)
         manifest = run_pipeline(
             args.input, args.output, stages=stages, sequence_id=args.sequence_id,

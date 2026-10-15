@@ -41,20 +41,54 @@ class Stages(Protocol):
 class BaselineStages:
     """The AERIS-006 YOLOX baseline split into preprocess/infer/postprocess."""
 
-    def __init__(self, config: dict, runner):
+    def __init__(self, config: dict, runner, *, tiles: int = 1):
+        """``tiles=N`` adds an N x N grid of overlapping crops to the full-frame pass, so
+        small, distant aircraft keep enough pixels at the 416 px model input. Costs
+        N*N + 1 forward passes per frame; tile and full-frame boxes are merged by NMS."""
         from aeris.detection import baseline
-        self._b, self.config, self.runner = baseline, config, runner
-        self.name = f"{config['model']['name']}/{runner.name}"
+        self._b, self.config, self.runner, self.tiles = baseline, config, runner, tiles
+        self.name = f"{config['model']['name']}/{runner.name}" + (f"+tiles{tiles}x{tiles}" if tiles > 1 else "")
+
+    def _crops(self, height, width):
+        yield 0, 0, height, width
+        if self.tiles > 1:
+            n = self.tiles
+            th, tw = int(height / n * 1.25), int(width / n * 1.25)  # 25% overlap so edge-cut aircraft appear whole once
+            if max(th, tw) <= self.config["input"]["size"]:
+                return  # frame already fits the model input; tiles would only upscale
+            for i in range(n):
+                for j in range(n):
+                    y0, x0 = round(i * (height - th) / (n - 1)), round(j * (width - tw) / (n - 1))
+                    yield y0, x0, th, tw
 
     def preprocess(self, image_bgr):
         size, pad = self.config["input"]["size"], self.config["input"]["pad_value"]
-        return self._b.preprocess(image_bgr, size, pad)
+        if self.tiles == 1:
+            return self._b.preprocess(image_bgr, size, pad)
+        return [(y0, x0, h, w, *self._b.preprocess(image_bgr[y0:y0 + h, x0:x0 + w], size, pad))
+                for y0, x0, h, w in self._crops(*image_bgr.shape[:2])]
 
     def infer(self, prepared):
-        return self.runner(prepared[0])
+        if self.tiles == 1:
+            return self.runner(prepared[0])
+        return [self.runner(p[4]) for p in prepared]
+
+    def _found(self, raw, prepared, width, height):
+        if self.tiles == 1:
+            return self._b.postprocess(raw, prepared[1], width, height, self.config)
+        found = []
+        for (y0, x0, h, w, _, ratio), r in zip(prepared, raw):
+            for box, class_id, score, coco in self._b.postprocess(r, ratio, w, h, self.config):
+                found.append(([box[0] + x0, box[1] + y0, box[2] + x0, box[3] + y0], class_id, score, coco))
+        if not found:
+            return []
+        boxes = np.array([f[0] for f in found], dtype=np.float32)
+        scores = np.array([f[2] for f in found], dtype=np.float32)
+        merged = [found[k] for k in self._b.nms(boxes, scores, self.config["postprocess"]["nms_iou"])]
+        return merged[:self.config["postprocess"]["max_detections"]]
 
     def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
-        found = self._b.postprocess(raw, prepared[1], width, height, self.config)
+        found = self._found(raw, prepared, width, height)
         provenance = f"{self.config['model']['name']}@{self.config['model']['sha256'][:12]}/{self.runner.name}"
         return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
                                 BBox(*box), class_id, self.config["class_mapping_version"],

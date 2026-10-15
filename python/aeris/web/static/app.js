@@ -61,7 +61,7 @@ function describe(slug) {
   els.details.textContent = s
     ? `${s.description}. What the smoke run found: ${s.observation} Credit: ${s.author}, ${s.license}.`
     : 'Hover a sample to see what it shows.';
-  els.source.hidden = !s;
+  els.source.style.visibility = s ? 'visible' : 'hidden';
   if (s) els.source.href = s.page;
 }
 async function choose(slug) {
@@ -265,7 +265,7 @@ function drawPaths(by) {
   for (let x = 0; x <= cv.width; x += cv.width / 8) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
   for (let y = 0; y <= cv.height; y += cv.height / 6) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke(); }
   const sx = cv.width / W, sy = cv.height / H;
-  const colors = ['#3dff8b', '#ffb02e', '#4fd8ff', '#ff6b9d', '#b79cff'];
+  const colors = ['#00ff41', '#ffb02e', '#4fd8ff', '#ff6b9d', '#b79cff'];
   [...by.values()].forEach((rs, k) => {
     const points = rs.map(r => ({x: numberOrNull(r.cx_px), y: numberOrNull(r.cy_px),
       predicted: r.observed === '0' || r.lifecycle === 'lost'}));

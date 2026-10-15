@@ -24,7 +24,7 @@ from uuid import uuid4
 import webbrowser
 
 from aeris.ui.samples import BY_SLUG, ROOT, SAMPLES, prepare_sample
-from aeris.web.live import LiveSession, load_stages
+from aeris.web.live import TILES, LiveSession, load_stages
 
 ASSETS = Path(__file__).resolve().parent / "static"
 MAX_UPLOAD_BYTES = 500_000_000
@@ -218,7 +218,7 @@ class DemoState:
             env = os.environ.copy()
             env["PYTHONPATH"] = str(ROOT / "python") + os.pathsep + env.get("PYTHONPATH", "")
             env["ORT_DISABLE_TELEMETRY"] = "1"
-            command = [sys.executable, "-m", "aeris", str(video), "--output", str(output),
+            command = [sys.executable, "-m", "aeris", str(video), "--output", str(output), "--tiles", str(TILES),
                        "--input-note", "Unlabeled local web demonstration; no accuracy claim"]
             try:
                 process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,

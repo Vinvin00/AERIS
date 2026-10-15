@@ -33,7 +33,7 @@
           <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
             <defs>
               <pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#10231a" stroke-width="1"/></pattern>
-              <linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#3dff8b" stop-opacity="0"/><stop offset="1" stop-color="#3dff8b" stop-opacity=".22"/></linearGradient>
+              <linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#00ff41" stop-opacity="0"/><stop offset="1" stop-color="#00ff41" stop-opacity=".22"/></linearGradient>
             </defs>
             <rect width="400" height="300" fill="url(#g)"/>
             <rect class="sweep" y="0" width="90" height="300" fill="url(#sw)"><animate attributeName="x" from="-90" to="400" dur="5s" repeatCount="indefinite"/></rect>
@@ -67,7 +67,7 @@
               <button class="chip upload" id="choose-file" type="button" title="MP4, MOV, WebM, AVI or OGV, up to 500 MB, copied locally">↥ your own video</button>
               <input id="video-file" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/ogg,.ogv" hidden>
             </div>
-            <div class="cmd-info"><span id="sample-details" class="sample-details" aria-live="polite">Hover a sample to see what it shows.</span> <a id="source-link" class="source-link" href="#" target="_blank" rel="noopener noreferrer" hidden>source &amp; license ↗</a></div>
+            <div class="cmd-info"><span id="sample-details" class="sample-details" aria-live="polite">Hover a sample to see what it shows.</span><a id="source-link" class="source-link" href="#" target="_blank" rel="noopener noreferrer" style="visibility:hidden">source &amp; license ↗</a></div>
             <div class="cmd-row" id="step2" data-state="locked">
               <span class="cmd-label"><i>2</i> run it</span>
               <button id="run-button" class="button primary" disabled>▶ Play with live detection</button>
