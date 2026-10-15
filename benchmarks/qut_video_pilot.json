@@ -1,0 +1,163 @@
+{
+  "evaluation": {
+    "associated_forecast_issue_frames": 140,
+    "association_gate_px": 50.0,
+    "detector_centroid_error": {
+      "availability_reason": null,
+      "max_px": 25.53480735546816,
+      "mean_px": 4.861241588416469,
+      "median_px": 3.805761641752914,
+      "support": 184
+    },
+    "forecast_centroid_error": {
+      "constant_acceleration": {
+        "0.1": {
+          "availability_reason": null,
+          "max_px": 28.418199714255426,
+          "mean_px": 6.380969747779047,
+          "median_px": 5.097660856452977,
+          "support": 134
+        },
+        "0.25": {
+          "availability_reason": null,
+          "max_px": 55.1198080402753,
+          "mean_px": 13.824161349083358,
+          "median_px": 12.410197155968888,
+          "support": 134
+        },
+        "0.5": {
+          "availability_reason": null,
+          "max_px": 165.51333332221918,
+          "mean_px": 36.92561081421585,
+          "median_px": 33.71509044193673,
+          "support": 130
+        },
+        "1.0": {
+          "availability_reason": null,
+          "max_px": 276.8068982614673,
+          "mean_px": 105.44968205818186,
+          "median_px": 101.93504881757598,
+          "support": 118
+        },
+        "2.0": {
+          "availability_reason": null,
+          "max_px": 733.1607071894229,
+          "mean_px": 349.2166073700316,
+          "median_px": 342.8345539705614,
+          "support": 99
+        }
+      },
+      "constant_velocity": {
+        "0.1": {
+          "availability_reason": null,
+          "max_px": 30.56889786238128,
+          "mean_px": 6.085761021665464,
+          "median_px": 4.359343223952317,
+          "support": 134
+        },
+        "0.25": {
+          "availability_reason": null,
+          "max_px": 42.52022993805206,
+          "mean_px": 10.350392276051108,
+          "median_px": 7.642390293267487,
+          "support": 134
+        },
+        "0.5": {
+          "availability_reason": null,
+          "max_px": 96.65827435377618,
+          "mean_px": 18.759918715127753,
+          "median_px": 13.450598813210194,
+          "support": 130
+        },
+        "1.0": {
+          "availability_reason": null,
+          "max_px": 161.96276225439715,
+          "mean_px": 39.16289082455964,
+          "median_px": 29.360743123844756,
+          "support": 118
+        },
+        "2.0": {
+          "availability_reason": null,
+          "max_px": 259.71346368470887,
+          "mean_px": 98.43289383271414,
+          "median_px": 74.66479062999721,
+          "support": 99
+        }
+      }
+    },
+    "label_count": 1130,
+    "label_first_video_frame": 547,
+    "label_last_video_frame": 1676,
+    "tracked_observation_centroid_error": {
+      "availability_reason": null,
+      "max_px": 25.53480735546816,
+      "mean_px": 4.870348030566363,
+      "median_px": 3.602954813128377,
+      "support": 140
+    }
+  },
+  "limitations": [
+    "Association is conditioned on exactly one runtime center within a fixed 50 px radius of the approximate target label; unmatched frames are excluded from error summaries.",
+    "Tracking score 0.3 and model postprocess floor 0.1 are untuned existing settings.",
+    "A label-aligned detected target in this one clip does not establish general aircraft detection or forecast quality."
+  ],
+  "runtime": {
+    "decoded_frames": 1677,
+    "detections_at_tracking_score": 145,
+    "detector_outputs_at_floor": 185,
+    "first_timestamp_s": 0.0,
+    "forecast_records": 1340,
+    "frames_with_detector_output": 184,
+    "height_px": 720,
+    "last_timestamp_s": 67.04,
+    "model_sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+    "nominal_fps": 25.0,
+    "observed_track_measurements": 140,
+    "runtime": "onnxruntime-cpu",
+    "timestamp_source": "decode_pts",
+    "tracker_counts": {
+      "births": 3,
+      "births_suppressed": 5,
+      "deleted": 1,
+      "duplicates_dropped": 0,
+      "gated_pairs": 31,
+      "low_score_matches": 0,
+      "steps": 1677
+    },
+    "width_px": 1280
+  },
+  "schema_version": 1,
+  "scope": "one real fixed-camera compressed QUT aircraft clip; descriptive pilot, not a benchmark",
+  "source": {
+    "frame_offset_evidence": "target-info.csv S5 bounds 57750..59426; 1677 decoded frames and final label 59426 independently align index 0..1676",
+    "label_bytes": 32223,
+    "label_coordinates": "approximate original-frame target centroid pixels",
+    "label_range": "published source column, unit unverified; not used by runtime or evaluator",
+    "label_schema": [
+      "row",
+      "frame",
+      "u",
+      "v",
+      "range"
+    ],
+    "label_sha256": "e9b1721f13f9208aa0486df1a4d7e655655a86f745f8fc21d8d582217236f9ab",
+    "label_url": "https://huggingface.co/datasets/jasminmartin/vision_based_aircraft_detection_dataset/resolve/0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9/Target%20Labels/target-aircarft-labels/S5_labels.csv",
+    "published_first_global_frame": 57750,
+    "published_last_global_frame": 59426,
+    "release_revision": "0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9",
+    "rights": "BSD-3-Clause per publisher",
+    "rights_url": "https://open.qcr.ai/dataset/aircraft-collision-course/",
+    "sequence_bounds_url": "https://huggingface.co/datasets/jasminmartin/vision_based_aircraft_detection_dataset/resolve/0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9/target-info.csv",
+    "video_bytes": 729266,
+    "video_sha256": "f02f21c5fa60eb64e553961b522644e02620303677457e160a2ba41672e2efdd",
+    "video_url": "https://huggingface.co/datasets/jasminmartin/vision_based_aircraft_detection_dataset/resolve/0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9/Videos/S5.mp4"
+  },
+  "unavailable": {
+    "AP": "approximate target centroids; no exhaustive boxes or verified negative frames",
+    "HOTA_IDF1": "no verified all-aircraft identity labels or complete per-frame boxes",
+    "calibration_ENU_bearing": "source camera intrinsics and surveyed pose not supplied",
+    "confidence_intervals": "one sequence and approximate labels; no independent sampling units",
+    "live_accuracy": "recorded-video replay only; no live camera validation",
+    "predicted_range": "monocular runner has no validated range source; source range labels not runtime inputs"
+  }
+}
