@@ -1141,6 +1141,23 @@
       "required_artifacts": ["python/aeris/tracking/tracker.py", "tests/unit/test_tracking.py", "tests/integration/test_pipeline.py", "docs/decisions/027-low-score-track-extension.md"],
       "checks": ["governance", "unit", "tracking", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
+    },
+    {
+      "id": "AERIS-028",
+      "title": "Scene-relative forecasts under camera motion",
+      "objective": "Estimate background camera motion and run the displayed forecast in scene-relative pixels so panning footage gives a meaningful direction, without changing written predictions or label-based evaluation.",
+      "status": "planned",
+      "depends_on": ["AERIS-025", "AERIS-026", "AERIS-027"],
+      "read": ["docs/trajectory_estimation.md", "docs/camera_model.md", "docs/web.md"],
+      "write_globs": ["python/aeris/estimation/camera_motion.py", "python/aeris/video/pipeline.py", "python/aeris/cli.py", "python/aeris/web/live.py", "tests/unit/test_camera_motion.py", "tests/integration/test_pipeline.py", "docs/trajectory_estimation.md", "docs/web.md", "docs/decisions/028-*.md"],
+      "acceptance": {
+        "AC1": "A camera-motion estimator maps each processed frame to the first frame with detections masked; featureless steps are counted as failed and treated as no motion",
+        "AC2": "With --camera-motion estimate (default none) and in the live view, the arrow, heading gate and live panel use a scene-relative forecaster mapped back to the current frame; predictions.jsonl and label-based evaluation are unchanged",
+        "AC3": "Synthetic tests recover a known pan and suppress arrows for an aircraft fixed in the scene under a pan; metrics record motion counts and a scene-relative score; no accuracy claim is added"
+      },
+      "required_artifacts": ["python/aeris/estimation/camera_motion.py", "python/aeris/cli.py", "tests/unit/test_camera_motion.py", "tests/integration/test_pipeline.py", "docs/decisions/028-camera-motion-compensation.md"],
+      "checks": ["governance", "unit", "trajectory", "pipeline"],
+      "budget": "One offline code slice, at most three attempts. No dataset or model acquisition, training, dependency install, gate or contract change. Independent review required."
     }
   ]
 }

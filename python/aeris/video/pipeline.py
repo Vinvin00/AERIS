@@ -172,8 +172,12 @@ def _summary(values: list[float], warmup: int) -> dict:
 
 def process_video(path: str | Path, stages: Stages, *, sequence_id: str,
                   output_video: str | Path | None = None, timestamp_policy: str = "pts_or_inferred",
-                  stride: int = 1, max_frames: int | None = None, warmup_frames: int = 1) -> dict:
+                  stride: int = 1, max_frames: int | None = None, warmup_frames: int = 1,
+                  frame_hook=None) -> dict:
     """Decode a recorded video, run detection on every ``stride``-th frame, optionally render.
+
+    ``frame_hook(index, image_bgr, detections)``, if given, is called for each processed frame
+    after detection, before any overlay is drawn (for example to estimate camera motion).
 
     Returns detections, per-frame timings, per-stage summaries and skipped-frame counts.
     Any decode, timestamp, dimension, detector or writer failure raises ``VideoError``.
@@ -249,6 +253,8 @@ def process_video(path: str | Path, stages: Stages, *, sequence_id: str,
                 if (d.timestamp_s, d.width, d.height, d.frame_index) != (timestamp, width, height, index):
                     raise VideoError(f"detector returned a record not matching frame {index}")
             detections.extend(found)
+            if frame_hook is not None:
+                frame_hook(index, frame, found)
             marks["render"] = 0.0
             if writer is not None:
                 t0 = time.perf_counter()

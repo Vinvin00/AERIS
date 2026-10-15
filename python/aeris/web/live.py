@@ -13,8 +13,10 @@ import math
 import time
 
 import cv2
+import numpy as np
 
 from aeris.cli import DEFAULT_MIN_SCORE, draw_states, heading_resolved, measurement_sigma_px
+from aeris.estimation.camera_motion import CameraMotion
 from aeris.estimation.trajectory import TrajectoryForecaster, forecast_vs_detections
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 
@@ -68,7 +70,10 @@ class LiveSession:
                 return
             fps = capture.get(cv2.CAP_PROP_FPS) if self.paced else 0.0
             tracker = KalmanTracker("live")
+            # Forecasts run in reference-frame (scene-relative) pixels so camera pans do not
+            # masquerade as aircraft motion; everything shown is mapped back to the current frame.
             forecaster = TrajectoryForecaster("live", "constant_velocity")
+            motion = CameraMotion()
             start = time.monotonic()
             last_t, index, position, ema = -1.0, 0, 0, None
             seen_n: dict[str, int] = {}
@@ -102,29 +107,32 @@ class LiveSession:
                                                 sequence_id="live", frame_index=index, timestamp_s=t)
                 dets = [d for d in found if d.score >= DEFAULT_MIN_SCORE]
                 states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE)
+                motion.update(frame, [d.bbox for d in found])
+                to_view = np.linalg.inv(motion.to_ref)[:2, :2]      # reference -> current axes
                 forecasts, panel = {}, []
                 for s in states:
                     if s.observed and s.measurement_center_px is not None:
                         seen_n[s.track_id] = seen_n.get(s.track_id, 0) + 1
-                        measured.setdefault(s.track_id, []).append((t, s.measurement_center_px))
-                        forecaster.update(s.track_id, t, s.measurement_center_px,
-                                          measurement_sigma_px(s, tracker.cfg))
+                        z = motion.to_reference(s.measurement_center_px)
+                        measured.setdefault(s.track_id, []).append((t, z))
+                        forecaster.update(s.track_id, t, z, measurement_sigma_px(s, tracker.cfg))
                 for s in states:
                     if s.lifecycle != TENTATIVE:
                         recs = forecaster.forecast(s.track_id, t)
                         row = {"id": s.track_id, "lifecycle": s.lifecycle, "observations": seen_n.get(s.track_id, 0),
                                "speed_px_s": None, "heading_deg": None, "forecast": []}
                         if all(r.center for r in recs):  # velocity() only valid when forecasts exist
-                            (vx, vy), _ = forecaster.velocity(s.track_id, t)
+                            vx, vy = to_view @ np.array(forecaster.velocity(s.track_id, t)[0])
                             row["speed_px_s"] = math.hypot(vx, vy)
                             if heading_resolved(forecaster, s.track_id, t):
                                 row["heading_deg"] = math.degrees(math.atan2(vy, vx)) % 360  # 0=right, 90=down (image axes)
                         for r in recs:
                             if r.center:  # sigma = 1-sigma position std dev at this horizon
-                                row["forecast"].append({"horizon_s": r.horizon_s, "x": r.center[0], "y": r.center[1],
+                                x, y = motion.from_reference(r.center)
+                                row["forecast"].append({"horizon_s": r.horizon_s, "x": x, "y": y,
                                                         "sigma_px": math.sqrt(max(r.covariance[0][0], r.covariance[1][1]))})
                             if r.horizon_s == 1.0 and r.center and row["heading_deg"] is not None:
-                                forecasts[s.track_id] = r.center
+                                forecasts[s.track_id] = motion.from_reference(r.center)
                         panel.append(row)
                         issued.extend(recs)
                 if t - last_score_t >= SCORE_EVERY_S:
@@ -144,6 +152,7 @@ class LiveSession:
                         self.jpeg, self.seq = buf.tobytes(), self.seq + 1
                     self.stats.update(frames=index, fps=1 / ema, latency_ms=dt * 1000,
                                       detections=len(dets), panel=panel, media_t=t, score=score,
+                                      camera_motion=dict(motion.counters),
                                       tracks=sum(s.lifecycle != TENTATIVE for s in states))
                     self.cond.notify_all()
         except Exception as exc:  # surfaced to the page; the loop must not die silently

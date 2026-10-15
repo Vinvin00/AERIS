@@ -33,6 +33,7 @@ import numpy as np
 from aeris import __version__
 from aeris.data.contracts import BBox, DetectionRecord
 from aeris.estimation.camera import Calibration, CameraModel
+from aeris.estimation.camera_motion import CameraMotion, apply_transform
 from aeris.estimation.trajectory import MODELS as FORECAST_MODELS
 from aeris.estimation.trajectory import TrajectoryForecaster, evaluate_forecasts, forecast_vs_detections
 from aeris.evaluation.metrics import TrackObservation, detection_metrics, tracking_metrics
@@ -224,7 +225,7 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
 def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibration=None,
                  annotations=None, min_score=DEFAULT_MIN_SCORE, timestamp_policy="pts_or_inferred",
                  stride=1, max_frames=None, warmup_frames=1, render=True, command=None,
-                 dataset_info=None, input_note=None, low_score_pass=True) -> dict:
+                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="none") -> dict:
     """Run the whole pipeline and write the artifact set atomically. Returns the manifest."""
     input_video, output_dir = Path(input_video), Path(output_dir)
     if not input_video.is_file():
@@ -233,14 +234,23 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
         raise CliError(f"output directory exists: {output_dir} (runs are immutable; use a new one)")
     if not math.isfinite(min_score) or not 0 <= min_score <= 1:
         raise CliError("--min-score must be in [0, 1]")
+    if camera_motion not in ("none", "estimate"):
+        raise CliError("--camera-motion must be 'none' or 'estimate'")
     sequence_id = sequence_id or "".join(c if c.isalnum() or c in "-_." else "-"
                                          for c in input_video.stem) or "sequence"
     started = time.perf_counter()
+    motion, to_ref = (CameraMotion() if camera_motion == "estimate" else None), {}
+
+    def estimate_motion(index, image, found):     # frame -> reference transform, per processed frame
+        motion.update(image, [d.bbox for d in found])
+        to_ref[index] = motion.to_ref.copy()
+
     try:
         result = pipeline.process_video(input_video, stages, sequence_id=sequence_id,
                                         output_video=None, timestamp_policy=timestamp_policy,
                                         stride=stride, max_frames=max_frames,
-                                        warmup_frames=warmup_frames)
+                                        warmup_frames=warmup_frames,
+                                        frame_hook=estimate_motion if motion else None)
     except pipeline.VideoError as exc:
         raise CliError(str(exc)) from exc
     by_frame, all_by_frame = {}, {}    # at/above min_score; everything the detector kept
@@ -255,6 +265,11 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     track_rows, predictions, drawn, previous = [], [], {}, {}
     measured = defaultdict(list)    # track_id -> [(t, assigned detection center)]
     displayed = set()               # (track_id, issue time) whose arrow was drawn
+    # With camera motion, a separate constant-velocity forecaster runs in reference-frame pixels
+    # (scene-relative) and drives the arrow; written predictions stay in original-frame pixels.
+    scene = TrajectoryForecaster(sequence_id, "constant_velocity") if motion else None
+    scene_measured, scene_predictions = defaultdict(list), []
+    arrow = scene or forecasters["constant_velocity"]
     all_states, track_times, forecast_times = [], [], []
     for frame in result["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
@@ -274,16 +289,26 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                 measured[state.track_id].append((t, z))
                 for f in forecasters.values():
                     f.update(state.track_id, t, z, measurement_sigma_px(state, tracker.cfg))
+                if scene:
+                    z_ref = apply_transform(to_ref[index], z)
+                    scene_measured[state.track_id].append((t, z_ref))
+                    scene.update(state.track_id, t, z_ref, measurement_sigma_px(state, tracker.cfg))
         for state in states:
             if state.lifecycle == TENTATIVE:
                 continue
-            for name, f in forecasters.items():
-                for record in f.forecast(state.track_id, t):
-                    predictions.append(record)
-                    if (name == "constant_velocity" and record.horizon_s == 1.0 and record.center
-                            and heading_resolved(f, state.track_id, t)):
-                        frame_forecasts[state.track_id] = record.center
-                        displayed.add((state.track_id, t))
+            records = {name: f.forecast(state.track_id, t) for name, f in forecasters.items()}
+            for name in forecasters:
+                predictions.extend(records[name])
+            if scene:
+                arrow_records = scene.forecast(state.track_id, t)
+                scene_predictions.extend(arrow_records)
+            else:
+                arrow_records = records["constant_velocity"]
+            one_s = next(r for r in arrow_records if r.horizon_s == 1.0)
+            if one_s.center and heading_resolved(arrow, state.track_id, t):
+                frame_forecasts[state.track_id] = (one_s.center if not scene else
+                                                   apply_transform(np.linalg.inv(to_ref[index]), one_s.center))
+                displayed.add((state.track_id, t))
         forecast_times.append(time.perf_counter() - t0)
         drawn[index] = [(s, frame_forecasts.get(s.track_id)) for s in states]
         for state in states:
@@ -367,8 +392,15 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                "forecast_vs_detections": forecast_vs_detections(
                    measured, predictions, models=list(FORECAST_MODELS)),
                "forecast_vs_detections_displayed": forecast_vs_detections(
-                   measured, [p for p in predictions if (p.track_id, p.issue_time_s) in displayed],
-                   models=["constant_velocity"]),
+                   scene_measured if scene else measured,
+                   [p for p in (scene_predictions if scene else predictions)
+                    if (p.track_id, p.issue_time_s) in displayed], models=["constant_velocity"]),
+               "forecast_vs_detections_scene": forecast_vs_detections(
+                   scene_measured, scene_predictions, models=["constant_velocity"]) if scene else
+                   {"available": False, "reason": "camera motion not estimated (--camera-motion none)"},
+               "camera_motion": {"mode": camera_motion, **(motion.counters if motion else {}),
+                                 "note": "failed steps are treated as no camera motion; untuned, "
+                                         "image-based, errors accumulate along the sequence"},
                "arrow_min_speed_sigmas": ARROW_MIN_SPEED_SIGMAS,
                "note": "Truth-dependent metrics are null unless labels are supplied; no accuracy is claimed."}
 
@@ -437,7 +469,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                                         "reason": "no annotations supplied"},
             "timestamp": {"policy": result["timestamp_policy"], "source": result["timestamp_source"],
                           "reason": result["timestamp_reason"]},
-            "min_score": min_score, "low_score_pass": low_score_pass, "stride": stride, "max_frames": max_frames,
+            "min_score": min_score, "low_score_pass": low_score_pass, "camera_motion": camera_motion, "stride": stride, "max_frames": max_frames,
             "warmup_frames": warmup_frames, "samples_after_warmup": benchmark["samples_after_warmup"],
             "random_seed": None, "seed_reason": "no random operations",
             "environment": {"os": platform.platform(), "machine": platform.machine(),
@@ -471,6 +503,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-config", type=Path, default=None,
                         help="detector config (default configs/detector/baseline.json)")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
+    parser.add_argument("--camera-motion", choices=("none", "estimate"), default="none",
+                        help="estimate background motion so the forecast arrow is scene-relative "
+                             "(for panning footage); written predictions stay in image pixels")
     parser.add_argument("--tiles", type=int, default=1,
                         help="also detect on an N x N grid of overlapping crops (small/distant aircraft); 1 = full frame only")
     parser.add_argument("--stride", type=int, default=1)
@@ -527,7 +562,7 @@ def main(argv=None) -> int:
             min_score=args.min_score, timestamp_policy=args.timestamp_policy, stride=args.stride,
             max_frames=args.max_frames, warmup_frames=args.warmup_frames, render=not args.no_render,
             command=[sys.executable, "-m", "aeris", *(argv if argv is not None else sys.argv[1:])],
-            dataset_info=dataset_info, input_note=args.input_note)
+            dataset_info=dataset_info, input_note=args.input_note, camera_motion=args.camera_motion)
     except (CliError, ValueError, OSError) as exc:
         print(f"aeris: error: {exc}", file=sys.stderr)
         return 2

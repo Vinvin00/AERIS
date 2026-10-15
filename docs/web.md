@@ -37,7 +37,10 @@ frame on a camera (`camera:N`), an `rtsp://`/`http(s)://` stream, or the selecte
 played at real time, and streams the annotated feed to the page as MJPEG
 (`python/aeris/web/live.py`). Timestamps are seconds since the session started: media
 time (frame position / container fps) for a paced clip, so inference jitter does not
-appear as motion, and monotonic arrival time for a camera or stream (AERIS-024). If inference is slower than the source, frames are dropped and counted. Live
+appear as motion, and monotonic arrival time for a camera or stream (AERIS-024). Forecasts,
+heading and the prediction-error score are computed in scene-relative pixels: camera
+motion is estimated from background corners each frame and removed, then forecasts are
+mapped back onto the current frame (AERIS-028). If inference is slower than the source, frames are dropped and counted. Live
 sessions write no run artifacts and compute no metrics; rates shown are wall-clock on
 this machine, not a benchmark. Verified on a paced file only; a physical camera or
 network stream has not been exercised.

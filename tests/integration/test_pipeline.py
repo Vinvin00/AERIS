@@ -217,6 +217,33 @@ class AvailabilityTests(PipelineCase):
         assert len({r["track_id"] for r in rows}) == 1 and all(r["observed"] == "1" for r in rows)
         assert self.manifest()["low_score_pass"] is True
 
+    def test_camera_motion_removes_pan_induced_arrows(self):
+        """Camera pans 4 px/frame past an aircraft fixed in the scene: image-space forecasts see
+        motion and draw arrows; scene-relative forecasts see none and draw no arrow."""
+        noise = (np.random.default_rng(1).random((H, W + 4 * N)) * 255).astype(np.uint8)
+        scene = cv2.cvtColor(cv2.normalize(cv2.GaussianBlur(noise, (0, 0), 2), None, 0, 255,
+                                           cv2.NORM_MINMAX), cv2.COLOR_GRAY2BGR)
+        clip, frames = self.tmp / "pan.avi", {}
+        writer = cv2.VideoWriter(str(clip), cv2.VideoWriter_fourcc(*"MJPG"), FPS, (W, H))
+        for i in range(N):
+            image = scene[:, 4 * i:4 * i + W].copy()
+            x0 = 140 - 4 * i                                   # fixed scene x = 140
+            cv2.rectangle(image, (x0, 40), (x0 + 20, 56), (255, 255, 255), -1)
+            writer.write(image)
+            frames[str(i)] = [{"bbox": [x0, 40, x0 + 20, 56], "class_id": 0, "score": 0.9}]
+        writer.release()
+        self.replay.write_text(json.dumps({"frames": frames}))
+        assert self.run_cli("fixed", clip=clip) == 0
+        assert self.run_cli("pan", ["--camera-motion", "estimate"], clip=clip) == 0
+        fixed, pan = self.metrics("fixed"), self.metrics("pan")
+        def shown(m):
+            return m["forecast_vs_detections_displayed"]["models"]["constant_velocity"]["1.0"]["issued_at_measurement"]
+        assert shown(fixed) > 5 and shown(pan) == 0
+        assert pan["camera_motion"]["failed"] == 0 and pan["camera_motion"]["estimated"] == N - 1
+        assert fixed["forecast_vs_detections_scene"]["available"] is False
+        assert pan["forecast_vs_detections_scene"]["models"]["constant_velocity"]["1.0"]["scored"] > 5
+        assert self.manifest("pan")["camera_motion"] == "estimate"
+
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0
         rows = read_csv(self.out() / "tracks.csv")

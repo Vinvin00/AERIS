@@ -90,3 +90,15 @@ interpolated across gaps up to 0.5 s, never extrapolated. **It is not ground tru
 detector error and identity switches leak in, and only forecasts whose track survived to
 the target time are scored. It does not replace labeled evaluation.
 
+## Camera motion (AERIS-028)
+
+With `--camera-motion estimate` (and always in the web live view), `CameraMotion`
+(`python/aeris/estimation/camera_motion.py`) fits a RANSAC similarity to Lucas-Kanade tracks of
+background corners between consecutive processed frames, with detection boxes masked out, and
+chains them into a transform from each frame to the first processed frame. A separate
+constant-velocity forecaster runs on measurements in that reference frame and drives the arrow
+and heading gate; the arrow is mapped back onto the current frame. `predictions.jsonl` and the
+label-based evaluators are unchanged (original-frame pixels). `metrics.json` adds
+`forecast_vs_detections_scene` and `camera_motion` counts. A step with too few background
+corners is counted as failed and treated as no motion, which equals the uncompensated case.
+
