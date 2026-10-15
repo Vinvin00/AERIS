@@ -351,6 +351,28 @@ function paintLive(state) {
   live.status.textContent = !l ? '' : l.state === 'running'
     ? `LIVE · ${l.fps ? l.fps.toFixed(1) : '—'} fps · ${l.latency_ms ? l.latency_ms.toFixed(0) : '—'} ms/frame · ${l.detections} det · ${l.tracks} tracks · ${l.dropped} dropped`
     : `${l.state}: ${l.message}`;
+  paintPanel(l);
+}
+const panelEl = $('#live-panel');
+function scoreHtml(l) {
+  const m = l.score && l.score.available && l.score.models.constant_velocity;
+  if (!m) return '<div class="mono-dim">prediction error: waiting for forecasts to come due…</div>';
+  const rows = Object.entries(m).filter(([, h]) => h.scored).map(([h, v]) =>
+    `<tr><td>+${h}s</td><td>${v.median_error_px.toFixed(1)} px</td><td>${v.median_direction_error_deg == null ? '—' : v.median_direction_error_deg.toFixed(0) + '°'}</td><td>n=${v.scored}</td></tr>`).join('');
+  return `<div class="lp-track"><b>Prediction error</b> <span class="mono-dim">last 60 s, vs later detections (not ground truth)</span>` +
+    `<table><thead><tr><td></td><td>median pos</td><td>median dir</td><td></td></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function paintPanel(l) {
+  const rows = (l && l.state === 'running' && l.panel) || [];
+  if (!rows.length) { panelEl.innerHTML = '<span class="muted">No confirmed tracks yet.</span>' + (l && l.score ? scoreHtml(l) : ''); return; }
+  const f1 = n => (n == null ? '—' : n.toFixed(0));
+  panelEl.innerHTML = rows.map(r => {
+    const fc = r.forecast.map(f => `<tr><td>+${f.horizon_s}s</td><td>${f1(f.x)}, ${f1(f.y)}</td><td>±${f.sigma_px.toFixed(0)} px</td></tr>`).join('');
+    return `<div class="lp-track"><b>${r.id}</b> <span class="mono-dim">${r.lifecycle} · ${r.observations} obs · ` +
+      `${r.speed_px_s == null ? 'speed —' : r.speed_px_s.toFixed(0) + ' px/s'} · ` +
+      `${r.heading_deg == null ? 'heading unresolved' : r.heading_deg.toFixed(0) + '°'}</span>` +
+      (fc ? `<table><tbody>${fc}</tbody></table>` : '<div class="mono-dim">warming up (not enough history)</div>') + '</div>';
+  }).join('') + scoreHtml(l);
 }
 $('#live-camera').addEventListener('click', () => startLive('camera:0'));
 $('#live-url-go').addEventListener('click', () => { const u = $('#live-url').value.trim(); if (u) startLive(u); });

@@ -92,7 +92,7 @@ class KalmanTracker:
         self._time: float | None = None
         self._size: tuple[int, int] | None = None
         self.counters = {"steps": 0, "births": 0, "deleted": 0, "duplicates_dropped": 0,
-                         "births_suppressed": 0, "gated_pairs": 0}
+                         "births_suppressed": 0, "gated_pairs": 0, "low_score_matches": 0}
 
     # -- model ---------------------------------------------------------------
     def _transition(self, dt: float):
@@ -138,8 +138,16 @@ class KalmanTracker:
         self._check(track.p, f"track {track.track_id} update")
 
     # -- public --------------------------------------------------------------
-    def step(self, timestamp_s: float, detections: list[DetectionRecord]) -> list[TrackState]:
-        """Advance to ``timestamp_s`` using only detections at this time (possibly none)."""
+    def step(self, timestamp_s: float, detections: list[DetectionRecord],
+             high_score: float = 0.0) -> list[TrackState]:
+        """Advance to ``timestamp_s`` using only detections at this time (possibly none).
+
+        Detections scoring below ``high_score`` are used only in a second association pass
+        (ByteTrack-style) to keep confirmed or lost tracks measured; they never start a track
+        or confirm a tentative one. The default 0.0 makes every detection high-score.
+        """
+        if not isinstance(high_score, (int, float)) or not 0 <= high_score <= 1:
+            raise TrackerError("high_score must be in [0, 1]")
         if not isinstance(timestamp_s, (int, float)) or isinstance(timestamp_s, bool) \
                 or not math.isfinite(timestamp_s) or timestamp_s < 0:
             raise TrackerError("timestamp_s must be finite and nonnegative")
@@ -168,9 +176,17 @@ class KalmanTracker:
             else:
                 alive.append(track)
         self._tracks = alive
-        matches, unmatched_tracks, unmatched_dets = self._associate(dets)
-        for ti, di in matches:
-            track, det = self._tracks[ti], dets[di]
+        high = [d for d in dets if d.score >= high_score]
+        low = [d for d in dets if d.score < high_score]
+        matches, unmatched_tracks, unmatched_dets = self._associate(high)
+        second = [ti for ti in unmatched_tracks if self._tracks[ti].lifecycle != TENTATIVE]
+        low_matches, _, _ = self._associate(low, second)
+        self.counters["low_score_matches"] += len(low_matches)
+        rescued = {ti for ti, _ in low_matches}
+        unmatched_tracks = [ti for ti in unmatched_tracks if ti not in rescued]
+        pairs = [(ti, high[di]) for ti, di in matches] + [(ti, low[di]) for ti, di in low_matches]
+        for ti, det in pairs:
+            track = self._tracks[ti]
             z = np.array([(det.bbox.x_min + det.bbox.x_max) / 2, (det.bbox.y_min + det.bbox.y_max) / 2,
                           det.bbox.x_max - det.bbox.x_min, det.bbox.y_max - det.bbox.y_min])
             self._update(track, z, self._measurement_noise(z[2], z[3]))
@@ -190,7 +206,7 @@ class KalmanTracker:
         self.counters["deleted"] += len(dead)
         self._tracks = [t for t in self._tracks if t.lifecycle != "dead"]
         for di in unmatched_dets:
-            self._maybe_birth(dets[di], timestamp_s)
+            self._maybe_birth(high[di], timestamp_s)
         return [self._state(t, timestamp_s) for t in self._tracks]
 
     # -- internals -----------------------------------------------------------
@@ -205,13 +221,16 @@ class KalmanTracker:
                 kept.append(det)
         return kept
 
-    def _associate(self, dets):
-        n_t, n_d = len(self._tracks), len(dets)
+    def _associate(self, dets, track_ids=None):
+        """Gated Hungarian matching of ``dets`` to ``track_ids`` (indices into the track list;
+        all tracks by default). Returns (track index, det index) pairs and the unmatched of each."""
+        track_ids = list(range(len(self._tracks))) if track_ids is None else list(track_ids)
+        n_t, n_d = len(track_ids), len(dets)
         if not n_t or not n_d:
-            return [], list(range(n_t)), list(range(n_d))
+            return [], track_ids, list(range(n_d))
         cost = np.full((n_t, n_d), _BIG)
         gate = self.cfg["gate_chi2"]
-        for i, track in enumerate(self._tracks):
+        for i, track in enumerate(self._tracks[ti] for ti in track_ids):
             predicted = self.H @ track.x
             for j, det in enumerate(dets):
                 if det.class_id != track.class_id:
@@ -225,9 +244,9 @@ class KalmanTracker:
                 else:
                     self.counters["gated_pairs"] += 1
         rows, cols = linear_sum_assignment(cost)
-        matches = [(int(r), int(c)) for r, c in zip(rows, cols) if cost[r, c] < _BIG]
+        matches = [(track_ids[r], int(c)) for r, c in zip(rows, cols) if cost[r, c] < _BIG]
         matched_t, matched_d = {r for r, _ in matches}, {c for _, c in matches}
-        return (matches, [i for i in range(n_t) if i not in matched_t],
+        return (matches, [ti for ti in track_ids if ti not in matched_t],
                 [j for j in range(n_d) if j not in matched_d])
 
     def _maybe_birth(self, det, timestamp_s):

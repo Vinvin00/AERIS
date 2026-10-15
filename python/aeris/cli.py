@@ -224,7 +224,7 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
 def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibration=None,
                  annotations=None, min_score=DEFAULT_MIN_SCORE, timestamp_policy="pts_or_inferred",
                  stride=1, max_frames=None, warmup_frames=1, render=True, command=None,
-                 dataset_info=None, input_note=None) -> dict:
+                 dataset_info=None, input_note=None, low_score_pass=True) -> dict:
     """Run the whole pipeline and write the artifact set atomically. Returns the manifest."""
     input_video, output_dir = Path(input_video), Path(output_dir)
     if not input_video.is_file():
@@ -243,8 +243,9 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                                         warmup_frames=warmup_frames)
     except pipeline.VideoError as exc:
         raise CliError(str(exc)) from exc
-    by_frame = {}
+    by_frame, all_by_frame = {}, {}    # at/above min_score; everything the detector kept
     for det in result["detections"]:
+        all_by_frame.setdefault(det.frame_index, []).append(det)
         if det.score >= min_score:
             by_frame.setdefault(det.frame_index, []).append(det)
 
@@ -257,9 +258,11 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     all_states, track_times, forecast_times = [], [], []
     for frame in result["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
-        detections = by_frame.get(index, [])
         t0 = time.perf_counter()
-        states = tracker.step(t, detections)
+        if low_score_pass:     # sub-threshold detections may only extend existing tracks
+            states = tracker.step(t, all_by_frame.get(index, []), high_score=min_score)
+        else:
+            states = tracker.step(t, by_frame.get(index, []))
         track_times.append(time.perf_counter() - t0)
         t0 = time.perf_counter()
         frame_forecasts = {}
@@ -354,6 +357,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
               "detections_total": len(result["detections"]),
               "detections_at_or_above_min_score": sum(len(v) for v in by_frame.values()),
               "tracks_created": tracker.counters["births"], "track_rows": len(track_rows),
+              "low_score_track_updates": tracker.counters["low_score_matches"],
               "predictions": len(predictions),
               "predictions_unavailable": sum(1 for p in predictions if p.center is None)}
     metrics = {"schema_version": 1, "sequence_id": sequence_id, "counts": counts,
@@ -433,7 +437,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                                         "reason": "no annotations supplied"},
             "timestamp": {"policy": result["timestamp_policy"], "source": result["timestamp_source"],
                           "reason": result["timestamp_reason"]},
-            "min_score": min_score, "stride": stride, "max_frames": max_frames,
+            "min_score": min_score, "low_score_pass": low_score_pass, "stride": stride, "max_frames": max_frames,
             "warmup_frames": warmup_frames, "samples_after_warmup": benchmark["samples_after_warmup"],
             "random_seed": None, "seed_reason": "no random operations",
             "environment": {"os": platform.platform(), "machine": platform.machine(),

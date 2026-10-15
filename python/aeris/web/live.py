@@ -9,14 +9,18 @@ and counted. Nothing here is a benchmark; rates are wall-clock on this machine.
 from __future__ import annotations
 
 from threading import Condition, Event, Thread
+import math
 import time
 
 import cv2
 
 from aeris.cli import DEFAULT_MIN_SCORE, draw_states, heading_resolved, measurement_sigma_px
-from aeris.estimation.trajectory import TrajectoryForecaster
+from aeris.estimation.trajectory import TrajectoryForecaster, forecast_vs_detections
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
 
+
+SCORE_WINDOW_S = 60.0  # scored history kept; bounds memory on endless streams
+SCORE_EVERY_S = 1.0
 
 TILES = 2  # 2x2 crops + full frame: distant aircraft vanish at 416 px full-frame (hkia-early: 0 vs 6/6 probed frames)
 
@@ -67,6 +71,10 @@ class LiveSession:
             forecaster = TrajectoryForecaster("live", "constant_velocity")
             start = time.monotonic()
             last_t, index, position, ema = -1.0, 0, 0, None
+            seen_n: dict[str, int] = {}
+            measured: dict[str, list] = {}
+            issued: list = []
+            score, last_score_t = None, -1e9
             self._set(state="running", message="Live")
             while not self._stop.is_set():
                 if self.paced and fps > 0:
@@ -90,20 +98,40 @@ class LiveSession:
                 height, width = frame.shape[:2]
                 prepared = self.stages.preprocess(frame)
                 raw = self.stages.infer(prepared)
-                dets = [d for d in self.stages.postprocess(
-                    raw, prepared, width=width, height=height, sequence_id="live",
-                    frame_index=index, timestamp_s=t) if d.score >= DEFAULT_MIN_SCORE]
-                states = tracker.step(t, dets)
-                forecasts = {}
+                found = self.stages.postprocess(raw, prepared, width=width, height=height,
+                                                sequence_id="live", frame_index=index, timestamp_s=t)
+                dets = [d for d in found if d.score >= DEFAULT_MIN_SCORE]
+                states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE)
+                forecasts, panel = {}, []
                 for s in states:
                     if s.observed and s.measurement_center_px is not None:
+                        seen_n[s.track_id] = seen_n.get(s.track_id, 0) + 1
+                        measured.setdefault(s.track_id, []).append((t, s.measurement_center_px))
                         forecaster.update(s.track_id, t, s.measurement_center_px,
                                           measurement_sigma_px(s, tracker.cfg))
                 for s in states:
                     if s.lifecycle != TENTATIVE:
-                        for r in forecaster.forecast(s.track_id, t):
-                            if r.horizon_s == 1.0 and r.center and heading_resolved(forecaster, s.track_id, t):
+                        recs = forecaster.forecast(s.track_id, t)
+                        row = {"id": s.track_id, "lifecycle": s.lifecycle, "observations": seen_n.get(s.track_id, 0),
+                               "speed_px_s": None, "heading_deg": None, "forecast": []}
+                        if all(r.center for r in recs):  # velocity() only valid when forecasts exist
+                            (vx, vy), _ = forecaster.velocity(s.track_id, t)
+                            row["speed_px_s"] = math.hypot(vx, vy)
+                            if heading_resolved(forecaster, s.track_id, t):
+                                row["heading_deg"] = math.degrees(math.atan2(vy, vx)) % 360  # 0=right, 90=down (image axes)
+                        for r in recs:
+                            if r.center:  # sigma = 1-sigma position std dev at this horizon
+                                row["forecast"].append({"horizon_s": r.horizon_s, "x": r.center[0], "y": r.center[1],
+                                                        "sigma_px": math.sqrt(max(r.covariance[0][0], r.covariance[1][1]))})
+                            if r.horizon_s == 1.0 and r.center and row["heading_deg"] is not None:
                                 forecasts[s.track_id] = r.center
+                        panel.append(row)
+                        issued.extend(recs)
+                if t - last_score_t >= SCORE_EVERY_S:
+                    last_score_t, cutoff = t, t - SCORE_WINDOW_S
+                    issued = [p for p in issued if p.issue_time_s >= cutoff]
+                    measured = {k: v for k, v in ((k, [m for m in v if m[0] >= cutoff]) for k, v in measured.items()) if v}
+                    score = forecast_vs_detections(measured, issued, models=["constant_velocity"])
                 draw_states(frame, [(s, forecasts.get(s.track_id)) for s in states])
                 dt = time.perf_counter() - t0
                 ema = dt if ema is None else 0.9 * ema + 0.1 * dt
@@ -115,7 +143,7 @@ class LiveSession:
                     if ok:
                         self.jpeg, self.seq = buf.tobytes(), self.seq + 1
                     self.stats.update(frames=index, fps=1 / ema, latency_ms=dt * 1000,
-                                      detections=len(dets),
+                                      detections=len(dets), panel=panel, media_t=t, score=score,
                                       tracks=sum(s.lifecycle != TENTATIVE for s in states))
                     self.cond.notify_all()
         except Exception as exc:  # surfaced to the page; the loop must not die silently

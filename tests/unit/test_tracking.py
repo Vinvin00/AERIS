@@ -307,3 +307,45 @@ class TrackingMetricTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LowScorePassTests(unittest.TestCase):
+    """Sub-threshold detections extend confirmed or lost tracks only (ByteTrack-style)."""
+
+    def track(self, scores, high=0.5):
+        tracker, out = KalmanTracker("s"), []
+        for i, score in enumerate(scores):
+            t = round(i * 0.1, 6)
+            out.append(tracker.step(t, [det(t, i, box(50 + 100 * t, 100), score)], high_score=high))
+        return tracker, out
+
+    def test_low_score_detections_keep_a_confirmed_track_measured(self):
+        tracker, out = self.track([0.9] * 4 + [0.2] * 4 + [0.9])
+        assert all(len(states) == 1 and states[0].observed for states in out[3:])
+        assert len({s.track_id for states in out for s in states}) == 1
+        assert out[7][0].lifecycle == CONFIRMED and tracker.counters["low_score_matches"] == 4
+
+    def test_low_score_detections_never_start_or_confirm_a_track(self):
+        tracker, out = self.track([0.2] * 6)
+        assert all(states == [] for states in out) and tracker.counters["births"] == 0
+        tracker, out = self.track([0.9] + [0.2] * 3)          # one high hit, then only low
+        assert all(s.lifecycle == TENTATIVE and not s.observed for s in out[1]) and tracker.counters["low_score_matches"] == 0
+
+    def test_lost_track_is_recovered_by_a_low_score_detection(self):
+        tracker = KalmanTracker("s")
+        for i in range(5):
+            t = round(i * 0.1, 6)
+            dets = [] if i == 3 else [det(t, i, box(50 + 100 * t, 100), 0.9 if i < 3 else 0.2)]
+            states = tracker.step(t, dets, high_score=0.5)
+        assert states[0].lifecycle == CONFIRMED and states[0].observed
+
+    def test_default_threshold_keeps_previous_behaviour(self):
+        a, b = KalmanTracker("s"), KalmanTracker("s")
+        for i in range(6):
+            t = round(i * 0.1, 6)
+            dets = [det(t, i, box(50 + 100 * t, 100), 0.05)]
+            assert a.step(t, dets) == b.step(t, dets, high_score=0.0)
+
+    def test_high_score_must_be_a_probability(self):
+        with self.assertRaises(TrackerError):
+            KalmanTracker("s").step(0.0, [], high_score=1.5)

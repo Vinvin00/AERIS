@@ -204,6 +204,19 @@ class AvailabilityTests(PipelineCase):
         assert all(h["issued_at_measurement"] == 0 for h in hidden.values())
         assert self.metrics("still")["counts"]["predictions_unavailable"] < self.metrics("still")["counts"]["predictions"]
 
+    def test_low_score_detections_extend_tracks_without_counting_as_detections(self):
+        low = [i for i in range(N) if i >= 5 and i % 2 == 0]       # every other frame after confirmation
+        data = {"frames": {str(i): [{"bbox": box_at(i), "class_id": 0, "score": 0.15 if i in low else 0.9}]
+                           for i in range(N)}}
+        self.replay.write_text(json.dumps(data))
+        assert self.run_cli() == 0
+        counts = self.metrics()["counts"]
+        assert counts["low_score_track_updates"] == len(low)
+        assert counts["detections_at_or_above_min_score"] == N - len(low)
+        rows = read_csv(self.out() / "tracks.csv")
+        assert len({r["track_id"] for r in rows}) == 1 and all(r["observed"] == "1" for r in rows)
+        assert self.manifest()["low_score_pass"] is True
+
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0
         rows = read_csv(self.out() / "tracks.csv")
@@ -328,10 +341,10 @@ class FailurePathTests(PipelineCase):
         original_update = cli.TrajectoryForecaster.update
 
         class MarkedTracker(original_tracker):
-            def step(self, timestamp_s, detections):
+            def step(self, timestamp_s, detections, **kwargs):
                 return [replace(s, measurement_center_px=(s.measurement_center_px[0] + 7,
                                                            s.measurement_center_px[1]))
-                        if s.observed else s for s in super().step(timestamp_s, detections)]
+                        if s.observed else s for s in super().step(timestamp_s, detections, **kwargs)]
 
         def spy(self, track_id, timestamp_s, center, sigma_px=1.0):
             observed.append((timestamp_s, center))
