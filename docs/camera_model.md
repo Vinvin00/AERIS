@@ -63,3 +63,23 @@ rational distortion, no calibration quality metric beyond the stored text, and n
 calibration to test against. Perspective effects of target pose on apparent size are not
 modelled, which is why size change is never converted to approach or range. Tested on macOS
 arm64, Python 3.14, OpenCV 5.0.0.
+
+## Optional surveyed-site bearing conversion (AERIS-029)
+
+`python/aeris/estimation/world_bearing.py` adds a separate, versioned
+`FixedCameraPose` and `WorldBearingRecord`; it does not change the camera model's
+pixel/ray semantics or the pixel forecast record. A site survey defines an ENU
+origin, camera position in metres relative to that origin and an orthonormal,
+right-handed camera-to-ENU rotation. Azimuth is clockwise from north; elevation
+is positive above the horizon. The converter returns a unit direction and the
+camera origin, never target range or target position.
+
+Conversion requires matching camera/calibration IDs, original-frame resolution,
+an explicit current zoom equal to the calibration zoom, an operator assertion
+that the surveyed mount remains fixed, and a per-frame stability assessment.
+The camera context's default `camera_moved=False` does not count as that assessment.
+A missing assessment or detected movement suppresses the output. The assertion is not independent evidence
+that the camera stayed fixed; a live system must monitor or check the mount and
+withdraw the pose when it changes. Angular uncertainty remains null because
+calibration and survey error have not been measured. Tests use analytic cameras;
+no physical camera or surveyed reference point has been validated.

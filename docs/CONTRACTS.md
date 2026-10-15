@@ -59,6 +59,33 @@ Unknown fields serialize as null plus `availability_reason`; JSON NaN/Infinity i
 forbidden. Apparent expansion labels: expanding/shrinking/stable/uncertain. Pose,
 camera movement, and zoom invalidate approach/recede conclusions without extra evidence.
 
+### Optional surveyed-site bearings (AERIS-029 addendum)
+
+Existing frame, track and pixel `PredictionRecord` schemas remain version 1 and retain
+their original-frame pixel meanings. Physical bearings use separate version-1
+`FixedCameraPose` and `WorldBearingRecord` types. This is an additive migration; no
+pixel field is reinterpreted and old readers do not receive bearing records as pixel
+predictions. See `docs/decisions/029-world-referenced-bearings.md`.
+
+The pose names a local site-survey ENU reference origin. Position is the camera's
+surveyed origin in metres relative to it (east, north, up), and the right-handed,
+orthonormal matrix maps camera axes (right, down, forward) into ENU. The pose names
+the exact camera/calibration IDs, UTC survey time and an explicit operator
+`fixed_mount` assertion. That assertion must be withdrawn after camera movement;
+it is not a motion sensor. A frame also needs original resolution, current zoom,
+and an explicit per-frame stability assessment separate from the camera context's
+default `camera_moved=False`. Unknown movement or zoom suppresses bearings.
+
+An available bearing records sequence/track IDs, observation or forecast kind,
+nonnegative issue and target times in seconds (`target = issue + horizon`), ENU
+origin, unit direction, azimuth in degrees clockwise from north in `[0,360)`,
+and elevation in degrees above the local horizon in `[-90,90]`. The forecast
+bearing is a coordinate conversion of a causal pixel forecast at its target time;
+it is not a 3-D target position or aircraft yaw. Missing calibration, pose, exact
+identity, resolution, zoom or stability yields null geometry and a reason.
+Angular uncertainty is null with a reason until calibration/pose error is measured;
+neither a confidence interval nor real-camera accuracy is inferred from a unit ray.
+
 ## Outputs and reproducibility
 
 Planned `aeris input.mp4 --output DIR` writes overlay video, `tracks.csv`,
