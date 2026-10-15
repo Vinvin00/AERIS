@@ -1181,7 +1181,7 @@
       "title": "Live bearing integration",
       "objective": "Bind validated fixed-camera calibration and pose to the live detection loop and display observed and forecast ENU bearings with explicit availability. Physical camera validation remains a separate evidence task.",
       "status": "planned",
-      "depends_on": ["AERIS-028", "AERIS-029"],
+      "depends_on": ["AERIS-010", "AERIS-011", "AERIS-029"],
       "read": ["docs/CONTRACTS.md", "docs/camera_model.md", "docs/web.md"],
       "write_globs": ["python/aeris/web/live.py", "python/aeris/web/server.py", "python/aeris/web/static/app.js", "tests/ui/test_web.py", "docs/web.md", "docs/decisions/030-*.md"],
       "acceptance": {
@@ -1189,7 +1189,7 @@
         "AC2": "Absent or mismatched calibration/pose, resolution or zoom, missing fixed-mount assertion, and detected or indeterminate camera motion suppress physical bearings with a reason; no range or 3D location is displayed",
         "AC3": "Live-loop fixture tests cover available and unavailable outputs, dropped frames and causality; documentation labels physical camera angular accuracy and uncertainty as unvalidated"
       },
-      "required_artifacts": ["python/aeris/web/live.py", "python/aeris/web/server.py", "tests/ui/test_web.py", "docs/web.md", "docs/decisions/030-live-bearings.md"],
+      "required_artifacts": ["python/aeris/web/live.py", "python/aeris/web/server.py", "python/aeris/web/static/app.js", "tests/ui/test_web.py", "docs/web.md", "docs/decisions/030-live-bearings.md"],
       "checks": ["governance", "unit", "camera", "pipeline"],
       "budget": "One offline code slice, at most three attempts. No real sensor, dataset or model acquisition, paid compute, gate changes or performance claims. A separate independent review is required."
     }
