@@ -29,15 +29,9 @@ from aeris.video.pipeline import timestamp_plan
 SCORE_WINDOW_S = 60.0  # scored history kept; bounds memory on endless streams
 SCORE_EVERY_S = 1.0
 
-TILES = 2  # 2x2 crops + full frame: distant aircraft vanish at 416 px full-frame (hkia-early: 0 vs 6/6 probed frames)
-
-
-def load_stages():
-    from aeris.detection import baseline
-    from aeris.video import pipeline
-    config = baseline.load_config()
-    runner = baseline.OnnxRuntimeRunner(baseline.verified_model_path(config))
-    return pipeline.BaselineStages(config, runner, tiles=TILES)
+def load_stages(profile: str):
+    from aeris.detection import profiles
+    return profiles.build(profile)
 
 
 def fixed_camera_stability(motion: CameraMotion, estimated: bool, width: int, height: int) -> bool | None:

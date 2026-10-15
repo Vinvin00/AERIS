@@ -41,13 +41,20 @@ class Stages(Protocol):
 class BaselineStages:
     """The AERIS-006 YOLOX baseline split into preprocess/infer/postprocess."""
 
-    def __init__(self, config: dict, runner, *, tiles: int = 1):
+    def __init__(self, config: dict, runner, *, tiles: int = 1, gate: float | None = None):
         """``tiles=N`` adds an N x N grid of overlapping crops to the full-frame pass, so
-        small, distant aircraft keep enough pixels at the 416 px model input. Costs
-        N*N + 1 forward passes per frame; tile and full-frame boxes are merged by NMS."""
+        small, distant aircraft keep enough pixels at the model input. Costs N*N + 1
+        forward passes per frame; tile and full-frame boxes are merged by NMS.
+
+        ``gate`` makes tiling a cascade: the full frame runs first and the tiles run only
+        when it found no aircraft scoring >= ``gate``. Keep ``gate`` >= the operating
+        min-score, or weak full-frame hits suppress the zoom and distant aircraft are lost.
+        A confident large aircraft also suppresses the zoom, so a small one beside it can
+        be missed; use ``gate=None`` when that matters more than speed."""
         from aeris.detection import baseline
-        self._b, self.config, self.runner, self.tiles = baseline, config, runner, tiles
-        self.name = f"{config['model']['name']}/{runner.name}" + (f"+tiles{tiles}x{tiles}" if tiles > 1 else "")
+        self._b, self.config, self.runner, self.tiles, self.gate = baseline, config, runner, tiles, gate
+        self.name = (f"{config['model']['name']}/{runner.name}" + (f"+tiles{tiles}x{tiles}" if tiles > 1 else "")
+                     + (f"+cascade{gate}" if tiles > 1 and gate is not None else ""))
 
     def _crops(self, height, width):
         yield 0, 0, height, width
@@ -71,14 +78,25 @@ class BaselineStages:
     def infer(self, prepared):
         if self.tiles == 1:
             return self.runner(prepared[0])
-        return [self.runner(p[4]) for p in prepared]
+        raws = [self.runner(prepared[0][4])]    # crop 0 is the full frame
+        if self.gate is not None and len(prepared) > 1:
+            _, _, h, w, _, ratio = prepared[0]
+            if any(f[2] >= self.gate for f in self._b.postprocess(raws[0], ratio, w, h, self.config)):
+                return raws                     # _found zips over the crops that ran
+        return raws + [self.runner(p[4]) for p in prepared[1:]]
 
     def _found(self, raw, prepared, width, height):
         if self.tiles == 1:
             return self._b.postprocess(raw, prepared[1], width, height, self.config)
         found = []
         for (y0, x0, h, w, _, ratio), r in zip(prepared, raw):
+            m = 0.02 * max(h, w)
             for box, class_id, score, coco in self._b.postprocess(r, ratio, w, h, self.config):
+                # a box cut by an interior tile edge is a fragment of something larger; the
+                # full-frame pass or an overlapping tile sees it whole, so drop the fragment
+                if ((x0 > 0 and box[0] <= m) or (x0 + w < width and box[2] >= w - m)
+                        or (y0 > 0 and box[1] <= m) or (y0 + h < height and box[3] >= h - m)):
+                    continue
                 found.append(([box[0] + x0, box[1] + y0, box[2] + x0, box[3] + y0], class_id, score, coco))
         if not found:
             return []

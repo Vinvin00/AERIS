@@ -273,3 +273,6 @@ h1 .g{color:var(--accent);text-shadow:0 0 40px rgba(0,255,65,.35)}
 .live-panel{max-height:260px;overflow:auto;font:12px/1.4 ui-monospace,monospace;margin-bottom:10px}
 .live-panel .lp-track{border-top:1px solid #10231a;padding:6px 0}
 .live-panel table{width:100%;margin-top:4px}.live-panel td{padding:1px 6px 1px 0}
+
+.profile{background:var(--bg);color:var(--text);border:1px solid var(--line2);border-radius:2px;padding:11px 10px;font:600 13px var(--mono);max-width:210px}
+.profile:focus-visible{border-color:var(--accent)}

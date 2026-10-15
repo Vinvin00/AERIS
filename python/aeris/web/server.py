@@ -27,7 +27,8 @@ import webbrowser
 from aeris.ui.samples import BY_SLUG, ROOT, SAMPLES, prepare_sample
 from aeris.estimation.camera import Calibration, CameraModel
 from aeris.estimation.world_bearing import FixedCameraPose
-from aeris.web.live import TILES, LiveSession, load_stages
+from aeris.detection.profiles import PROFILES, WEB_DEFAULT_PROFILE, weights_path
+from aeris.web.live import LiveSession, load_stages
 
 ASSETS = Path(__file__).resolve().parent / "static"
 MAX_UPLOAD_BYTES = 500_000_000
@@ -198,13 +199,15 @@ class DemoState:
                 self.message = f"Could not prepare video: {exc}"
             raise
 
-    def run(self) -> None:
+    def run(self, profile: str = WEB_DEFAULT_PROFILE) -> None:
+        if profile not in PROFILES:
+            raise ValueError("Unknown detector profile.")
         self.stop_live()
         with self.lock:
             if self.status not in {"ready", "complete", "failed", "cancelled"} or not self.selected_video:
                 raise RuntimeError("Choose a video before running analysis.")
-            if not (ROOT / "models/onnx/yolox_tiny.onnx").is_file():
-                raise RuntimeError("Model weights are missing. See models/README.md.")
+            if not weights_path(profile).is_file():
+                raise RuntimeError(f"Model weights for profile {profile!r} are missing. See models/README.md.")
             if not shutil.which("ffprobe"):
                 raise RuntimeError("ffprobe is missing. Install ffmpeg first.")
             video = self.selected_video
@@ -223,7 +226,7 @@ class DemoState:
             env = os.environ.copy()
             env["PYTHONPATH"] = str(ROOT / "python") + os.pathsep + env.get("PYTHONPATH", "")
             env["ORT_DISABLE_TELEMETRY"] = "1"
-            command = [sys.executable, "-m", "aeris", str(video), "--output", str(output), "--tiles", str(TILES),
+            command = [sys.executable, "-m", "aeris", str(video), "--output", str(output), "--profile", profile,
                        "--input-note", "Unlabeled local web demonstration; no accuracy claim"]
             try:
                 process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
@@ -261,7 +264,7 @@ class DemoState:
 
         Thread(target=work, daemon=True).start()
 
-    def start_live(self, source: str) -> None:
+    def start_live(self, source: str, profile: str = WEB_DEFAULT_PROFILE) -> None:
         """``camera:N``, an rtsp/http(s) URL, or ``selected`` (the chosen video, paced real time)."""
         if source.startswith("camera:") and source[7:].isdigit():
             target, paced = int(source[7:]), False
@@ -274,12 +277,14 @@ class DemoState:
                 target, paced = str(self.selected_video), True
         else:
             raise ValueError("Source must be camera:N, an rtsp/http(s) URL, or selected.")
+        if profile not in PROFILES:
+            raise ValueError("Unknown detector profile.")
         with self.lock:
             if self.status == "running":
                 raise RuntimeError("A recorded-video analysis is running.")
         self.stop_live()
         try:
-            stages = load_stages()
+            stages = load_stages(profile)
         except Exception as exc:
             raise RuntimeError(f"Cannot load the detector: {exc}") from exc
         session = LiveSession(target, stages, paced=paced, label=source,
@@ -375,6 +380,9 @@ def handler_for(state: DemoState):
                      "author": s.author, "license": s.license, "page": s.page,
                      "observation": s.observation} for s in SAMPLES
                 ]})
+            elif path == "/api/profiles":
+                self._json({"default": WEB_DEFAULT_PROFILE, "profiles": [
+                    {"name": n, "label": p.label, "note": p.note} for n, p in PROFILES.items()]})
             elif path == "/api/live/stream":
                 with state.lock:
                     session = state.live
@@ -444,11 +452,11 @@ def handler_for(state: DemoState):
                             raise ValueError("Unknown sample.")
                         state.select_sample(slug)
                     elif path == "/api/run":
-                        state.run()
+                        state.run(str(data.get("profile", WEB_DEFAULT_PROFILE)))
                     elif path == "/api/cancel":
                         state.cancel()
                     elif path == "/api/live/start":
-                        state.start_live(str(data.get("source", "")))
+                        state.start_live(str(data.get("source", "")), str(data.get("profile", WEB_DEFAULT_PROFILE)))
                     elif path == "/api/live/stop":
                         state.stop_live()
                     else:
