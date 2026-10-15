@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PROFILE = "fast"            # the AERIS-006 baseline; CLI and benchmarks use this
-WEB_DEFAULT_PROFILE = "fast-zoom"   # same detections as tiny tiled on the smoke clips, ~1.5x faster
+WEB_DEFAULT_PROFILE = "fast-zoom"   # always zooms: a large aircraft cannot suppress the zoom
 
 
 @dataclass(frozen=True)
@@ -27,10 +27,11 @@ PROFILES = {
     "fast": Profile("Fast", "baseline.json", 1, None,
         "Small model, whole frame only. About 11 ms/frame. Misses small, distant aircraft "
         "(0 of 60 frames on the distant-landing smoke clip)."),
-    "fast-zoom": Profile("Fast + zoom", "baseline.json", 2, 0.5,
-        "Small model; zooms into 2x2 crops only when the whole frame finds nothing confident. "
-        "About 30 ms/frame on average, more on empty or distant scenes. Finds the distant landing, "
-        "but flags more birds as aircraft."),
+    "fast-zoom": Profile("Fast + zoom", "baseline.json", 2, None,
+        "Small model, always zoomed into 2x2 crops. About 50 ms/frame. Finds the distant landing "
+        "in every frame of the smoke clip, but flags more birds as aircraft (1 false confirmed "
+        "track on the bird flock). Synthetic test with a large aircraft also in frame: the distant "
+        "one was found in 19-30 of 30 frames (Accurate: 30 of 30), so the small model is marginal there."),
     "balanced": Profile("Balanced", "yolox-m.json", 1, None,
         "Large model, whole frame only. About 80 ms/frame. Quieter on birds; finds the distant "
         "landing in half its frames."),
@@ -41,7 +42,9 @@ PROFILES = {
     "accurate-cascade": Profile("Accurate, zoom when needed", "yolox-m.json", 2, 0.5,
         "Large model; zooms only when the whole frame finds nothing confident. About 75 ms/frame on "
         "clear aircraft, 300-350 ms otherwise. Same detections as Accurate on the smoke clips, but a "
-        "confident large aircraft suppresses the zoom, so a small one beside it can be missed."),
+        "confident large aircraft suppresses the zoom: in a synthetic test the small aircraft beside "
+        "one was found in 9-20 of 30 frames, vs 30 of 30 for Accurate. Do not use when a missed "
+        "small aircraft matters."),
 }
 
 
