@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 import mimetypes
 import os
 from pathlib import Path
@@ -24,6 +25,8 @@ from uuid import uuid4
 import webbrowser
 
 from aeris.ui.samples import BY_SLUG, ROOT, SAMPLES, prepare_sample
+from aeris.estimation.camera import Calibration, CameraModel
+from aeris.estimation.world_bearing import FixedCameraPose
 from aeris.web.live import TILES, LiveSession, load_stages
 
 ASSETS = Path(__file__).resolve().parent / "static"
@@ -73,7 +76,9 @@ def try_browser_preview(path: Path, cache: Path) -> tuple[Path | None, str | Non
 
 
 class DemoState:
-    def __init__(self) -> None:
+    def __init__(self, *, camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
+                 current_zoom: float | None = None) -> None:
+        self.camera, self.pose, self.current_zoom = camera, pose, current_zoom
         self.lock = Lock()
         self.selected_video: Path | None = None
         self.preview_video: Path | None = None
@@ -277,7 +282,8 @@ class DemoState:
             stages = load_stages()
         except Exception as exc:
             raise RuntimeError(f"Cannot load the detector: {exc}") from exc
-        session = LiveSession(target, stages, paced=paced, label=source)
+        session = LiveSession(target, stages, paced=paced, label=source,
+                              camera=self.camera, pose=self.pose, current_zoom=self.current_zoom)
         with self.lock:
             self.live = session
         session.start()
@@ -459,8 +465,21 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Local AERIS browser demo")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-open", action="store_true")
+    parser.add_argument("--calibration", type=Path, help="fixed-camera calibration JSON for live bearings")
+    parser.add_argument("--pose", type=Path, help="surveyed fixed-camera pose JSON for live bearings")
+    parser.add_argument("--current-zoom", type=float, help="operator-asserted current zoom for live bearings")
     args = parser.parse_args(argv)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(DemoState()))
+    try:
+        calibration = Calibration.from_dict(json.loads(args.calibration.read_text())) if args.calibration else None
+        pose = FixedCameraPose.from_dict(json.loads(args.pose.read_text())) if args.pose else None
+    except (OSError, ValueError, TypeError) as exc:
+        parser.error(f"invalid live calibration or pose: {exc}")
+    if (calibration is None) != (pose is None):
+        parser.error("--calibration and --pose must be supplied together")
+    if args.current_zoom is not None and (not math.isfinite(args.current_zoom) or args.current_zoom <= 0):
+        parser.error("--current-zoom must be finite and positive")
+    state = DemoState(camera=CameraModel(calibration), pose=pose, current_zoom=args.current_zoom)
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(state))
     url = f"http://127.0.0.1:{server.server_port}"
     print(f"AERIS web demo: {url}", flush=True)
     if not args.no_open:

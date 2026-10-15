@@ -366,12 +366,20 @@ function paintPanel(l) {
   const rows = (l && l.state === 'running' && l.panel) || [];
   if (!rows.length) { panelEl.innerHTML = '<span class="muted">No confirmed tracks yet.</span>' + (l && l.score ? scoreHtml(l) : ''); return; }
   const f1 = n => (n == null ? '—' : n.toFixed(0));
+  const safe = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const bearing = b => !b ? 'no current measurement' : b.azimuth_deg == null
+    ? `unavailable: ${safe(b.availability_reason)}`
+    : `${b.azimuth_deg.toFixed(1)}° az · ${b.elevation_deg.toFixed(1)}° el`;
   panelEl.innerHTML = rows.map(r => {
     const fc = r.forecast.map(f => `<tr><td>+${f.horizon_s}s</td><td>${f1(f.x)}, ${f1(f.y)}</td><td>±${f.sigma_px.toFixed(0)} px</td></tr>`).join('');
+    const world = (r.forecast_bearings || []).map(b =>
+      `<tr><td>+${b.horizon_s}s</td><td>${bearing(b)}</td></tr>`).join('');
     return `<div class="lp-track"><b>${r.id}</b> <span class="mono-dim">${r.lifecycle} · ${r.observations} obs · ` +
       `${r.speed_px_s == null ? 'speed —' : r.speed_px_s.toFixed(0) + ' px/s'} · ` +
       `${r.heading_deg == null ? 'heading unresolved' : r.heading_deg.toFixed(0) + '°'}</span>` +
-      (fc ? `<table><tbody>${fc}</tbody></table>` : '<div class="mono-dim">warming up (not enough history)</div>') + '</div>';
+      (fc ? `<table><tbody>${fc}</tbody></table>` : '<div class="mono-dim">warming up (not enough history)</div>') +
+      `<div class="mono-dim">Surveyed-site bearing (unvalidated angular accuracy): ${bearing(r.observed_bearing)}</div>` +
+      (world ? `<table><tbody>${world}</tbody></table>` : '') + '</div>';
   }).join('') + scoreHtml(l);
 }
 $('#live-camera').addEventListener('click', () => startLive('camera:0'));

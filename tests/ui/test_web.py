@@ -4,6 +4,8 @@ from __future__ import annotations
 from http.server import ThreadingHTTPServer
 import io
 import json
+import math
+import copy
 from pathlib import Path
 import tempfile
 from threading import Thread
@@ -107,6 +109,40 @@ if __name__ == "__main__":
 
 
 class LiveTimingTests(unittest.TestCase):
+    def test_paced_file_uses_irregular_presentation_times(self):
+        import cv2
+        import numpy as np
+        from aeris.web.live import LiveSession
+
+        class Stages:
+            def __init__(self):
+                self.times = []
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, timestamp_s, **_):
+                self.times.append(timestamp_s)
+                return []
+
+        pts = [1.25, 1.30, 1.45, 1.50, 1.70, 1.75]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "vfr-plan.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (64, 48))
+            for _ in pts:
+                writer.write(np.zeros((48, 64, 3), np.uint8))
+            writer.release()
+            stages = Stages()
+            with mock.patch("aeris.web.live.timestamp_plan", return_value=(pts, "decode_pts", None)):
+                session = LiveSession(path, stages, paced=True, label="vfr-plan")
+                session.start()
+                session._thread.join(timeout=5)
+        self.assertEqual(session.stats["state"], "ended")
+        self.assertEqual(session.stats["timestamp_source"], "decode_pts")
+        self.assertEqual(len(stages.times), len(pts))
+        for actual, source in zip(stages.times, pts):
+            self.assertAlmostEqual(actual, source - pts[0], places=9)
+
     def test_paced_file_uses_media_time_despite_slow_inference(self):
         import time
         import cv2
@@ -119,7 +155,7 @@ class LiveTimingTests(unittest.TestCase):
             def preprocess(self, frame):
                 return frame
             def infer(self, prepared):
-                time.sleep(0.013)                     # jitter source: not a multiple of 1/fps
+                time.sleep(0.07)                     # slower than 20 fps; frames must be dropped
             def postprocess(self, raw, prepared, *, timestamp_s, **_):
                 self.times.append(timestamp_s)
                 return []
@@ -136,6 +172,7 @@ class LiveTimingTests(unittest.TestCase):
             session._thread.join(timeout=10)
         self.assertEqual(session.stats["state"], "ended")
         self.assertGreater(len(stages.times), 3)
+        self.assertGreater(session.stats["dropped"], 0)
         for t in stages.times:                        # every timestamp is a frame time k / 20
             self.assertAlmostEqual(t * 20, round(t * 20), places=6)
 
@@ -145,3 +182,150 @@ class LiveTimingTests(unittest.TestCase):
         cfg = {"r_floor_px": 1.0, "r_position_frac": 0.05}
         self.assertEqual(measurement_sigma_px(SimpleNamespace(size=(200.0, 80.0)), cfg), 10.0)
         self.assertEqual(measurement_sigma_px(SimpleNamespace(size=(8.0, 4.0)), cfg), 1.0)
+
+
+class LiveBearingTests(unittest.TestCase):
+    def test_server_loads_operator_files_at_startup(self):
+        from aeris.web.server import main
+
+        calibration = {"camera_id": "fixture", "width": 64, "height": 48,
+                       "K": [[80, 0, 32], [0, 80, 24], [0, 0, 1]],
+                       "distortion_model": "none", "distortion_coefficients": [],
+                       "calibration_id": "fixture-cal", "quality": "analytic",
+                       "lens": "fixture", "zoom": 1.0}
+        pose = {"schema_version": 1, "pose_id": "fixture-pose", "camera_id": "fixture",
+                "calibration_id": "fixture-cal", "reference_id": "fixture-enu",
+                "position_enu_m": [0, 0, 0],
+                "rotation_camera_to_enu": [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+                "surveyed_at_utc": "2026-10-15T09:00:00Z", "fixed_mount": True}
+        with tempfile.TemporaryDirectory() as tmp:
+            cal_path, pose_path = Path(tmp) / "cal.json", Path(tmp) / "pose.json"
+            cal_path.write_text(json.dumps(calibration))
+            pose_path.write_text(json.dumps(pose))
+            captured = []
+            with mock.patch("aeris.web.server.handler_for", side_effect=lambda state: captured.append(state)), \
+                 mock.patch("aeris.web.server.ThreadingHTTPServer") as server:
+                server.return_value.server_port = 8765
+                self.assertEqual(main(["--no-open", "--calibration", str(cal_path), "--pose",
+                                       str(pose_path), "--current-zoom", "1"]), 0)
+            self.assertEqual(captured[0].camera.calibration.calibration_id, "fixture-cal")
+            self.assertEqual(captured[0].pose.pose_id, "fixture-pose")
+            self.assertEqual(captured[0].current_zoom, 1.0)
+
+    def test_stability_assessment_distinguishes_first_failed_and_moved_frames(self):
+        import numpy as np
+        from aeris.web.live import fixed_camera_stability
+
+        motion = mock.Mock()
+        motion.counters = {"frames": 1}
+        motion.to_ref = np.eye(3)
+        self.assertIsNone(fixed_camera_stability(motion, True, 64, 48))
+        motion.counters["frames"] = 2
+        self.assertIsNone(fixed_camera_stability(motion, False, 64, 48))
+        self.assertTrue(fixed_camera_stability(motion, True, 64, 48))
+        motion.to_ref[0, 2] = 2.0
+        self.assertFalse(fixed_camera_stability(motion, True, 64, 48))
+
+    def test_live_loop_separates_observed_and_causal_forecast_bearings(self):
+        import cv2
+        import numpy as np
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.estimation.camera import Calibration, CameraModel
+        from aeris.estimation.world_bearing import FixedCameraPose
+        from aeris.web.live import LiveSession
+
+        calibration = Calibration.from_dict({
+            "camera_id": "fixture", "width": 64, "height": 48,
+            "K": [[80, 0, 32], [0, 80, 24], [0, 0, 1]],
+            "distortion_model": "none", "distortion_coefficients": [],
+            "calibration_id": "fixture-cal", "quality": "analytic", "lens": "fixture", "zoom": 1.0})
+        pose = FixedCameraPose.from_dict({
+            "schema_version": 1, "pose_id": "fixture-pose", "camera_id": "fixture",
+            "calibration_id": "fixture-cal", "reference_id": "fixture-enu",
+            "position_enu_m": [0, 0, 0],
+            "rotation_camera_to_enu": [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+            "surveyed_at_utc": "2026-10-15T09:00:00Z", "fixed_mount": True})
+
+        class Stages:
+            def __init__(self, future_shift=0):
+                self.future_shift = future_shift
+                self.session = None
+                self.prefix = None
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, frame_index, timestamp_s, **_):
+                if frame_index == 8:
+                    self.prefix = copy.deepcopy(self.session.stats.get("panel"))
+                x = 17.0 + frame_index * 0.6 + (self.future_shift if frame_index >= 8 else 0)
+                return [DetectionRecord(1, "live", frame_index, timestamp_s, 64, 48,
+                                        BBox(x, 18, x + 8, 26), 4, "fixture-v1", 0.95,
+                                        "analytic fixture", {})]
+
+        def motion_class(fail=False, move=False):
+            class Motion:
+                def __init__(self):
+                    self.to_ref = np.eye(3)
+                    self.to_ref[0, 2] = -0.5  # nonidentity scene reference, within stability gate
+                    self.counters = {"frames": 0, "estimated": 0, "failed": 0}
+                def update(self, frame, boxes):
+                    self.counters["frames"] += 1
+                    if fail and self.counters["frames"] == 2:
+                        self.counters["failed"] += 1
+                        return False
+                    if move:
+                        self.to_ref[0, 2] = -2.0 if self.counters["frames"] == 5 else -0.5
+                    self.counters["estimated"] += 1
+                    return True
+                def to_reference(self, xy):
+                    return (xy[0] + self.to_ref[0, 2], xy[1])
+                def from_reference(self, xy):
+                    return (xy[0] - self.to_ref[0, 2], xy[1])
+            return Motion
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "bearing.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (64, 48))
+            for _ in range(14):
+                writer.write(np.zeros((48, 64, 3), np.uint8))
+            writer.release()
+            first_prefix = None
+            for fail, future_shift, move, zoom in ((False, 0, False, 1.0), (False, 8, False, 1.0),
+                                                   (True, 0, False, 1.0), (False, 0, True, 1.0),
+                                                   (False, 0, False, 1.1)):
+                with self.subTest(failed_motion=fail, future_shift=future_shift, move=move, zoom=zoom), \
+                     mock.patch("aeris.web.live.CameraMotion", motion_class(fail, move)):
+                    stages = Stages(future_shift)
+                    session = LiveSession(path, stages, paced=True, label="fixture",
+                                          camera=CameraModel(calibration), pose=pose, current_zoom=zoom)
+                    stages.session = session
+                    session.start()
+                    session._thread.join(timeout=5)
+                    self.assertEqual(session.stats["state"], "ended")
+                    self.assertGreater(session.stats["frames"], 5)
+                    self.assertTrue(stages.prefix and stages.prefix[0]["forecast_bearings"])
+                    if not fail and not move and zoom == 1.0 and future_shift == 0:
+                        first_prefix = stages.prefix
+                    elif future_shift:
+                        self.assertEqual(stages.prefix, first_prefix)  # later detections cannot alter past
+                        continue
+                    row = session.stats["panel"][0]
+                    observed = row["observed_bearing"]
+                    self.assertEqual(observed["issue_time_s"], session.stats["media_t"])
+                    self.assertTrue(row["forecast_bearings"])
+                    for b in row["forecast_bearings"]:
+                        self.assertAlmostEqual(b["target_time_s"], b["issue_time_s"] + b["horizon_s"])
+                        self.assertEqual(b["kind"], "forecast")
+                    if fail or move or zoom != 1.0:
+                        self.assertIsNone(observed["direction_enu"])
+                        self.assertTrue(observed["availability_reason"])
+                        self.assertTrue(all(b["direction_enu"] is None for b in row["forecast_bearings"]))
+                    else:
+                        self.assertIsNotNone(observed["azimuth_deg"])
+                        self.assertTrue(all(b["direction_enu"] is not None for b in row["forecast_bearings"]))
+                        by_horizon = {b["horizon_s"]: b for b in row["forecast_bearings"]}
+                        for forecast in row["forecast"]:
+                            expected = math.degrees(math.atan((forecast["x"] - 32) / 80)) % 360
+                            self.assertAlmostEqual(by_horizon[forecast["horizon_s"]]["azimuth_deg"],
+                                                   expected, places=6)

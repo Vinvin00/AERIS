@@ -35,15 +35,48 @@ button) runs the pipeline as the video plays; the whole file is not processed fi
 **Export full run files** keeps the batch CLI path. A secondary row runs the detector, tracker and 1 s forecast frame by
 frame on a camera (`camera:N`), an `rtsp://`/`http(s)://` stream, or the selected clip
 played at real time, and streams the annotated feed to the page as MJPEG
-(`python/aeris/web/live.py`). Timestamps are seconds since the session started: media
-time (frame position / container fps) for a paced clip, so inference jitter does not
-appear as motion, and monotonic arrival time for a camera or stream (AERIS-024). Forecasts,
+(`python/aeris/web/live.py`). Timestamps are seconds since the session started:
+decoded presentation time relative to the first frame for a paced clip, with a
+marked frame/FPS fallback if PTS are unavailable; camera and stream frames use
+monotonic arrival time. PTS pacing follows variable frame intervals rather than
+inference jitter. Forecasts,
 heading and the prediction-error score are computed in scene-relative pixels: camera
 motion is estimated from background corners each frame and removed, then forecasts are
 mapped back onto the current frame (AERIS-028). If inference is slower than the source, frames are dropped and counted. Live
 sessions write no run artifacts and compute no metrics; rates shown are wall-clock on
 this machine, not a benchmark. Verified on a paced file only; a physical camera or
 network stream has not been exercised.
+
+### Optional live surveyed-site bearings (AERIS-030)
+
+Start the local server with `--calibration CALIBRATION.json --pose POSE.json
+--current-zoom ZOOM` to opt into ENU bearing conversion. Calibration uses the
+existing `Calibration` JSON fields. Pose uses `FixedCameraPose` version 1:
+`pose_id`, matching `camera_id` and `calibration_id`, a named local
+`reference_id`, camera `position_enu_m`, right-handed 3×3
+`rotation_camera_to_enu`, UTC `surveyed_at_utc`, and `fixed_mount: true` as an
+operator assertion. The current zoom is also an operator assertion; it must
+match the calibrated zoom. These files stay local and are not uploaded through
+the browser. Without them, the live panel remains in pixel mode and shows why
+physical bearing is unavailable.
+
+For each observed track, the panel shows the bearing of its exact assigned
+detection center. For each available pixel forecast, it separately shows the
+bearing at the forecast target time. Azimuth is degrees clockwise from north
+in the named local ENU frame; elevation is degrees above the horizon. The
+coordinate conversion uses current-frame original pixels, including after the
+scene-relative display forecast is mapped back to the current frame. It never
+shows target range, 3-D position or aircraft orientation.
+
+The first frame has no movement assessment. Later frames use background motion
+estimation: a failed estimate is unknown, and motion above the untuned 1 px
+corner-displacement threshold invalidates the surveyed pose for the rest of
+that live session. Thus a featureless sky may keep bearing output unavailable.
+This conservative gate is not a certified physical motion sensor. Calibration,
+pose and live-camera angular accuracy and uncertainty have not been measured;
+the tests exercise analytic cameras and a paced file fixture only. Source
+timestamps are media time for paced files and monotonic arrival time for a
+camera or network stream, as described above.
 
 ## Verification and handoff
 

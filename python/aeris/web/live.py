@@ -1,8 +1,9 @@
 """Live detection loop: camera / stream / paced file -> detect -> track -> forecast -> MJPEG.
 
 Timestamps are seconds since the session started and strictly increasing. Paced files
-use media time (frame position / container fps) so inference jitter does not turn into
-apparent motion; cameras and streams use monotonic arrival time. If inference is slower than the
+use decoded presentation times relative to the first frame, with an explicit
+frame/FPS fallback when PTS are unavailable; cameras and streams use monotonic
+arrival time. If inference is slower than the
 source, frames are dropped (camera: always the newest; file: skipped to stay real time)
 and counted. Nothing here is a benchmark; rates are wall-clock on this machine.
 """
@@ -11,14 +12,18 @@ from __future__ import annotations
 from threading import Condition, Event, Thread
 import math
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
 
 from aeris.cli import DEFAULT_MIN_SCORE, draw_states, heading_resolved, measurement_sigma_px
 from aeris.estimation.camera_motion import CameraMotion
+from aeris.estimation.camera import CameraModel, FrameContext
 from aeris.estimation.trajectory import TrajectoryForecaster, forecast_vs_detections
+from aeris.estimation.world_bearing import FixedCameraPose, world_bearing_from_pixel
 from aeris.tracking.tracker import TENTATIVE, KalmanTracker
+from aeris.video.pipeline import timestamp_plan
 
 
 SCORE_WINDOW_S = 60.0  # scored history kept; bounds memory on endless streams
@@ -35,9 +40,33 @@ def load_stages():
     return pipeline.BaselineStages(config, runner, tiles=TILES)
 
 
+def fixed_camera_stability(motion: CameraMotion, estimated: bool, width: int, height: int) -> bool | None:
+    """Whether background evidence still supports the original fixed camera pose.
+
+    The first frame and failed estimation are unknown. A transform that moves any
+    frame corner by more than 1 original pixel is treated as movement. This is an
+    untuned suppression threshold, not a measured mount-stability guarantee.
+    """
+    if motion.counters["frames"] < 2 or not estimated:
+        return None
+    corners = ((0, 0), (width, 0), (0, height), (width, height))
+    for x, y in corners:
+        out = motion.to_ref @ np.array([x, y, 1.0])
+        if not np.all(np.isfinite(out)) or abs(out[2]) < 1e-12:
+            return None
+        if math.hypot(out[0] / out[2] - x, out[1] / out[2] - y) > 1.0:
+            return False
+    return True
+
+
 class LiveSession:
-    def __init__(self, source, stages, *, paced: bool, label: str):
+    def __init__(self, source, stages, *, paced: bool, label: str,
+                 camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
+                 current_zoom: float | None = None):
         self.source, self.stages, self.paced, self.label = source, stages, paced, label
+        self.camera = camera or CameraModel(None)
+        self.pose = pose
+        self.current_zoom = current_zoom
         self.cond = Condition()
         self.jpeg: bytes | None = None
         self.seq = 0
@@ -69,6 +98,9 @@ class LiveSession:
                 self._set(state="failed", message=f"Cannot open source: {self.label}")
                 return
             fps = capture.get(cv2.CAP_PROP_FPS) if self.paced else 0.0
+            pts, timestamp_source, timestamp_reason = (
+                timestamp_plan(Path(self.source), fps, "pts_or_inferred") if self.paced
+                else (None, "monotonic_arrival", None))
             tracker = KalmanTracker("live")
             # Forecasts run in reference-frame (scene-relative) pixels so camera pans do not
             # masquerade as aircraft motion; everything shown is mapped back to the current frame.
@@ -80,9 +112,22 @@ class LiveSession:
             measured: dict[str, list] = {}
             issued: list = []
             score, last_score_t = None, -1e9
-            self._set(state="running", message="Live")
+            pose_invalidated = False
+            self._set(state="running", message="Live", timestamp_source=timestamp_source,
+                      timestamp_reason=timestamp_reason)
             while not self._stop.is_set():
-                if self.paced and fps > 0:
+                if self.paced and pts is not None and position < len(pts):
+                    elapsed = time.monotonic() - start
+                    next_time = pts[position] - pts[0]
+                    if elapsed < next_time:
+                        time.sleep(min(next_time - elapsed, 0.05))
+                        continue
+                    while position + 1 < len(pts) and pts[position + 1] - pts[0] <= elapsed:
+                        if not capture.grab():
+                            raise RuntimeError("decoder ended before probed PTS count")
+                        position += 1
+                        self.stats["dropped"] += 1
+                elif self.paced and pts is None and fps > 0:
                     target = int((time.monotonic() - start) * fps)
                     if position > target:
                         time.sleep((position - target) / fps)
@@ -97,7 +142,12 @@ class LiveSession:
                     return
                 position += 1
                 t0 = time.perf_counter()
-                t = (position - 1) / fps if fps > 0 else time.monotonic() - start
+                if pts is not None:
+                    if position - 1 >= len(pts):
+                        raise RuntimeError("decoded more frames than probed PTS count")
+                    t = pts[position - 1] - pts[0]
+                else:
+                    t = (position - 1) / fps if self.paced else time.monotonic() - start
                 t = max(t, last_t + 1e-6)
                 last_t = t
                 height, width = frame.shape[:2]
@@ -107,7 +157,12 @@ class LiveSession:
                                                 sequence_id="live", frame_index=index, timestamp_s=t)
                 dets = [d for d in found if d.score >= DEFAULT_MIN_SCORE]
                 states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE)
-                motion.update(frame, [d.bbox for d in found])
+                motion_estimated = motion.update(frame, [d.bbox for d in found])
+                stable = fixed_camera_stability(motion, motion_estimated, width, height)
+                if motion.counters["frames"] > 1 and stable is not True:
+                    pose_invalidated = True  # a later stable image cannot restore a surveyed pose
+                if pose_invalidated:
+                    stable = False
                 to_view = np.linalg.inv(motion.to_ref)[:2, :2]      # reference -> current axes
                 forecasts, panel = {}, []
                 for s in states:
@@ -120,7 +175,16 @@ class LiveSession:
                     if s.lifecycle != TENTATIVE:
                         recs = forecaster.forecast(s.track_id, t)
                         row = {"id": s.track_id, "lifecycle": s.lifecycle, "observations": seen_n.get(s.track_id, 0),
-                               "speed_px_s": None, "heading_deg": None, "forecast": []}
+                               "speed_px_s": None, "heading_deg": None, "forecast": [],
+                               "observed_bearing": None, "forecast_bearings": []}
+                        bearing_args = dict(camera=self.camera, pose=self.pose, sequence_id="live",
+                                            track_id=s.track_id, issue_time_s=t, frame_size=(width, height),
+                                            context=FrameContext(zoom=self.current_zoom,
+                                                                 camera_moved=stable is False),
+                                            camera_stable=stable)
+                        if s.observed and s.measurement_center_px is not None:
+                            row["observed_bearing"] = world_bearing_from_pixel(
+                                pixel=s.measurement_center_px, **bearing_args).to_dict()
                         if all(r.center for r in recs):  # velocity() only valid when forecasts exist
                             vx, vy = to_view @ np.array(forecaster.velocity(s.track_id, t)[0])
                             row["speed_px_s"] = math.hypot(vx, vy)
@@ -131,6 +195,8 @@ class LiveSession:
                                 x, y = motion.from_reference(r.center)
                                 row["forecast"].append({"horizon_s": r.horizon_s, "x": x, "y": y,
                                                         "sigma_px": math.sqrt(max(r.covariance[0][0], r.covariance[1][1]))})
+                                row["forecast_bearings"].append(world_bearing_from_pixel(
+                                    pixel=(x, y), horizon_s=r.horizon_s, **bearing_args).to_dict())
                             if r.horizon_s == 1.0 and r.center and row["heading_deg"] is not None:
                                 forecasts[s.track_id] = motion.from_reference(r.center)
                         panel.append(row)
