@@ -11,6 +11,19 @@ const els = {
   steps: [$('#step1'), $('#step2'), $('#step3')]
 };
 const events = [];
+const profileEl = $('#profile');
+async function loadProfiles() {
+  const {profiles, default: fallback} = await api('/api/profiles');
+  profileEl.replaceChildren(...profiles.map(p => Object.assign(document.createElement('option'),
+    {value: p.name, textContent: p.label, title: p.note})));
+  const saved = (() => { try { return localStorage.getItem('aeris-profile'); } catch { return null; } })();
+  profileEl.value = profiles.some(p => p.name === saved) ? saved : fallback;
+  const note = () => { profileEl.title = profiles.find(p => p.name === profileEl.value)?.note || ''; };
+  profileEl.addEventListener('change', () => {
+    note(); try { localStorage.setItem('aeris-profile', profileEl.value); } catch { /* private mode */ }
+  });
+  note();
+}
 const RECOMMENDED = 'a380';
 const LABEL = {idle: 'Idle', preparing: 'Preparing', ready: 'Ready to run', running: 'Analysing',
   complete: 'Complete', failed: 'Failed', cancelled: 'Cancelled', error: 'Problem'};
@@ -311,7 +324,7 @@ $('#hero-demo').addEventListener('click', async () => {
 
 $('#again').addEventListener('click', () => goTo($('#workspace')));
 els.run.addEventListener('click', () => startLive('selected'));
-$('#export-button').addEventListener('click', async () => { errorText = ''; try { render(await post('/api/run')); } catch (e) { fail(e); } });
+$('#export-button').addEventListener('click', async () => { errorText = ''; try { render(await post('/api/run', {profile: profileEl.value})); } catch (e) { fail(e); } });
 els.cancel.addEventListener('click', async () => { autoRun = false; try { render(await post('/api/cancel')); } catch (e) { fail(e); } });
 els.viewOrig.addEventListener('click', () => { showingOverlay = false; if (current) render(current); });
 els.viewOver.addEventListener('click', () => { showingOverlay = true; if (current) render(current); });
@@ -327,6 +340,7 @@ setInterval(() => { els.elapsed.textContent = busySince ? `ELAPSED ${fmtElapsed(
 (async function init() {
   try {
     samples = (await api('/api/samples')).samples;
+    await loadProfiles();
     buildSamples();
     await refresh();
   } catch (e) { errorText = e.message; paintError(); }
@@ -339,7 +353,7 @@ async function startLive(source) {
   errorText = '';
   live.status.textContent = 'Loading detector…';
   try {
-    await post('/api/live/start', {source});
+    await post('/api/live/start', {source, profile: profileEl.value});
     live.view.src = `/api/live/stream?t=${Date.now()}`;
   } catch (e) { live.status.textContent = ''; fail(e); }
 }

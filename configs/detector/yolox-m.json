@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "model": {
+    "name": "yolox-m-coco",
+    "path": "models/onnx/yolox_m.onnx",
+    "sha256": "21ff6cfdeb53b013bac2249599e55f00bff3cfdfdab37ed7a4620818c1d15b3f",
+    "size_bytes": 101259744,
+    "source_url": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_m.onnx",
+    "retrieved": "2026-10-15",
+    "code_license": "Apache-2.0 (github.com/Megvii-BaseDetection/YOLOX, per repository license metadata)",
+    "weight_license": "not separately stated by the release; assumed to follow the repository Apache-2.0 license. UNVERIFIED legal position, see docs/detection.md",
+    "pretraining_data": "MS COCO 2017 train (known overlap risk with any COCO-derived evaluation data)",
+    "export": {
+      "producer": "pytorch 1.7",
+      "opset": 11,
+      "note": "exported upstream by the YOLOX authors, not by AERIS; same raw-head layout as yolox-tiny at 640 px"
+    }
+  },
+  "input": {
+    "size": 640,
+    "layout": "NCHW",
+    "color_order": "BGR",
+    "value_range": "0-255 float32, no mean/std",
+    "pad_value": 114,
+    "resize": "INTER_LINEAR, aspect preserved, top-left placement"
+  },
+  "output": {
+    "shape": [
+      1,
+      8400,
+      85
+    ],
+    "format": "raw head: cx, cy, w, h (log-space per stride), objectness, 80 COCO class scores; strides 8/16/32",
+    "score": "objectness * class_score"
+  },
+  "postprocess": {
+    "score_floor": 0.1,
+    "nms_iou": 0.45,
+    "nms": "class-aware greedy",
+    "max_detections": 100,
+    "score_floor_note": "Low fixed floor for AP; the operating threshold must still be selected on validation data."
+  },
+  "class_mapping_version": "aeris-aircraft-v1",
+  "class_map": {
+    "4": {
+      "coco_name": "airplane",
+      "aeris_class_id": 0
+    }
+  },
+  "class_map_note": "Only COCO airplane maps to aeris-aircraft-v1 class 0; all other COCO classes are dropped. Helicopters, drones and birds have no COCO class here.",
+  "agreement": {
+    "raw_max_abs": 0.001,
+    "box_px": 0.5,
+    "score_abs": 0.001,
+    "note": "Tolerances copied from the yolox-tiny baseline. The two-runtime agreement report has NOT been run for this model."
+  }
+}

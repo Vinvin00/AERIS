@@ -32,6 +32,7 @@ import numpy as np
 
 from aeris import __version__
 from aeris.data.contracts import BBox, DetectionRecord
+from aeris.detection import profiles
 from aeris.estimation.camera import Calibration, CameraModel
 from aeris.estimation.camera_motion import CameraMotion, apply_transform
 from aeris.estimation.trajectory import MODELS as FORECAST_MODELS
@@ -146,7 +147,8 @@ def describe_stages(stages) -> dict:
             "detector_config_sha256": hashlib.sha256(
                 json.dumps(config, sort_keys=True).encode()).hexdigest(),
             "runtime": runner.name, "execution_provider": providers or [runner.name],
-            "precision": "float32", "input_resolution": [size, size], "tiles": getattr(stages, "tiles", 1),
+            "precision": "float32", "input_resolution": [size, size], "profile": getattr(stages, "profile", None),
+            "tiles": getattr(stages, "tiles", 1), "cascade_gate": getattr(stages, "gate", None),
             "weight_license": config["model"]["weight_license"]}
 
 
@@ -508,8 +510,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="estimate background motion so the forecast arrow is scene-relative "
                              "(default; use 'none' for a known fixed camera); written predictions "
                              "and tracks stay in image pixels")
-    parser.add_argument("--tiles", type=int, default=1,
-                        help="also detect on an N x N grid of overlapping crops (small/distant aircraft); 1 = full frame only")
+    parser.add_argument("--profile", choices=tuple(profiles.PROFILES), default=profiles.DEFAULT_PROFILE,
+                        help="detector profile: model, zoom tiles and cascade (see aeris.detection.profiles)")
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--warmup-frames", type=int, default=1)
@@ -550,13 +552,13 @@ def main(argv=None) -> int:
             stages = ReplayStages(args.detections)
         else:
             from aeris.detection import baseline
-            config = baseline.load_config(args.model_config) if args.model_config else baseline.load_config()
             try:
-                model = baseline.verified_model_path(config)
-                runner = baseline.OnnxRuntimeRunner(model)
+                stages = profiles.build(args.profile, args.model_config)
             except (baseline.DetectorError, ImportError) as exc:
                 raise CliError(f"cannot load the detector: {exc} (see models/README.md, or pass --detections)") from exc
-            stages = pipeline.BaselineStages(config, runner, tiles=args.tiles)
+            if stages.gate is not None and stages.gate < args.min_score:
+                raise CliError(f"profile {args.profile!r} gates zoom at {stages.gate}, below --min-score "
+                               f"{args.min_score}: weak full-frame hits would suppress the zoom")
         annotations, dataset_info = _load_annotations(args.annotations)
         manifest = run_pipeline(
             args.input, args.output, stages=stages, sequence_id=args.sequence_id,
