@@ -1216,7 +1216,7 @@
       "objective": "Let prepare --retry succeed when base_commit..HEAD holds ordinary two-parent merge commits or a trusted commit that added a new file under tools/ (PLAN-009), without weakening any gate. A merge commit contributes the files that differ from its first parent and taints them if it touches a write_globs file; root commits, merges with more than two parents and Git errors still fail closed. Files under tools/ stay on the denylist unless they did not exist at base_commit; tools/orchestrate.py and tools/check_tests.py are never eligible. All other TOOL-001 conditions, the 50-file cap and the audit record are unchanged.",
       "status": "planned",
       "depends_on": ["TOOL-001"],
-      "read": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/EVALUATION_LOOP.md", "docs/decisions/TOOL-001-retry-baseline.md", "docs/decisions/PLAN-009-orchestrator-merge-and-new-tool-files.md"],
+      "read": ["tools/orchestrate.py", "docs/EVALUATION_LOOP.md"],
       "write_globs": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/EVALUATION_LOOP.md", "docs/decisions/TOOL-002-*.md"],
       "acceptance": {
         "AC1": "A retry over a range containing a two-parent merge succeeds and records the rebased files; a merge touching a write_globs file taints every file it touches; a root commit, a merge with more than two parents, a non-ancestor base and any Git error still fail closed",
