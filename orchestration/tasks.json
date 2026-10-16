@@ -1209,6 +1209,24 @@
       "required_artifacts": ["scripts/qut_video_pilot.py", "tests/unit/test_qut_video_pilot.py", "benchmarks/qut_video_pilot.json", "docs/public_video_pilot.md", "docs/decisions/031-public-aircraft-video-pilot.md"],
       "checks": ["governance", "unit", "pipeline"],
       "budget": "One public QUT S5 compressed video and its target-centroid CSV, at most 2 MB downloaded total into Git-ignored data/raw. Use existing local model and dependencies; no additional datasets, weights, heavy install, paid resources, training, contract/gate/threshold changes, or physical accuracy claims. At most three attempts and independent review."
+    },
+    {
+      "id": "TOOL-002",
+      "title": "Orchestrator: retry baselines across merge commits and new tool files",
+      "objective": "Let prepare --retry succeed when base_commit..HEAD holds ordinary two-parent merge commits or a trusted commit that added a new file under tools/ (PLAN-009), without weakening any gate. A merge commit contributes the files that differ from its first parent and taints them if it touches a write_globs file; root commits, merges with more than two parents and Git errors still fail closed. Files under tools/ stay on the denylist unless they did not exist at base_commit; tools/orchestrate.py and tools/check_tests.py are never eligible. All other TOOL-001 conditions, the 50-file cap and the audit record are unchanged.",
+      "status": "planned",
+      "depends_on": ["TOOL-001"],
+      "read": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/EVALUATION_LOOP.md", "docs/decisions/TOOL-001-retry-baseline.md", "docs/decisions/PLAN-009-orchestrator-merge-and-new-tool-files.md"],
+      "write_globs": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/EVALUATION_LOOP.md", "docs/decisions/TOOL-002-*.md"],
+      "acceptance": {
+        "AC1": "A retry over a range containing a two-parent merge succeeds and records the rebased files; a merge touching a write_globs file taints every file it touches; a root commit, a merge with more than two parents, a non-ancestor base and any Git error still fail closed",
+        "AC2": "A file under tools/ is overlaid only if absent at base_commit and not tools/orchestrate.py or tools/check_tests.py, even if deleted and re-created; every other denylist entry, the cap and the byte-equal-to-HEAD condition are unchanged and each overlaid path is audited in base.json, prepare output, implementer.md and reviewer.md",
+        "AC3": "Disposable-repository tests cover the merge cases, new and pre-existing tools/ files, a re-created gate file, the replaced merge-refusal test and the unchanged TOOL-001 cases; the abuse tests are shown to fail against the pre-change tool; replaying AERIS-012's attempt-01 baseline against the real repository reports no refusal and lists the tools/audit_publication.py overlay",
+        "AC4": "The amended rule, residual risks and the AERIS-012 reproducer are documented in the ADR and EVALUATION_LOOP.md; existing gates and the other orchestration tests pass"
+      },
+      "required_artifacts": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/decisions/TOOL-002-retry-merges-and-tool-files.md"],
+      "checks": ["governance", "unit"],
+      "budget": "Offline tooling change only: no dependencies, downloads or gate edits; Git is invoked read-only. At most three attempts. A separate independent review must try to abuse the rule."
     }
   ]
 }
