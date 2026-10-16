@@ -36,6 +36,24 @@ New task `TOOL-002` changes `tools/orchestrate.py`, its tests and `docs/EVALUATI
 - Every other denylist entry, the gates and the no-Git behaviour are unchanged. Existing tests pass
   unmodified except the one asserting that a merge commit is refused, which is replaced by tests of the new rule.
 
+## Revision after independent review (2026-10-16)
+
+A fresh reviewer approved with changes. Applied, and owner-confirmed for the `tools/` rule:
+
+- **Shadowing (high).** `lint` and `check_tests.py` run as scripts, so `tools/` is on `sys.path` and a new
+  `tools/json.py` would replace the stdlib module inside the gates. The automatic "absent at base" exception is
+  therefore replaced by an opt-in: `prepare --retry --allow-new-tool <path>` names each path. Only a direct
+  `tools/<name>.py` regular file is eligible, absent from the base tree and the original inventory (casefold + NFC,
+  for case-insensitive APFS), with a stem that is not a stdlib or installed module and not
+  `sitecustomize`/`usercustomize`/`conftest`/`__init__`/`__main__`. The audit record gains size and first lines.
+- **Merge diff (high).** `diff-tree` without `-m` returns nothing for a merge, which would silently defeat tainting.
+  The merge file set is fixed to `diff-tree -m --first-parent`, and the merge hash is added to `commits`. Merging a
+  feature into main taints the feature's files conservatively (accepted false negative, documented).
+- **Spec hygiene.** TOOL-002 now states that it amends TOOL-001 AC1/AC2, enumerates the Git failures and merge cases,
+  and pins the AERIS-012 replay (read-only `rebase_candidates`, stored output) instead of "the real repository".
+- `REBASE_NEVER` is kept as a defensive guard but is redundant with the base checks; a mutation test must show
+  that each new guard is caught.
+
 ## Risks and why they are acceptable
 
 A merge can carry a conflict resolution that is not in any single commit. The byte-equal-to-HEAD check
