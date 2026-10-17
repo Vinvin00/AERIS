@@ -256,8 +256,79 @@ class AvailabilityTests(PipelineCase):
         assert fixed["forecast_vs_detections_scene"]["available"] is False
         assert pan["forecast_vs_detections_scene"]["models"]["constant_velocity"]["1.0"]["scored"] > 5
         assert self.manifest("pan")["camera_motion"] == "estimate"
+        assert pan["forecast_vs_detections_displayed_frame"] == "reference frame (scene-relative)"
+        assert fixed["forecast_vs_detections_displayed_frame"] == "original frame"
         for name in ("predictions.jsonl", "tracks.csv"):              # written outputs stay image-space
             assert (self.out("fixed") / name).read_bytes() == (self.out("pan") / name).read_bytes(), name
+
+    def test_live_loop_gates_the_arrow_like_the_batch_overlay(self):
+        """AERIS-026 live path: a stationary target gets no arrow, a steadily moving one does."""
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.web import live
+
+        def run(step_px):
+            class Stages:
+                def preprocess(self, frame):
+                    return frame
+                def infer(self, prepared):
+                    return None
+                def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
+                    x = 40 + step_px * frame_index
+                    return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
+                                            BBox(x, 50, x + 24, 62), 0, "aeris-aircraft-v1", 0.9, "test", {})]
+            drawn, original = [], live.draw_states
+
+            def spy(frame, items):
+                drawn.extend(f for _, f in items if f is not None)
+                return original(frame, items)
+            clip = self.tmp / f"live-{step_px}.avi"
+            writer = cv2.VideoWriter(str(clip), cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (W, H))
+            for _ in range(20):
+                writer.write(np.zeros((H, W, 3), np.uint8))
+            writer.release()
+            with mock.patch.object(live, "draw_states", spy):
+                session = live.LiveSession(str(clip), Stages(), paced=True, label="gate")
+                session.start()
+                session._thread.join(timeout=10)
+            return len(drawn)
+        assert run(0) == 0                                          # stationary: heading undefined
+        assert run(3) > 5                                           # 60 px/s at 20 fps: arrows drawn
+
+    def test_scene_relative_arrow_is_mapped_back_to_the_current_frame(self):
+        """Camera pans 4 px/frame while the aircraft moves +3 px/frame in the scene (30 px/s at 10 fps):
+        in the image it drifts -1 px/frame. The drawn 1 s arrow must show the scene motion in
+        current-frame pixels (about +30 px), not image drift (-10 px) or reference-frame positions."""
+        noise = (np.random.default_rng(2).random((H, W + 4 * N)) * 255).astype(np.uint8)
+        scene = cv2.cvtColor(cv2.normalize(cv2.GaussianBlur(noise, (0, 0), 2), None, 0, 255,
+                                           cv2.NORM_MINMAX), cv2.COLOR_GRAY2BGR)
+        clip, frames = self.tmp / "pan-move.avi", {}
+        writer = cv2.VideoWriter(str(clip), cv2.VideoWriter_fourcc(*"MJPG"), FPS, (W, H))
+        for i in range(N):
+            image = scene[:, 4 * i:4 * i + W].copy()
+            x0 = 100 - i                                       # scene x = 100 + 3i, camera x = 4i
+            cv2.rectangle(image, (x0, 40), (x0 + 20, 56), (255, 255, 255), -1)
+            writer.write(image)
+            frames[str(i)] = [{"bbox": [x0, 40, x0 + 20, 56], "class_id": 0, "score": 0.9}]
+        writer.release()
+        self.replay.write_text(json.dumps({"frames": frames}))
+        captured, original, boxes = {}, cli.render_overlay, []
+        original_update = cli.CameraMotion.update
+
+        def spy(video, out, drawn, fps):
+            captured.update(drawn)
+            return original(video, out, drawn, fps)
+
+        def update_spy(motion, frame_bgr, boxes_arg=()):
+            boxes.append(len(list(boxes_arg)))
+            return original_update(motion, frame_bgr, boxes_arg)
+        with mock.patch.object(cli, "render_overlay", spy), mock.patch.object(cli.CameraMotion, "update", update_spy):
+            assert self.run_cli("pan-move", clip=clip) == 0                  # estimate is the default
+        assert len(boxes) == N and min(boxes) >= 1                          # detections are masked out
+        arrows = [(f[0] - s.center[0], f[1] - s.center[1]) for items in captured.values()
+                  for s, f in items if f is not None]
+        assert len(arrows) > 5
+        dx, dy = float(np.median([a[0] for a in arrows])), float(np.median([a[1] for a in arrows]))
+        assert abs(dx - 30.0) < 6 and abs(dy) < 6, (dx, dy)
 
     def test_missing_calibration_nulls_angular_columns_with_a_reason(self):
         assert self.run_cli() == 0

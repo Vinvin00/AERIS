@@ -398,6 +398,8 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                    scene_measured if scene else measured,
                    [p for p in (scene_predictions if scene else predictions)
                     if (p.track_id, p.issue_time_s) in displayed], models=["constant_velocity"]),
+               "forecast_vs_detections_displayed_frame": ("reference frame (scene-relative)" if scene
+                                                          else "original frame"),
                "forecast_vs_detections_scene": forecast_vs_detections(
                    scene_measured, scene_predictions, models=["constant_velocity"]) if scene else
                    {"available": False, "reason": "camera motion not estimated (--camera-motion none)"},
@@ -435,6 +437,8 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
         benchmark = {
             "schema_version": 1,
             "scope": "offline recorded file; wall-clock perf_counter on this machine; not a benchmark",
+            "camera_motion_note": ("camera-motion estimation runs inside the decode pass and is not attributed "
+                                   "to any stage; it is included in wall_clock_s only"),
             "stages": {**{k: result["stage_summary"][k] for k in
                           ("decode", "preprocess", "inference", "postprocess", "total")},
                        "track": _summary(track_times[warmup_frames:]),

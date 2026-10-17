@@ -308,6 +308,30 @@ class VelocityTests(unittest.TestCase):
         assert sigmas[-1][0] < sigmas[1][0] and sx == sy                # same noise on both axes
         assert f.velocity("A", 2.4)[1][0] > sx                          # uncertainty grows while coasting
 
+    def test_velocity_std_matches_an_independent_filter(self):
+        """Pins the velocity variance P[1,1] (not the position variance) against a hand-written
+        constant-velocity Kalman filter with the module defaults, irregular dt, then coasting."""
+        q, v0, r = 100.0 ** 2, 100.0, 2.0
+        f = TrajectoryForecaster("s", "constant_velocity")
+        x = p = last = None
+        for t in (0.0, 0.1, 0.25, 0.3, 0.5):
+            z = 30.0 * t
+            f.update("A", t, (z, 0.0), r)
+            if p is None:
+                x, p, last = np.array([z, 0.0]), np.diag([r * r, v0 * v0]), t
+                continue
+            dt, last = t - last, t
+            fm = np.array([[1.0, dt], [0.0, 1.0]])
+            x, p = fm @ x, fm @ p @ fm.T + q * np.array([[dt**3 / 3, dt**2 / 2], [dt**2 / 2, dt]])
+            k = p[:, 0] / (p[0, 0] + r * r)
+            x, p = x + k * (z - x[0]), p - np.outer(k, p[0, :])
+        (vx, _), (sx, _) = f.velocity("A", 0.5)
+        assert abs(vx - x[1]) < 1e-6 and abs(sx - np.sqrt(p[1, 1])) < 1e-6
+        dt = 0.35
+        fm = np.array([[1.0, dt], [0.0, 1.0]])
+        coast = fm @ p @ fm.T + q * np.array([[dt**3 / 3, dt**2 / 2], [dt**2 / 2, dt]])
+        assert abs(f.velocity("A", 0.85)[1][0] - np.sqrt(coast[1, 1])) < 1e-6
+
 
 def pred(issue, horizon, center, model="cv"):
     return PredictionRecord(1, "s", "A", issue, horizon, issue + horizon, center, None,

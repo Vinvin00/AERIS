@@ -45,8 +45,13 @@ not a like-for-like accuracy comparison):
 | estimate | 59 / 0 | 54 | 2.0° / 5.9° |
 
 Rendered overlays show the camera panning left with the aircraft; with compensation the
-arrow points left along the flight path on every sampled frame, without it the arrow is
-missing at frames 45 and 55. The live view on the same clip estimated 57 of 57 steps.
+arrow points left along the flight path on every sampled frame. Counting every frame (2x2
+tiles, overlay drawing captured from the render pass): without compensation 29 of the 58
+tracked frames have no arrow, including frames 44–51 and 56–59 in the panning stretch; with
+it only frames 2–4 (track warm-up) lack one. (Corrected after formal review, 2026-10-16: the
+earlier text said the uncompensated arrow was missing at frames 45 and 55; frame 55 has one.)
+The live view on the same clip estimated 57 of 57 steps in one run; the count depends on
+dropped frames.
 
 Review follow-ups (2026-10-15): the pan integration test now also asserts that
 `predictions.jsonl` and `tracks.csv` are byte-identical between `none` and `estimate`; the live
@@ -56,6 +61,17 @@ panel heading used `atan2(vy, vx)` (clockwise, 90 = down) while `tracks.csv` and
 camera-motion failure path on blank frames. The module docstring no longer says estimation is
 "never worse": that holds only for failed steps. Motion-estimation time runs inside the frame
 hook and is not attributed to any stage in `benchmark.json` (wall clock only).
+
+Formal-review follow-ups (2026-10-16): tests now cover masking with a strongly textured
+target that dominates the corners (at 640x360 and at 1280x720, where the fit runs on a
+downscaled copy and the mask must be scaled), an HD clip with uneven pan, rotation and zoom
+checked against the true transform at the frame corners (fails if the chain order is
+swapped or the downscale conversion is skipped), the batch arrow mapped back to the current
+frame under a pan with scene motion, and the live panel heading and 1 s forecast on a
+textured panning clip. `metrics.json` names the coordinate frame of
+`forecast_vs_detections_displayed` (reference frame with camera motion, original frame without),
+and `benchmark.json` notes that motion estimation is not attributed to a stage. A failed
+step keeps the accumulated transform, so it equals the uncompensated case for that step only.
 
 Limits: errors accumulate along the chain; a moving background (waves, clouds in wind,
 other aircraft not detected) biases the estimate; zoom is modelled only as uniform scale;

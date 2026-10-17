@@ -363,7 +363,8 @@ class LivePanelTests(unittest.TestCase):
                 writer.write(np.zeros((240, 320, 3), np.uint8))
             writer.release()
             with mock.patch("aeris.web.live.timestamp_plan", return_value=(None, "inferred_fps", "test")):
-                session = LiveSession(path, Mover(), paced=False, label="blank")
+                # paced: media-time timestamps (1/20 s); unpaced wall-clock deltas depend on machine speed
+                session = LiveSession(path, Mover(), paced=True, label="blank")
                 session.start()
                 session._thread.join(timeout=10)
         stats = session.stats
@@ -372,3 +373,137 @@ class LivePanelTests(unittest.TestCase):
         self.assertAlmostEqual(row["heading_deg"], 45.0, delta=2.0)
         self.assertEqual(stats["camera_motion"]["estimated"], 0)
         self.assertGreater(stats["camera_motion"]["failed"], 20)
+
+
+class ForecastNoiseCallSiteTests(unittest.TestCase):
+    """AERIS-024 AC2 at the call sites: the batch CLI and the live loop must pass
+    measurement_sigma_px to the forecasters (0.05 x 200 px = 10 px for a 200x80 box),
+    not the old fixed 1 px. A formula-only test cannot catch a call site reverting."""
+
+    @staticmethod
+    def _clip(tmp, frames=8):
+        import cv2
+        import numpy as np
+        path = Path(tmp) / "blank.avi"
+        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10.0, (320, 240))
+        for _ in range(frames):
+            writer.write(np.zeros((240, 320, 3), np.uint8))
+        writer.release()
+        return path
+
+    @staticmethod
+    def _box(i):
+        x = 40 + 4 * i
+        return [x, 80, x + 200, 160]                      # 200x80: larger side 200 px
+
+    @staticmethod
+    def _spy():
+        from aeris.estimation.trajectory import TrajectoryForecaster
+        sigmas, original = [], TrajectoryForecaster.update
+
+        def spy(forecaster, track_id, timestamp_s, center, sigma_px=1.0):
+            sigmas.append(sigma_px)
+            return original(forecaster, track_id, timestamp_s, center, sigma_px)
+        return sigmas, mock.patch.object(TrajectoryForecaster, "update", spy)
+
+    def test_live_loop_passes_box_relative_noise(self):
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.web.live import LiveSession
+        box = self._box
+
+        class Stages:
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
+                return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
+                                        BBox(*box(frame_index)), 0, "aeris-aircraft-v1", 0.9, "test", {})]
+
+        sigmas, patch = self._spy()
+        with tempfile.TemporaryDirectory() as tmp, patch:
+            session = LiveSession(str(self._clip(tmp)), Stages(), paced=False, label="blank")
+            session.start()
+            session._thread.join(timeout=10)
+        self.assertGreater(len(sigmas), 3)
+        self.assertTrue(all(abs(s - 10.0) < 1e-6 for s in sigmas), sigmas)
+
+    def test_batch_cli_passes_box_relative_noise(self):
+        from aeris import cli
+        sigmas, patch = self._spy()
+        with tempfile.TemporaryDirectory() as tmp:
+            replay = Path(tmp) / "replay.json"
+            replay.write_text(json.dumps({"frames": {str(i): [{"bbox": self._box(i), "class_id": 0, "score": 0.9}]
+                                                     for i in range(8)}}))
+            with patch:
+                cli.run_pipeline(self._clip(tmp), Path(tmp) / "out", stages=cli.ReplayStages(replay),
+                                 render=False, command=["test"])
+        self.assertGreaterEqual(len(sigmas), 8)
+        self.assertTrue(all(abs(s - 10.0) < 1e-6 for s in sigmas), sigmas)
+
+
+class LiveScenePanelTests(unittest.TestCase):
+    def test_live_panel_is_scene_relative_under_a_pan(self):
+        """Textured clip panning 5 px/frame; the aircraft moves +3 px/frame in the scene (60 px/s at
+        20 fps), so in the image it drifts -2 px/frame. The panel heading must read about 0 deg
+        (scene motion to the right) and the 1 s forecast, in the panel and as the drawn arrow, must
+        lie about +60 px from the aircraft in current-frame pixels, not at image drift (-40 px) or in
+        reference-frame coordinates. The stub detector is keyed on media time, not on the processed
+        frame count, so frames dropped by the paced loop cannot desynchronise box and image."""
+        import cv2
+        import numpy as np
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.web.live import LiveSession
+        frames, width, height = 30, 320, 240
+        noise = (np.random.default_rng(4).random((height, width + 5 * frames)) * 255).astype(np.uint8)
+        scene = cv2.cvtColor(cv2.normalize(cv2.GaussianBlur(noise, (0, 0), 2), None, 0, 255,
+                                           cv2.NORM_MINMAX), cv2.COLOR_GRAY2BGR)
+
+        def image_x(i):
+            return 120 - 2 * i                                 # scene x 120 + 3i minus camera x 5i
+
+        class Stages:
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
+                x = image_x(round(timestamp_s * 20))           # decoded frame position from media time
+                return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
+                                        BBox(x - 12, 100, x + 12, 112), 0, "aeris-aircraft-v1", 0.9, "test", {})]
+
+        import aeris.web.live as live
+        from aeris.estimation.camera_motion import CameraMotion
+        drawn, boxes = [], []
+        original_draw, original_update = live.draw_states, CameraMotion.update
+
+        def draw_spy(frame, items):
+            drawn.append([f for _, f in items])
+            return original_draw(frame, items)
+
+        def update_spy(motion, frame_bgr, boxes_arg=()):
+            boxes.append(len(list(boxes_arg)))
+            return original_update(motion, frame_bgr, boxes_arg)
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(live, "draw_states", draw_spy), \
+                mock.patch.object(CameraMotion, "update", update_spy):
+            path = str(Path(tmp) / "pan.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (width, height))
+            for i in range(frames):
+                image = scene[:, 5 * i:5 * i + width].copy()
+                cv2.rectangle(image, (image_x(i) - 12, 100), (image_x(i) + 12, 112), (255, 255, 255), -1)
+                writer.write(image)
+            writer.release()
+            session = LiveSession(path, Stages(), paced=True, label="pan")
+            session.start()
+            session._thread.join(timeout=10)
+        stats = session.stats
+        self.assertGreater(stats["camera_motion"]["estimated"], frames // 2)
+        row = stats["panel"][0]
+        heading = (row["heading_deg"] + 180) % 360 - 180               # wrap to (-180, 180]
+        self.assertLess(abs(heading), 10, row)
+        one_s = [f for f in row["forecast"] if f["horizon_s"] == 1.0][0]
+        last = image_x(round(stats["media_t"] * 20))
+        self.assertLess(abs(one_s["x"] - (last + 60)), 3, (one_s, last))
+        self.assertLess(abs(drawn[-1][0][0] - (last + 60)), 3, (drawn[-1], last))   # drawn arrow
+        self.assertTrue(boxes and min(boxes) >= 1, boxes)          # detections are masked out

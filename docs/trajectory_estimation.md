@@ -100,5 +100,6 @@ constant-velocity forecaster runs on measurements in that reference frame and dr
 and heading gate; the arrow is mapped back onto the current frame. `predictions.jsonl` and the
 label-based evaluators are unchanged (original-frame pixels). `metrics.json` adds
 `forecast_vs_detections_scene` and `camera_motion` counts. A step with too few background
-corners is counted as failed and treated as no motion, which equals the uncompensated case.
+corners is counted as failed and treated as no motion for that step (the accumulated transform
+is kept), which equals the uncompensated case for that step only.
 
