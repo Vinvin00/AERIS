@@ -163,5 +163,17 @@ rebuilt by cherry-picking onto the new after-states (`replay-dry-2`, `replay-dry
 before use; an `ec09d38` defect surfaced on the way (`LivePanelTests` unpaced, wall-clock timing made it
 order-dependent) and was fixed in the 028 delta. Every review-driven change (tests, ADR 026/028
 corrections, two `metrics.json`/`benchmark.json` metadata strings) was then ported onto `main` and
-mutation-checked there. Open minors are listed in `docs/PROJECT_STATE.md`. Integration results are
-recorded in the commit that copies the evidence back.
+mutation-checked there. Open minors are listed in `docs/PROJECT_STATE.md`.
+
+Copy-back (2026-10-17): with no orchestrator process running and no open attempt, `AERIS-023/attempt-03`
+and `AERIS-024`..`AERIS-028` were copied into the shared `orchestration/runs/` and only those six keys
+were added to `state.json` (18 pre-existing entries byte-identical; each new entry's report and review
+hashes match the copied files; `status` lists all six accepted). Recorded fingerprints describe the
+replay trees, not the shared checkout. The replay states remain on local branches `replay-dry`,
+`replay-dry-2` and `replay-dry-3`, which reviews cite.
+
+Integration (2026-10-17), clean worktree at `main` `1e2b75e`, `git status` empty: pytest 296 passed,
+1 skipped (real-sample smoke test, local sample absent); `tools/check_tests.py` OK (1 skip); `ruff`
+clean; `orchestrate lint` valid; CLI on `tangier-landing-6s.mp4` (defaults) exit 0, camera motion 59
+estimated / 0 failed, displayed 1 s arrows 54 with direction median 2.0 deg and p90 5.9 deg, matching
+ADR 028.
