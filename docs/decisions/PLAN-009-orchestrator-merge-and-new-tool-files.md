@@ -71,3 +71,19 @@ three parents, a re-created `tools/orchestrate.py`, a new `tools/` file that sha
   `pyproject.toml` and `docs/mvp.md` were touched by other tasks since the baseline; those commits touch
   AERIS-012 `write_globs` files, so the preserved work must be reconciled by the implementer, not rebased.
 - TOOL-001's ADR and AC1 are amended by TOOL-002's ADR; its historical record stays as written.
+
+## Addendum 2026-10-17: packet size (owner decision)
+
+TOOL-002 attempt 01 was verified, then revised by its independent reviewer (AC3 mutation coverage; wording errors
+about `git diff-tree --first-parent`). The retry packet came to about 170 KB against the 160 KB cap in `prepare`,
+mainly because every `docs/decisions/*.md` (35 files, about 77 KB) is added to every packet. The owner chose to fix
+the cause inside TOOL-002 rather than widen its scope or drop its `read` list (editing the task's own entry would
+make `orchestration/tasks.json` an out-of-scope change on retry).
+
+Rule to implement in `prepare` (and the reviewer packet if it shares the code): include a decision record in the
+packet only if it is named in the task's `read` list, matches the task's own `write_globs` (e.g. its own ADR),
+belongs to a direct dependency (filename starts with the dependency id), or is `0001-scope.md`. All others are
+listed by name in a short "Decision records not included" section, never silently dropped. The 160 KB check still
+fails closed. This does not change what a task may do, only what the packet pre-loads; the implementer already
+reads the repository. Reviewer must confirm the omitted-ADR list is printed and that all existing packet tests
+pass except any that asserted blanket inclusion, which are updated and named in the report.
