@@ -90,6 +90,15 @@ artifact store before moving machines. Do not commit private source data or secr
 Reviews were run by separate subagent sessions launched by the coordinator, so their
 independence is operational only.
 
+- AERIS-023 to AERIS-028 (exact tracker measurements; forecast timing and noise; forecasts scored
+  against later detections; arrow heading gate; low-score track extension; scene-relative forecasts
+  under camera motion, default `--camera-motion estimate`), accepted 2026-10-17 by historical replay
+  under PLAN-010 (`docs/decisions/PLAN-010-replay-acceptance-023-028.md`) in an isolated worktree,
+  each with a fresh independent reviewer. 024, 026 and 028 needed 2, 2 and 3 attempts; every
+  review-driven test, ADR correction and metadata change was then landed on `main`. Evidence:
+  `orchestration/runs/AERIS-02{3..8}/`. One-clip smoke numbers only; **no real tracking, direction
+  or forecast accuracy exists**.
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |
@@ -107,6 +116,15 @@ independence is operational only.
 | TOOL-001 | Direct `subprocess.run` calls in `rebase_candidates`/`_verify_explicit_base`/`merge-base` skip the `GIT_*` env scrub that `_git` applies; `_commit_files` raises UnicodeDecodeError (still fail-closed) on non-UTF-8 paths; no explicit coordinator override for accepted changes to denylisted paths or a task's own contract (would remove the last widening need) | follow-up tooling task |
 | 007 | Regression-schema reference checker lets NaN threshold/tolerance, duplicate seeds, a draft with split hashes or freeze fields, and a hash with a trailing newline pass; `baseline_manifest_sha256` is not checked against the manifest; R6 `min_support` untested; docs wording "null-effect seed list" unclear | AERIS-015 enforcement or a contract-change task |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
+
+- AERIS-023..028 replay reviews (all minor): CliError guard and per-pair spy assertions (023);
+  `__main__` blocks placed before newer test classes in `tests/ui/test_web.py`,
+  `tests/unit/test_trajectory.py` and `tests/unit/test_tracking.py` (running a file directly skips
+  them; discovery-based checks are unaffected); tall-box sigma and frame-drop timing cases (024);
+  ±180° wrap, float-sum tolerance, raw-detection reference and tiny predicted displacement (025);
+  jittered stationary target, runnable sweep command, `velocity()` guards (026); live low-score path,
+  detection-metric input, score == threshold boundary, ADR 027 smoke provenance (027); live
+  `to_view` rotation under camera roll (028).
 
 ## Owner decisions blocking real video evidence (not G1)
 
