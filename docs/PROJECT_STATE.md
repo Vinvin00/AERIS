@@ -1,7 +1,7 @@
 # Durable project state
 
 As of 2026-09-30: no perception pipeline, trained model, real video benchmark,
-or published release exists. AERIS-001 through AERIS-006, AERIS-007, AERIS-008, AERIS-009, AERIS-010, AERIS-011 and TOOL-001 are accepted. G1 is
+or published release exists. AERIS-001 through AERIS-006, AERIS-007, AERIS-008, AERIS-009, AERIS-010, AERIS-011, TOOL-001 and TOOL-002 are accepted. G1 is
 complete as an engineering/data-QA milestone, not a detection milestone. Three
 original FGVC image/label pairs were inspected; the full archive was not acquired.
 
@@ -99,6 +99,16 @@ independence is operational only.
   `orchestration/runs/AERIS-02{3..8}/`. One-clip smoke numbers only; **no real tracking, direction
   or forecast accuracy exists**.
 
+- TOOL-002 orchestrator retry across merges and opted-in tool files (`tools/orchestrate.py`,
+  `tests/test_orchestration.py`, `docs/EVALUATION_LOOP.md`, ADR TOOL-002, PLAN-009), accepted
+  2026-10-20 on attempt 02 (attempt 01 revised for untested guards and inaccurate evidence) after 78
+  orchestration tests, 328 full-suite tests and a fresh independent review (30 mutations, 29 killed,
+  the survivor equivalent). Two-parent merges no longer block a retry; a new `tools/<name>.py` is
+  overlaid only with `--allow-new-tool <path>` after name, base and importability checks. `prepare` now
+  omits unrelated decision records from the packet (listed by name) and leaves no half attempt folder
+  after a size refusal. AERIS-012 attempt 03 command:
+  `prepare AERIS-012 --retry --allow-new-tool tools/audit_publication.py`.
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |
@@ -115,6 +125,7 @@ independence is operational only.
 | 010 | Half-update on PSD failure and the chi-square 0.5 assertion fixed 2026-10-07 after acceptance (atomic update, quantile test); post-acceptance change without a fresh independent review. Still open: `eligible_truth` does not reject duplicate identity timestamps (unreachable via `evaluate_forecasts`) | Mostly closed |
 | TOOL-001 | Direct `subprocess.run` calls in `rebase_candidates`/`_verify_explicit_base`/`merge-base` skip the `GIT_*` env scrub that `_git` applies; `_commit_files` raises UnicodeDecodeError (still fail-closed) on non-UTF-8 paths; no explicit coordinator override for accepted changes to denylisted paths or a task's own contract (would remove the last widening need) | follow-up tooling task |
 | 007 | Regression-schema reference checker lets NaN threshold/tolerance, duplicate seeds, a draft with split hashes or freeze fields, and a hash with a trailing newline pass; `baseline_manifest_sha256` is not checked against the manifest; R6 `min_support` untested; docs wording "null-effect seed list" unclear | AERIS-015 enforcement or a contract-change task |
+| TOOL-002 | Dependency-prefix ADR inclusion rule matches few AERIS-NNN ADRs (named `NNN-*.md`); unmatched/duplicate `--allow-new-tool` paths are recorded in `base.json` and only warned on stderr; NFD-committed names are neither overlaid nor refused; mutation script is outside the repo | follow-up tooling task |
 | 002 N4 | Wording: the report says 18 object patterns (17 in fact); ADR 002 says session splitting is "the only rule" preventing leakage (overstated) | next ADR 002 touch |
 
 - AERIS-023..028 replay reviews (all minor): CliError guard and per-pair spy assertions (023);

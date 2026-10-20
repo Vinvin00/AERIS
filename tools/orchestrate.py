@@ -3,12 +3,14 @@
 import argparse
 import fnmatch
 import hashlib
+import importlib.machinery
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +23,11 @@ DIMENSIONS = ("correctness", "tests", "reproducibility", "contracts", "scope")
 # Never overlaid into a retry baseline: a weakened verifier or contract must not be committable-then-retried.
 REBASE_DENYLIST = ("orchestration/gates.json", "tools/", "tests/test_orchestration.py",
                    "orchestration/prompts/", ".github/", "AGENTS.md", "docs/CONTRACTS.md")
+# tools/ is on sys.path when the gates run, so a new tools/ file is overlaid only when the owner names it
+# (prepare --retry --allow-new-tool) and it passes _check_new_tool. REBASE_NEVER is defensive: gate files
+# exist at base, so the absent-at-base test already rejects them.
+REBASE_NEVER = ("orchestrate.py", "check_tests.py")
+NEVER_STEMS = ("sitecustomize", "usercustomize", "conftest", "__init__", "__main__")
 REBASE_MAX_FILES = 50
 
 
@@ -190,9 +197,11 @@ class Workflow:
         require(len(out) == 40, "Unexpected HEAD value from Git")
         return out
 
-    def _commit_files(self, commit):
-        out = self._git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--no-renames", "--root",
-                        commit, text=False)
+    def _commit_files(self, commit, merge=False):
+        """Files a commit changes; for a merge, those differing from its first parent. (Plain diff-tree
+        prints nothing for a merge, `-m` diffs against every parent, and diff-tree has no --first-parent.)"""
+        out = self._git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--no-renames",
+                        *([f"{commit}^1", commit] if merge else ["--root", commit]), text=False)
         return [name.decode() for name in out.split(b"\0") if name]
 
     def _verify_explicit_base(self, commit, original):
@@ -205,7 +214,7 @@ class Workflow:
             require(digest(self._git("show", f"{commit}:{name}", text=False)) == expected,
                     f"--base-commit does not match the recorded baseline ({name})")
 
-    def rebase_candidates(self, task, original, base_commit, explicit, current):
+    def rebase_candidates(self, task, original, base_commit, explicit, current, allow_new_tool=()):
         """Files to overlay onto the original baseline, as ``({path: sha256|None}, audit list)``."""
         head = self._head()
         commit = self._git("rev-parse", "--verify", f"{base_commit}^{{commit}}").strip()
@@ -215,12 +224,15 @@ class Workflow:
                 "(history was rewritten); refusing to rebase the retry baseline")
         if explicit:
             self._verify_explicit_base(commit, original)
+        allowed = {self._check_new_tool(a, commit, head, original): a for a in allow_new_tool}
         commits = [c for c in self._git("rev-list", "--reverse", f"{commit}..{head}").split() if c]
         touched, tainted_files = {}, set()
         for c in commits:
-            require(len(self._git("rev-list", "--parents", "-n", "1", c).split()) == 2,
-                    f"Merge or root commit {c[:10]} in the retry range; refusing to rebase")
-            files = self._commit_files(c)
+            parents = self._git("rev-list", "--parents", "-n", "1", c).split()[1:]
+            require(len(parents) in (1, 2),
+                    f"Root commit or merge with {len(parents)} parents ({c[:10]}) in the retry range; "
+                    "refusing to rebase")
+            files = self._commit_files(c, len(parents) == 2)
             if any(fnmatch.fnmatchcase(f, pattern) for f in files for pattern in task["write_globs"]):
                 tainted_files.update(files)   # task work (or a mixed commit): trust none of its files
             else:
@@ -228,7 +240,7 @@ class Workflow:
                     touched.setdefault(f, []).append(c[:10])
         overlay, audit = {}, []
         for path in sorted(touched):
-            if path in tainted_files or path.startswith(REBASE_DENYLIST):
+            if path in tainted_files or (path.startswith(REBASE_DENYLIST) and path not in allowed.values()):
                 continue
             if any(fnmatch.fnmatchcase(path, pattern) for pattern in task["write_globs"]):
                 continue
@@ -243,16 +255,53 @@ class Workflow:
                 overlay[path] = None
                 audit.append({"path": path, "sha256": None, "commits": touched[path], "action": "drop"})
                 continue
+            if path in allowed.values() and not self._git("ls-tree", head, "--", path).startswith(("100644 blob", "100755 blob")):
+                continue                                 # symlink or gitlink
             committed = self._git("show", f"{head}:{path}", text=False)
             if not target.is_file() or target.is_symlink() or target.read_bytes() != committed:
                 continue                                 # dirty, untracked or hidden by a Git flag
             new = digest(committed)
             if path in current and original.get(path) != new:
                 overlay[path] = new
-                audit.append({"path": path, "sha256": new, "commits": touched[path], "action": "overlay"})
+                entry = {"path": path, "sha256": new, "commits": touched[path], "action": "overlay"}
+                if path in allowed.values():
+                    entry.update(size=len(committed), first_lines=[
+                        line if len(line) <= 200 else line[:200] + "...[truncated]"
+                        for line in committed.decode(errors="replace").splitlines()[:3]])
+                audit.append(entry)
+        for name in allow_new_tool:
+            if name not in overlay:
+                print(f"WARNING: --allow-new-tool {name} matched no overlay candidate (not committed, dirty, tainted, "
+                      "not a regular file or already in the baseline); nothing was overlaid for it", file=sys.stderr)
         require(len(audit) <= REBASE_MAX_FILES,
                 f"{len(audit)} files would be rebased (limit {REBASE_MAX_FILES}); refusing")
         return commit, overlay, audit
+
+    def _check_new_tool(self, path, base, head, original):
+        """Validate an owner-named tools/ path; returns it. Raises on anything that could shadow an import."""
+        norm = lambda text: unicodedata.normalize("NFC", text).casefold()
+        parts = path.split("/")
+        require(len(parts) == 2 and parts[0] == "tools" and parts[1].endswith(".py"),
+                f"--allow-new-tool needs a direct child tools/<name>.py, got {path!r}")
+        name, stem = parts[1], parts[1][:-3]
+        require(norm(name) not in REBASE_NEVER and norm(stem) not in {m.casefold() for m in sys.stdlib_module_names}
+                and norm(stem) not in NEVER_STEMS and stem.isidentifier(),
+                f"--allow-new-tool refuses {path}: gate, stdlib or special module name")
+        search = [p for p in sys.path if Path(p or ".").resolve() not in (ROOT / "tools", self.root / "tools")]
+        require(importlib.machinery.PathFinder.find_spec(stem, search) is None,
+                f"--allow-new-tool refuses {path}: {stem} is an importable module")
+        def tree(commit):
+            out = self._git("ls-tree", "-r", "--name-only", "-z", commit, "--", "tools/", text=False)
+            return {norm(n.decode()) for n in out.split(b"\0") if n}
+        want = norm(path)
+        at_base = {norm(k) for k in original} | tree(base)
+        # Absent from base, and nothing with the same stem (file, package dir, extension module) in base or HEAD.
+        # The base-tree entry for the path itself is also caught here (first == "<name>" starts with "<stem>.").
+        for entry in at_base | (tree(head) - {want}):
+            first = entry.split("/")[1] if entry.count("/") else ""
+            require(first != norm(stem) and not first.startswith(norm(stem) + "."),
+                    f"--allow-new-tool refuses {path}: collides with {entry}")
+        return path
 
     def _own_task_unchanged(self, task, commit):
         try:
@@ -261,7 +310,7 @@ class Workflow:
             return False
         return any(t.get("id") == task["id"] and t == task for t in before)
 
-    def prepare(self, task_id, retry=False, base_commit=None):
+    def prepare(self, task_id, retry=False, base_commit=None, allow_new_tool=()):
         self.lint()
         task = self.task(task_id)
         accepted = self.state()["accepted"]
@@ -275,8 +324,12 @@ class Workflow:
                 require((other.parent / "closed.json").exists(),
                         f'Another task owns this checkout: {meta["task_id"]}')
         attempts = sorted((self.runs / task_id).glob("attempt-*"))
+        require(not allow_new_tool or (retry and attempts and self._has_git()),
+                "--allow-new-tool is only valid with --retry on a Git checkout after a first attempt")
         if attempts and not retry:
             require(not (attempts[-1] / "closed.json").exists(), "Closed attempt; use --retry")
+            require((attempts[-1] / "implementer.md").exists(),
+                    f"{attempts[-1].name} has no implementer.md (an earlier prepare failed); remove the folder or abandon it")
             return str(attempts[-1] / "implementer.md")
         require(len(attempts) < 3, "Three attempts exhausted. Escalate with evidence; create a revised task.")
         if retry:
@@ -303,7 +356,8 @@ class Workflow:
             require(recorded, "This attempt has no recorded base_commit (it predates TOOL-001); "
                     "retry with --base-commit <commit the first attempt was prepared on>")
             recorded, overlay, rebased = self.rebase_candidates(task, original, recorded,
-                                                                not (first or {}).get("base_commit"), files)
+                                                                not (first or {}).get("base_commit"), files,
+                                                                allow_new_tool)
             for name, new_hash in overlay.items():
                 if new_hash is None:
                     base_files.pop(name, None)
@@ -319,9 +373,53 @@ class Workflow:
             base["tree_dirty_at_base"] = bool(self._git("status", "--porcelain").strip())
         if attempts and self._has_git():
             base["rebased"] = rebased
+            base["allowed_new_tools"] = sorted(allow_new_tool)
             base["head_at_retry"] = self._head()
         self.last_rebased = rebased
-        folder.mkdir(parents=True)          # only after every check passed: a refusal leaves no half attempt
+        sections = [f'# Implementation packet: {task_id}\n\n',
+                    f'Packet fingerprint: `{base["packet_fingerprint"]}`. Attempt {base["attempt"]}/3.\n',
+                    "Read the actual repository files before editing; this packet is a snapshot.\n",
+                    "## Task contract\n```json\n" + json.dumps(task, indent=2) + "\n```\n"]
+        context = list(dict.fromkeys(["AGENTS.md", "docs/PROJECT_STATE.md", "docs/CONTRACTS.md",
+                                     "orchestration/prompts/implementer.md"] + task["read"]))
+        omitted = []
+        for path in sorted((self.root / "docs/decisions").glob("*.md")):
+            rel = path.relative_to(self.root).as_posix()
+            if rel in context:
+                continue
+            if (path.name == "0001-scope.md" or any(fnmatch.fnmatchcase(rel, g) for g in task["write_globs"])
+                    or any(path.name.startswith(dep) for dep in task["depends_on"])):
+                context.append(rel)
+            else:
+                omitted.append(rel)
+        for name in context:
+            content = local(self.root, name).read_text()
+            sections.append(f"\n## Context: {name}\n\n{content}\n")
+        if omitted:
+            sections.append("\n## Decision records not included\n"
+                            "Not named in `read`, not in this task's `write_globs`, not a direct dependency's and not "
+                            "0001-scope.md; read them from the repository if needed:\n"
+                            + "".join(f"- `{name}`\n" for name in omitted))
+        for dep in task["depends_on"]:
+            entry = accepted[dep]
+            sections.append(f"\n## Accepted dependency {dep}\n" + json.dumps(entry, indent=2) + "\n")
+            dep_folder = local(self.root, entry["evidence_dir"])
+            sections.append((dep_folder / "report.json").read_text())
+        if rebased:
+            sections.append("\n## Baseline rebased over external commits (audit list)\n"
+                            "These files are outside this task's write scope, clean in Git, and were changed only by "
+                            "commits touching no write_globs file since the first attempt. They are NOT this task's "
+                            "changes. The reviewer must check them:\n"
+                            + "".join(self._audit_line(r, True) for r in rebased))
+        if attempts:
+            for name in ("feedback.md", "report.json"):
+                path = attempts[-1] / name
+                if path.exists():
+                    sections.append(f"\n## Previous attempt: {name}\n" + path.read_text())
+        sections.append(f"\nWrite your report to `{folder.relative_to(self.root)}/report.json`.\n")
+        packet = "\n".join(sections)
+        require(len(packet.encode()) <= 160_000, "Context exceeds 160 KB: split task/context before dispatch")
+        folder.mkdir(parents=True)
         write(folder / "base.json", base)
         if not attempts:
             for name in base_files:
@@ -334,38 +432,6 @@ class Workflow:
                   "decisions": [], "limitations": [], "unresolved": [],
                   "handoff": {"next_action": "", "context": ""}}
         write(folder / "report.json", report)
-        sections = [f'# Implementation packet: {task_id}\n\n',
-                    f'Packet fingerprint: `{base["packet_fingerprint"]}`. Attempt {base["attempt"]}/3.\n',
-                    "Read the actual repository files before editing; this packet is a snapshot.\n",
-                    "## Task contract\n```json\n" + json.dumps(task, indent=2) + "\n```\n"]
-        context = list(dict.fromkeys(["AGENTS.md", "docs/PROJECT_STATE.md", "docs/CONTRACTS.md",
-                                     "orchestration/prompts/implementer.md"] + task["read"]))
-        context.extend(path.relative_to(self.root).as_posix()
-                       for path in sorted((self.root / "docs/decisions").glob("*.md"))
-                       if path.relative_to(self.root).as_posix() not in context)
-        for name in context:
-            content = local(self.root, name).read_text()
-            sections.append(f"\n## Context: {name}\n\n{content}\n")
-        for dep in task["depends_on"]:
-            entry = accepted[dep]
-            sections.append(f"\n## Accepted dependency {dep}\n" + json.dumps(entry, indent=2) + "\n")
-            dep_folder = local(self.root, entry["evidence_dir"])
-            sections.append((dep_folder / "report.json").read_text())
-        if rebased:
-            sections.append("\n## Baseline rebased over external commits (audit list)\n"
-                            "These files are outside this task's write scope, clean in Git, and were changed only by "
-                            "commits touching no write_globs file since the first attempt. They are NOT this task's "
-                            "changes. The reviewer must check them:\n"
-                            + "".join(f"- {r['action']} `{r['path']}` sha256 {r['sha256']} commits {', '.join(r['commits'])}\n"
-                                      for r in rebased))
-        if attempts:
-            for name in ("feedback.md", "report.json"):
-                path = attempts[-1] / name
-                if path.exists():
-                    sections.append(f"\n## Previous attempt: {name}\n" + path.read_text())
-        sections.append(f"\nWrite your report to `{folder.relative_to(self.root)}/report.json`.\n")
-        packet = "\n".join(sections)
-        require(len(packet.encode()) <= 160_000, "Context exceeds 160 KB: split task/context before dispatch")
         (folder / "implementer.md").write_text(packet)
         return str(folder / "implementer.md")
 
@@ -450,12 +516,20 @@ class Workflow:
             + self._rebased_note(folder))
         return receipt
 
+    @staticmethod
+    def _audit_line(r, with_hash):
+        line = f"- {r['action']} `{r['path']}` " + (f"sha256 {r['sha256']} " if with_hash else "") \
+            + f"commits {', '.join(r['commits'])}"
+        if "size" in r:        # owner-allowed new tools/ file: show what it contains
+            line += f" [ALLOWED NEW TOOL, {r['size']} bytes, first lines: {json.dumps(r['first_lines'])}]"
+        return line + "\n"
+
     def _rebased_note(self, folder):
         rebased = read(folder / "base.json").get("rebased") or []
         if not rebased:
             return ""
         return ("\n## Baseline rebased over external commits (audit these)\n"
-                + "".join(f"- {r['action']} `{r['path']}` commits {', '.join(r['commits'])}\n" for r in rebased)
+                + "".join(self._audit_line(r, False) for r in rebased)
                 + "Confirm none of these is task work or a weakened verifier; they were excluded from the delta.\n")
 
     def evaluate(self, task_id):
@@ -544,6 +618,8 @@ def main():
         child.add_argument("task")
         if command == "prepare":
             child.add_argument("--retry", action="store_true")
+            child.add_argument("--allow-new-tool", action="append", default=[], metavar="tools/NAME.py",
+                               help="retry only: also overlay this new direct-child tools/ file (repeatable)")
             child.add_argument("--base-commit", default=None,
                                help="commit the first attempt was prepared on (legacy attempts only)")
         if command == "abandon":
@@ -552,9 +628,11 @@ def main():
     try:
         flow = Workflow()
         if args.command == "prepare":
-            result = flow.prepare(args.task, args.retry, args.base_commit)
+            result = flow.prepare(args.task, args.retry, args.base_commit, args.allow_new_tool)
             for item in getattr(flow, "last_rebased", []):
-                print(f"REBASED {item['action']} {item['path']} commits {','.join(item['commits'])}", file=sys.stderr)
+                print(f"REBASED {item['action']} {item['path']} commits {','.join(item['commits'])}"
+                      + (f" ALLOWED-NEW-TOOL size {item['size']} first lines {item['first_lines']}" if "size" in item else ""),
+                      file=sys.stderr)
         elif args.command == "abandon":
             result = flow.abandon(args.task, args.reason)
         elif args.command == "changes":

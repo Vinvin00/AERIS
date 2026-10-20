@@ -244,6 +244,55 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(receipt["checks"][0]["exit_code"], 127)
 
 
+    def decisions(self, names, size=10):
+        for name in names:
+            path = self.root / "docs/decisions" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"record {name}\n" + "x" * size)
+
+    def test_packet_includes_only_relevant_decision_records_and_lists_the_rest(self):
+        self.tasks[0].update(read=["docs/decisions/named.md"], write_globs=["src/*", "docs/decisions/T1-*.md"])
+        write(self.root / "orchestration/tasks.json", {"tasks": self.tasks})
+        self.decisions(["0001-scope.md", "named.md", "T1-own.md", "unrelated.md", "T9-other.md"])
+        self.flow = Workflow(self.root)
+        packet = Path(self.flow.prepare("T1")).read_text()
+        for kept in ("0001-scope.md", "named.md", "T1-own.md"):
+            self.assertIn(f"## Context: docs/decisions/{kept}", packet)
+        for omitted in ("unrelated.md", "T9-other.md"):
+            self.assertNotIn(f"## Context: docs/decisions/{omitted}", packet)
+            self.assertIn(f"- `docs/decisions/{omitted}`", packet.split("## Decision records not included")[1])
+
+    def test_packet_includes_direct_dependency_records(self):
+        self.decisions(["T1-record.md", "T2-own.md", "unrelated.md"])
+        self.ready_for_accept()
+        self.flow.accept("T1")
+        packet = Path(self.flow.prepare("T2")).read_text()
+        self.assertIn("## Context: docs/decisions/T1-record.md", packet)
+        self.assertNotIn("## Context: docs/decisions/unrelated.md", packet)
+        self.assertIn("- `docs/decisions/unrelated.md`", packet)
+
+    def test_oversized_packet_fails_closed_and_leaves_no_attempt_folder(self):
+        self.tasks[0]["read"] = ["docs/decisions/huge.md"]
+        write(self.root / "orchestration/tasks.json", {"tasks": self.tasks})
+        self.decisions(["huge.md"], size=170_000)
+        self.flow = Workflow(self.root)
+        with self.assertRaisesRegex(GateError, "160 KB"):
+            self.flow.prepare("T1")
+        self.assertFalse((self.root / "orchestration/runs/T1").exists() and
+                         any((self.root / "orchestration/runs/T1").iterdir()))
+        with self.assertRaisesRegex(GateError, "160 KB"):            # still fails the same way, not "resume"
+            self.flow.prepare("T1")
+
+    def test_unomitted_large_records_do_not_count_against_the_cap(self):
+        self.decisions(["big-unrelated.md"], size=170_000)
+        self.assertTrue(Path(self.flow.prepare("T1")).exists())
+
+    def test_prepare_without_retry_refuses_an_attempt_folder_that_has_no_packet(self):
+        (self.root / "orchestration/runs/T1/attempt-01").mkdir(parents=True)
+        with self.assertRaisesRegex(GateError, "no implementer.md"):
+            self.flow.prepare("T1")
+
+
 class DiscoveryTests(unittest.TestCase):
     def test_empty_required_test_file_fails(self):
         runner = Path(__file__).resolve().parents[1] / "tools/check_tests.py"
@@ -446,15 +495,316 @@ class GitRetryTests(unittest.TestCase):
             self.retry()
         self.assertFalse((self.root / "orchestration/runs/T1/attempt-02").exists())   # no half-made attempt
 
-    def test_merge_commit_in_range_fails_closed(self):
-        self.start()
-        self.git("switch", "-q", "-c", "side")
-        self.commit_files({"notes/side.txt": "s\n"})
+    def side_branch(self, name, changes, base=None):
+        self.git("switch", "-q", "-c", name, *([base] if base else []))
+        self.commit_files(changes, name)
         self.git("switch", "-q", self.branch)
+
+    def merge_hash(self):
+        return self.git("rev-parse", "--short=10", "HEAD").strip()
+
+    def test_two_parent_merge_is_rebased_and_audited_with_the_merge_hash(self):
+        self.start()
+        self.side_branch("side", {"notes/side.txt": "s\n"})
         self.commit_files({"notes/main.txt": "m\n"})
         self.git("merge", "-q", "--no-ff", "-m", "merge", "side")
-        with self.assertRaisesRegex(GateError, "Merge"):
+        self.retry()
+        rebased = {r["path"]: r for r in self.base()["rebased"]}
+        self.assertEqual(sorted(rebased), ["notes/main.txt", "notes/side.txt"])
+        self.assertIn(self.merge_hash(), rebased["notes/side.txt"]["commits"])   # in the merge's first-parent diff
+        self.assertNotIn(self.merge_hash(), rebased["notes/main.txt"]["commits"])
+        self.assertEqual(self.delta(), ["src/result.txt"])
+
+    def test_write_globs_touched_only_through_the_first_parent_diff_taints_the_merge(self):
+        self.start()
+        self.side_branch("side", {"notes/side.txt": "s\n"})
+        self.commit_files({"notes/main.txt": "m\n"})
+        self.git("merge", "-q", "--no-ff", "--no-commit", "side")
+        self.put("src/sneaky.txt", "task scope edit in the merge\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "merge carrying a task-scope edit")
+        self.retry()
+        # merge diff vs first parent = side.txt + sneaky.txt: both tainted; main.txt is not in it
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["notes/main.txt"])
+        self.assertEqual(self.delta(), ["notes/side.txt", "src/result.txt", "src/sneaky.txt"])
+
+    def test_main_merged_into_feature_direction_rebases_main_files(self):
+        self.start()
+        self.side_branch("feature", {"notes/feat.txt": "f\n"})
+        self.commit_files({"notes/main.txt": "m\n"})
+        self.git("switch", "-q", "feature")
+        self.git("merge", "-q", "--no-ff", "-m", "main into feature", self.branch)
+        self.retry()
+        self.assertEqual(sorted(r["path"] for r in self.base()["rebased"]), ["notes/feat.txt", "notes/main.txt"])
+
+    def test_feature_merged_into_main_taints_feature_files_conservatively(self):
+        self.start()
+        self.side_branch("feature", {"notes/feat.txt": "f\n"})     # clean commit
+        self.git("switch", "-q", "feature")
+        self.commit_files({"src/feat.txt": "task work\n"})         # task-scope commit on the feature
+        self.git("switch", "-q", self.branch)
+        self.commit_files({"notes/main.txt": "m\n"})
+        self.git("merge", "-q", "--no-ff", "-m", "feature into main", "feature")
+        self.retry()
+        # the merge diff against main includes src/feat.txt, so notes/feat.txt is tainted (accepted false negative)
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["notes/main.txt"])
+
+    def test_merge_reverting_an_out_of_scope_file_to_base_content_leaves_no_overlay(self):
+        self.start()
+        self.side_branch("side", {"notes/f.txt": "v1\n"})
+        self.commit_files({"notes/main.txt": "m\n"})
+        self.git("merge", "-q", "--no-ff", "--no-commit", "side")
+        self.put("notes/f.txt", "v0\n")                            # resolution restores the base bytes
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "merge reverting notes/f.txt")
+        self.retry()
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["notes/main.txt"])
+        self.assertNotIn("notes/f.txt", self.delta())
+
+    def test_tainted_file_later_changed_by_a_merge_stays_tainted(self):
+        self.start()
+        self.commit_files({"notes/t.txt": "t1\n", "src/x.txt": "x\n"}, "mixed")
+        self.side_branch("side", {"notes/side.txt": "s\n"}, self.git("rev-parse", "HEAD~1").strip())
+        self.git("merge", "-q", "--no-ff", "--no-commit", "side")
+        self.put("notes/t.txt", "t2\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "merge touching the tainted file")
+        self.retry()
+        self.assertNotIn("notes/t.txt", [r["path"] for r in self.base()["rebased"]])
+        self.assertIn("notes/t.txt", self.delta())
+
+    def test_merge_with_more_than_two_parents_fails_closed(self):
+        self.start()
+        self.side_branch("a", {"notes/a.txt": "a\n"}, self.base_head)
+        self.side_branch("b", {"notes/b.txt": "b\n"}, self.base_head)
+        self.git("merge", "-q", "--no-ff", "-m", "octopus", "a", "b")
+        with self.assertRaisesRegex(GateError, "3 parents"):
             self.retry()
+        self.assertFalse((self.root / "orchestration/runs/T1/attempt-02").exists())
+
+    def test_root_commit_in_range_fails_closed(self):
+        self.start()
+        self.git("switch", "-q", "--orphan", "other")
+        self.put("notes/other.txt", "o\n")
+        self.git("add", "notes/other.txt")
+        self.git("commit", "-q", "-m", "unrelated root")
+        self.git("switch", "-q", self.branch)
+        self.git("merge", "-q", "--allow-unrelated-histories", "-m", "merge unrelated", "other")
+        with self.assertRaisesRegex(GateError, "Root commit"):
+            self.retry()
+
+    def fail_git(self, subcommand, nth=1):
+        """Make the nth ``git <subcommand>`` call exit 128, as a damaged repository would."""
+        import unittest.mock as mock
+        real, calls = subprocess.run, []
+
+        def run(argv, *a, **kw):
+            if argv[:1] == ["git"] and subcommand in argv[3:5]:
+                calls.append(argv)
+                if len(calls) >= nth:
+                    return subprocess.CompletedProcess(argv, 128, b"", b"fatal: injected")
+            return real(argv, *a, **kw)
+        return mock.patch("tools.orchestrate.subprocess.run", side_effect=run)
+
+    def test_each_enumerated_git_failure_fails_closed(self):
+        self.start()
+        self.commit_files({"notes/e.txt": "e\n"})
+        for sub in ("rev-parse", "rev-list", "diff-tree", "show"):
+            with self.subTest(sub), self.fail_git(sub):
+                with self.assertRaises(GateError):
+                    self.retry()
+            self.assertFalse((self.root / "orchestration/runs/T1/attempt-02").exists())
+        with self.fail_git("rev-list", 2):                       # the --parents call, after the range listing
+            with self.assertRaises(GateError):
+                self.retry()
+        meta = read(self.root / "orchestration/runs/T1/attempt-01/base.json")
+        meta["base_commit"] = "0" * 40                           # unresolvable base
+        write(self.root / "orchestration/runs/T1/attempt-01/base.json", meta)
+        with self.assertRaises(GateError):
+            self.retry()
+
+    def tool_commit(self, files=None):
+        self.commit_files(files or {"tools/newtool.py": "print('new')\nsecond\nthird\nfourth\n"})
+
+    def test_new_tools_file_is_not_overlaid_without_the_flag(self):
+        self.start()
+        self.tool_commit()
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.base()["allowed_new_tools"], [])
+        self.assertIn("tools/newtool.py", self.delta())
+
+    def test_allowed_new_tool_is_overlaid_and_audited_with_size_and_first_lines(self):
+        self.start()
+        self.tool_commit()
+        self.commit_files({"tools/helper.py": "print('weakened')\n"}, "existing tool")
+        self.retry(allow_new_tool=["tools/newtool.py"])
+        base = self.base()
+        self.assertEqual(base["allowed_new_tools"], ["tools/newtool.py"])
+        (entry,) = base["rebased"]
+        self.assertEqual((entry["path"], entry["size"], entry["first_lines"]),
+                         ("tools/newtool.py", 33, ["print('new')", "second", "third"]))
+        self.assertEqual(self.delta(), ["src/result.txt", "tools/helper.py"])    # existing tool stays denied
+        note = self.flow._rebased_note(self.flow.attempt("T1"))
+        self.assertIn("ALLOWED NEW TOOL", note)
+        self.assertIn("ALLOWED NEW TOOL", (self.flow.attempt("T1") / "implementer.md").read_text())
+
+    def test_allow_new_tool_is_rejected_on_a_first_attempt(self):
+        with self.assertRaisesRegex(GateError, "only valid with --retry"):
+            self.flow.prepare("T1", allow_new_tool=["tools/x.py"])
+        self.start()
+        with self.assertRaisesRegex(GateError, "only valid with --retry"):
+            self.flow.prepare("T1", allow_new_tool=["tools/x.py"])      # not a retry
+
+    def test_allow_list_names_that_could_shadow_an_import_are_refused(self):
+        import unittest.mock as mock
+        self.start()
+        other = Path(self.temp.name) / "site"
+        other.mkdir()
+        (other / "fakeinstalled.py").write_text("")
+        self.commit_files({"tools/helper.pyc": "x", "tools/pkg/mod.py": "x\n", "tools/pkg.py": "x\n"})
+        cases = {"tools/json.py": "stdlib", "tools/JSON.py": "stdlib", "tools/sitecustomize.py": "special",
+                 "tools/usercustomize.py": "special", "tools/conftest.py": "special",
+                 "tools/__init__.py": "special", "tools/__main__.py": "special",
+                 "tools/fakeinstalled.py": "importable", "tools/evil.pth": "direct child .py",
+                 "tools/pkg/mod.py": "direct child", "tools/Orchestrate.py": "gate",
+                 "tools/CHECK_TESTS.py": "gate", "tools/orchestrate.py": "gate",
+                 "tools/Helper.py": "exists", "tools/helper.py": "exists", "tools/helper.py/": "direct",
+                 "tools/pkg.py": "collides", "src/x.py": "direct", "tools/../src/x.py": "direct",
+                 "tools/deep/new.py": "direct child", "tools/newpy": "direct child", "tools/notes.txt": "direct child"}
+        with mock.patch.object(sys, "path", sys.path + [str(other)]):
+            for path, why in cases.items():
+                with self.subTest(path), self.assertRaisesRegex(GateError, "allow-new-tool"):
+                    self.retry(allow_new_tool=[path])
+        self.assertFalse((self.root / "orchestration/runs/T1/attempt-02").exists())
+
+    def test_package_directory_or_extension_module_with_the_same_stem_is_refused(self):
+        self.start()
+        self.commit_files({"tools/shadow/__init__.py": "x\n", "tools/shadow2.so": "x\n"})
+        self.tool_commit({"tools/shadow.py": "x\n", "tools/shadow2.py": "x\n"})
+        for path in ("tools/shadow.py", "tools/shadow2.py"):
+            with self.subTest(path), self.assertRaisesRegex(GateError, "collides"):
+                self.retry(allow_new_tool=[path])
+
+    def test_gate_file_deleted_and_recreated_is_never_overlaid(self):
+        for name in ("tools/orchestrate.py", "tools/check_tests.py"):
+            self.commit_files({name: "# gate\n"}, "add gate")
+        self.start()
+        for name in ("tools/orchestrate.py", "tools/check_tests.py"):
+            self.commit_files({name: None}, "delete gate")
+            self.commit_files({name: "# weakened\n"}, "re-create gate")
+            with self.assertRaisesRegex(GateError, "allow-new-tool"):
+                self.retry(allow_new_tool=[name])
+        self.retry()
+        self.assertEqual(self.base()["rebased"], [])
+        self.assertEqual(self.delta(), ["src/result.txt", "tools/check_tests.py", "tools/orchestrate.py"])
+
+    def test_gitlink_tools_entry_is_not_overlaid(self):
+        self.start()
+        self.git("update-index", "--add", "--cacheinfo", f"160000,{self.base_head},tools/sub.py")
+        self.git("commit", "-q", "-m", "gitlink")
+        self.retry(allow_new_tool=["tools/sub.py"])
+        self.assertEqual(self.base()["rebased"], [])
+
+    def test_symlink_tools_entry_fails_closed(self):
+        self.start()
+        os.symlink("/etc/hosts", self.root / "tools/linked.py")        # the inventory refuses symlinks outright
+        self.git("add", "tools/linked.py")
+        self.git("commit", "-q", "-m", "symlink")
+        with self.assertRaisesRegex(GateError, "Symlink"):
+            self.retry(allow_new_tool=["tools/linked.py"])
+
+    def test_nfd_allow_path_collides_with_an_nfc_base_entry(self):
+        self.commit_files({"tools/café.py": "x\n"})                   # NFC name at base
+        self.start()
+        self.tool_commit({"tools/café_x.py": "x\n"})
+        with self.assertRaisesRegex(GateError, "allow-new-tool"):
+            self.retry(allow_new_tool=["tools/café.py"])           # NFD spelling of the same name
+
+    def test_collision_with_a_file_only_in_the_original_inventory_is_refused(self):
+        self.put("tools/untracked_tool.py", "x\n")                       # not in the base commit, but in the baseline
+        self.start()
+        self.commit_files({"tools/untracked_tool.py": "x\n"})
+        with self.assertRaisesRegex(GateError, "allow-new-tool"):
+            self.retry(allow_new_tool=["tools/untracked_tool.py"])
+
+    def test_collision_with_a_file_only_in_the_base_tree_is_refused(self):
+        self.commit_files({"tools/dist/mod.py": "x\n"})                  # base tree has it; inventory ignores dist/
+        self.base_head = self.git("rev-parse", "HEAD").strip()
+        self.start()
+        self.commit_files({"tools/dist/mod.py": None}, "remove it again")
+        self.tool_commit({"tools/dist.py": "x\n"})
+        with self.assertRaisesRegex(GateError, "allow-new-tool"):
+            self.retry(allow_new_tool=["tools/dist.py"])
+
+    def test_names_that_are_not_python_identifiers_or_are_empty_are_refused(self):
+        self.start()
+        for path in ("tools/my-tool.py", "tools/1abc.py", "tools/.py", "tools/two words.py"):
+            with self.subTest(path), self.assertRaisesRegex(GateError, "allow-new-tool"):
+                self.retry(allow_new_tool=[path])
+
+    def test_tools_directory_on_sys_path_does_not_cause_a_false_refusal(self):
+        import unittest.mock as mock
+        from tools.orchestrate import ROOT
+        self.start()
+        self.tool_commit({"tools/newtool.py": "x\n", "tools/audit_publication.py": "x\n"})
+        # `python3 tools/orchestrate.py` runs with tools/ on sys.path: the file itself must not look "installed".
+        with mock.patch.object(sys, "path", sys.path + [str(self.root / "tools"), str(ROOT / "tools")]):
+            self.retry(allow_new_tool=["tools/newtool.py", "tools/audit_publication.py"])
+        self.assertEqual([r["path"] for r in self.base()["rebased"]],
+                         ["tools/audit_publication.py", "tools/newtool.py"])
+
+    def test_typechange_symlink_to_regular_file_with_same_bytes_is_not_overlaid(self):
+        self.start()
+        os.symlink("x", self.root / "tools/l.py")
+        self.git("add", "tools/l.py")
+        self.git("commit", "-q", "-m", "symlink")
+        (self.root / "tools/l.py").unlink()
+        (self.root / "tools/l.py").write_text("x")                       # git status shows T; bytes equal the link text
+        self.assertIn("T", self.git("status", "--porcelain", "--", "tools/l.py")[:2])
+        self.retry(allow_new_tool=["tools/l.py"])
+        self.assertEqual(self.base()["rebased"], [])
+
+    def test_unmatched_allow_path_warns_on_stderr_and_is_not_overlaid(self):
+        import contextlib, io
+        self.start()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.retry(allow_new_tool=["tools/zzz.py"])
+        self.assertIn("tools/zzz.py matched no overlay candidate", err.getvalue())
+        self.assertEqual(self.base()["rebased"], [])
+
+    def test_first_lines_are_capped_per_line_with_a_truncation_marker(self):
+        self.start()
+        self.tool_commit({"tools/wide.py": "x" * 5000 + "\nb\nc\nd\n"})
+        self.retry(allow_new_tool=["tools/wide.py"])
+        lines = self.base()["rebased"][0]["first_lines"]
+        self.assertEqual(lines[0], "x" * 200 + "...[truncated]")
+        self.assertEqual(lines[1:], ["b", "c"])
+        self.assertLess(len((self.flow.attempt("T1") / "implementer.md").read_text()), 100_000)
+
+    def test_new_tool_in_a_tainted_or_dirty_state_is_not_overlaid(self):
+        self.start()
+        self.commit_files({"tools/mixed.py": "x\n", "src/x.txt": "x\n"})
+        self.tool_commit()
+        self.put("tools/newtool.py", "edited after commit\n")
+        self.retry(allow_new_tool=["tools/mixed.py", "tools/newtool.py"])
+        self.assertEqual(self.base()["rebased"], [])
+
+    def test_other_denylist_entries_stay_denied_even_when_absent_at_base_and_with_the_flag(self):
+        self.start()
+        self.commit_files({"tests/test_orchestration.py": "weak\n", "orchestration/prompts/extra.md": "lenient\n",
+                           ".github/workflows/w.yml": "x\n", "tools/newtool.py": "ok\n"})
+        gates = read(self.root / "orchestration/gates.json")
+        gates["checks"]["check"]["argv"] = ["{python}", "-c", "pass"]
+        write(self.root / "orchestration/gates.json", gates)
+        self.git("add", "-A", "--", "orchestration/gates.json")
+        self.git("commit", "-q", "-m", "gate")
+        self.retry(allow_new_tool=["tools/newtool.py"])
+        self.assertEqual([r["path"] for r in self.base()["rebased"]], ["tools/newtool.py"])
+        self.assertEqual(self.delta(), [".github/workflows/w.yml", "orchestration/gates.json",
+                                        "orchestration/prompts/extra.md", "src/result.txt",
+                                        "tests/test_orchestration.py"])
 
     def test_git_errors_fail_closed(self):
         self.start()
