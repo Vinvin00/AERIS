@@ -10,7 +10,7 @@ After TOOL-003 made `ruff check .` clean, CI run 39853854581 on `deploy-hosted` 
 reached the unittest step for the first time in that branch's recent history and failed on two
 tests in `tests/ui/test_ui.py` (`RequiredRunnerUITests.test_unlabeled_result_never_claims_accuracy`,
 `test_dark_landing_and_compact_workspace_reach_controls`) with `ModuleNotFoundError: No module named
-'PySide6'`. Python 3.12 was cancelled after the 3.11 failure. The class docstring calls these
+'PySide6'`. Python 3.12 failed the same way (`errors=2, skipped=9`; corrected after TOOL-004 review F3). The class docstring calls these
 "checks discovered by the repository's required unittest gate"; locally they pass because the
 development venv has the `desktop` extra (`PySide6-Essentials==6.12.0`). The workflow installs only
 `.[dev,evaluation]`. The tests already run Qt headless (`QT_QPA_PLATFORM=offscreen`).

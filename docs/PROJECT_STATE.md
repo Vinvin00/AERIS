@@ -140,6 +140,12 @@ independence is operational only.
   review that also re-ran the checks with the pre-change orchestrator. With the direct
   `server.py` fix (68d285d), `ruff check .` is clean, unblocking CI.
 
+- TOOL-004 CI installs the `desktop` extra and Qt system libraries for the required
+  `tests/ui/test_ui.py` Qt tests (PLAN-013), accepted 2026-10-22 on attempt 01 after independent
+  review. Evidence: run 39854490606 on `3a07518`, all jobs green, 391 tests, `skipped=9` (same as
+  before), both Qt tests ok; `deploy-hosted` was fast-forwarded to that exact commit. The apt list
+  may need updating if the `ubuntu-latest` image changes.
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |
