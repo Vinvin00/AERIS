@@ -24,7 +24,7 @@ async function loadProfiles() {
   });
   note();
 }
-const RECOMMENDED = 'a380';
+const RECOMMENDED = 'formation';
 const LABEL = {idle: 'Idle', preparing: 'Preparing', ready: 'Ready to run', running: 'Analysing',
   complete: 'Complete', failed: 'Failed', cancelled: 'Cancelled', error: 'Problem'};
 let samples = [];

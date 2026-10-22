@@ -276,3 +276,10 @@ h1 .g{color:var(--accent);text-shadow:0 0 40px rgba(0,255,65,.35)}
 
 .profile{background:var(--bg);color:var(--text);border:1px solid var(--line2);border-radius:2px;padding:11px 10px;font:600 13px var(--mono);max-width:210px}
 .profile:focus-visible{border-color:var(--accent)}
+
+/* hosted, pre-recorded build only (html[data-static]) */
+.static-only{display:none}
+html[data-static] .static-only{display:block}
+.static-banner{padding:8px clamp(16px,4vw,48px);background:var(--accent-dim);border-bottom:1px solid var(--line2);font:12px var(--mono);color:var(--text)}
+.static-banner a{color:var(--accent)}
+.runcmd{overflow-x:auto;padding:14px 16px;background:var(--raise);border:1px solid var(--line2);font-size:13px;line-height:1.6}

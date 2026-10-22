@@ -10,6 +10,7 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
+  <div class="static-only static-banner">Pre-recorded results: these clips were analysed offline by the AERIS pipeline. Nothing runs live on this page. <a href="#run-it-yourself">Run it yourself</a> to analyse your own video.</div>
   <header class="topbar">
     <a class="brand" href="#top" aria-label="AERIS home"><span class="brand-mark">A</span><span>AERIS</span></a>
     <nav aria-label="Sections"><a href="#workspace">Console</a><a href="#how">How it works</a><a href="#limits">Limits</a></nav>
@@ -187,6 +188,19 @@
           <dt>Forecast</dt><dd>A short, constant-velocity guess of where a track moves next, in image pixels.</dd>
           <dt>Pixel space</dt><dd>All positions are image coordinates, not real-world distances. There is no camera calibration.</dd></dl>
         </details>
+      </div>
+    </section>
+    <section class="sec static-only" id="run-it-yourself">
+      <div class="wrap">
+        <div class="sec-label"><span class="idx">04</span><h2>Run it yourself</h2><p>Your own clips, analysed on your own machine.</p></div>
+        <p class="muted">Uploads and live mode are off on the hosted page. The same console runs locally, with your video never leaving your computer. Needs Python 3.11+ and <code>ffmpeg</code>.</p>
+        <pre class="runcmd">git clone https://github.com/Vinvin00/AERIS &amp;&amp; cd AERIS
+python3 -m venv .venv
+.venv/bin/pip install numpy opencv-python-headless scipy onnxruntime
+mkdir -p models/onnx &amp;&amp; curl -L -o models/onnx/yolox_tiny.onnx \
+  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_tiny.onnx
+PYTHONPATH=python .venv/bin/python -m aeris.web.server</pre>
+        <p class="muted">It opens at <code>http://127.0.0.1:8765</code>. The model loader refuses weights whose SHA-256 differs from <code>configs/detector/baseline.json</code>.</p>
       </div>
     </section>
   </main>
