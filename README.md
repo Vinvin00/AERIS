@@ -2,6 +2,13 @@
 
 Monocular aircraft detection, tracking and image-space trajectory estimation.
 
+<a href="https://github.com/Vinvin00/AERIS/releases/download/demo-video-v1/aeris-demo.mp4"><img src="https://github.com/Vinvin00/AERIS/releases/download/demo-video-v1/aeris-cover.png" alt="AERIS demo: four jets in formation with detection brackets" width="100%"></a>
+
+*Demo video (21 s, click the image): AERIS output on public footage at 30 fps, showing boxes, tracks
+and its 1 s forecasts. Forecast errors in it are scored against later AERIS detections, not labelled
+ground truth. Footage: Lucastphotography (CC BY 4.0), Jo Brodie (CC0), Designism (CC0), via Wikimedia
+Commons. Rebuild with [`video/`](video/README.md).*
+
 **Status: research components, no real-video evidence yet.** Implemented and accepted
 through the project's review process: canonical data records and dataset QA, analytic
 ground-truth fixtures, metric adapters (COCO AP, TrackEval HOTA/IDF1), a pretrained YOLOX-Tiny
