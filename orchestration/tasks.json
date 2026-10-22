@@ -1412,6 +1412,37 @@
         "unit"
       ],
       "budget": "Download only the 15 QUT compressed videos, their target and other-aircraft label CSVs and target-info.csv at the pinned revision, at most 40 MB total (about 29.4 MB measured), into Git-ignored data/raw/qut. Existing local models and dependencies only; no training, new weights, gate, contract, test-expectation or threshold change. At most three attempts and independent review."
+    },
+    {
+      "id": "TOOL-003",
+      "title": "Orchestrator lint fixes (ruff E731, E401)",
+      "objective": "Make `ruff check .` pass by replacing the assigned lambda at tools/orchestrate.py:282 with an equivalent nested def and splitting `import contextlib, io` at tests/test_orchestration.py:769 into two import lines, per PLAN-012. Behaviour-preserving: no other line changes.",
+      "status": "planned",
+      "depends_on": [
+        "TOOL-002"
+      ],
+      "read": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py",
+        "docs/decisions/PLAN-012-orchestrator-lint.md"
+      ],
+      "write_globs": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py"
+      ],
+      "acceptance": {
+        "AC1": "The diff of tools/orchestrate.py is exactly the replacement of the `norm` lambda with a nested def returning the same expression, and the diff of tests/test_orchestration.py is exactly `import contextlib, io` split into `import contextlib` and `import io` at the same indentation; no other line in either file changes",
+        "AC2": "`ruff check .` reports no findings, with version, command and output stored in the attempt folder as ruff.txt; the governance and unit checks pass, and tests/test_orchestration.py still runs 78 tests, all passing (baseline at 68d285d)"
+      },
+      "required_artifacts": [
+        "tools/orchestrate.py",
+        "tests/test_orchestration.py"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Two-line, behaviour-preserving lint edit; no dependency, gate, contract, check, threshold or test-expectation change. At most three attempts and independent review."
     }
   ]
 }
