@@ -180,10 +180,40 @@ def heading_resolved(forecaster, track_id: str, t: float) -> bool:
     return math.hypot(vx, vy) >= ARROW_MIN_SPEED_SIGMAS * max(sx, sy)
 
 
+DRAW_COAST_MAX_S = 0.2   # display only: a coasting (predicted) box is hidden after this long
+
+
+def crowded(state, states) -> bool:
+    """True when ``state``'s box overlaps the box of another observed, non-tentative track. In a
+    tight formation the tracker can swap detections between neighbours, so a 1 s forecast line
+    drawn there is not trustworthy; callers skip the line (display only, the forecast is kept)."""
+    if state.bbox is None:
+        return False
+    a = state.bbox
+    for other in states:
+        if (other.track_id == state.track_id or other.bbox is None or not other.observed
+                or other.lifecycle == TENTATIVE):
+            continue
+        b = other.bbox
+        if min(a.x_max, b.x_max) > max(a.x_min, b.x_min) and min(a.y_max, b.y_max) > max(a.y_min, b.y_min):
+            return True
+    return False
+
+
 def draw_states(frame, items) -> None:
-    """Draw track boxes, IDs, lifecycle and the 1 s forecast line onto ``frame`` in place."""
+    """Draw track boxes, IDs, lifecycle and the 1 s forecast line onto ``frame`` in place.
+
+    Display policy: tentative tracks are not drawn, and a coasting track (no detection this frame)
+    is drawn only within ``DRAW_COAST_MAX_S`` of its last detection and only when its predicted box
+    does not overlap an aircraft detected in this frame, so stale or ambiguous predicted boxes do not
+    clutter the picture. tracks.csv and the forecasts are unaffected."""
     colors = {"tentative": (160, 160, 160), "confirmed": (0, 255, 0), "lost": (0, 165, 255)}
+    states = [state for state, _ in items]
     for state, forecast in items:
+        if state.lifecycle == TENTATIVE:
+            continue
+        if not state.observed and (state.time_since_seen_s > DRAW_COAST_MAX_S or crowded(state, states)):
+            continue
         color = colors[state.lifecycle]
         if state.bbox is not None:
             b = state.bbox
@@ -335,7 +365,7 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
             else:
                 arrow_records = records["constant_velocity"]
             one_s = next(r for r in arrow_records if r.horizon_s == 1.0)
-            if one_s.center and heading_resolved(arrow, state.track_id, t):
+            if one_s.center and heading_resolved(arrow, state.track_id, t) and not crowded(state, states):
                 frame_forecasts[state.track_id] = (one_s.center if not scene else
                                                    apply_transform(np.linalg.inv(to_ref[index]), one_s.center))
                 displayed.add((state.track_id, t))

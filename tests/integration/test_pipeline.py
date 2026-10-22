@@ -199,6 +199,30 @@ class ArtifactTests(PipelineCase):
         assert self.run_cli("refused", extra=["--guided-crops"]) == 2    # replayed detections cannot be cropped
         assert not self.out("refused").exists()
 
+    def test_overlay_hides_tentative_stale_and_ambiguous_predictions(self):
+        """Display policy only: what draw_states draws, and when a forecast line counts as crowded."""
+        from types import SimpleNamespace as NS
+
+        def st(tid, life, box, observed=True, since=0.0):
+            return NS(track_id=tid, lifecycle=life, bbox=BBox(*box), observed=observed,
+                      time_since_seen_s=since, center=((box[0] + box[2]) / 2, (box[1] + box[3]) / 2))
+        lead = st("a", "confirmed", (10, 10, 30, 30))
+        wing = st("b", "confirmed", (25, 25, 45, 45))                          # overlaps lead
+        alone = st("c", "confirmed", (100, 10, 120, 30))
+        assert cli.crowded(lead, [lead, wing, alone]) and not cli.crowded(alone, [lead, wing, alone])
+        assert not cli.crowded(lead, [lead, st("t", "tentative", (25, 25, 45, 45))])
+        assert not cli.crowded(lead, [lead, st("p", "lost", (25, 25, 45, 45), observed=False, since=0.1)])
+
+        def drawn(items):
+            frame = np.zeros((H, W, 3), np.uint8)
+            cli.draw_states(frame, items)
+            return frame.any(axis=2)
+        assert not drawn([(st("t", "tentative", (40, 40, 60, 60)), None)]).any()
+        assert drawn([(st("p", "lost", (40, 40, 60, 60), observed=False, since=0.1), None)]).any()
+        assert not drawn([(st("p", "lost", (40, 40, 60, 60), observed=False, since=0.3), None)]).any()
+        overlapped = drawn([(lead, None), (st("p", "lost", (20, 20, 40, 40), observed=False, since=0.1), None)])
+        assert overlapped.sum() == drawn([(lead, None)]).sum()          # ambiguous predicted box hidden
+
     def test_replay_runs_are_deterministic(self):
         assert self.run_cli("a") == 0 and self.run_cli("b") == 0
         for name in ("tracks.csv", "predictions.jsonl", "metrics.json"):

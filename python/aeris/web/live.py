@@ -17,7 +17,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from aeris.cli import DEFAULT_MIN_SCORE, draw_states, heading_resolved, measurement_sigma_px
+from aeris.cli import DEFAULT_MIN_SCORE, crowded, draw_states, heading_resolved, measurement_sigma_px
 from aeris.estimation.camera_motion import CameraMotion
 from aeris.estimation.camera import CameraModel, FrameContext
 from aeris.estimation.trajectory import TrajectoryForecaster, forecast_vs_detections
@@ -205,7 +205,8 @@ class LiveSession:
                                                         "sigma_px": math.sqrt(max(r.covariance[0][0], r.covariance[1][1]))})
                                 row["forecast_bearings"].append(world_bearing_from_pixel(
                                     pixel=(x, y), horizon_s=r.horizon_s, **bearing_args).to_dict())
-                            if r.horizon_s == 1.0 and r.center and row["heading_deg"] is not None:
+                            if (r.horizon_s == 1.0 and r.center and row["heading_deg"] is not None
+                                    and not crowded(s, states)):
                                 forecasts[s.track_id] = motion.from_reference(r.center)
                         panel.append(row)
                         issued.extend(recs)

@@ -31,7 +31,7 @@ from aeris.web.demo_clips import BY_SLUG  # noqa: E402
 from aeris.web.server import ASSETS, browser_preview  # noqa: E402
 
 SLUGS = ["formation", "hkia-late", "tokyo-small", "b52-dubai", "f35-airshow",
-         "red-arrows", "air-force-one", "spitfire"]
+         "red-arrows", "air-force-one"]
 PROFILE = "fast-zoom"
 # The hosted demo opts into the AERIS-033 tracker; the CLI and local web default stay baseline.json.
 TRACKER_CONFIG = Path("configs/tracker/manoeuvre-a3000-s0-full.json")
