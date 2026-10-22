@@ -1443,6 +1443,36 @@
         "unit"
       ],
       "budget": "Two-line, behaviour-preserving lint edit; no dependency, gate, contract, check, threshold or test-expectation change. At most three attempts and independent review."
+    },
+    {
+      "id": "TOOL-004",
+      "title": "CI installs the desktop extra for the required Qt tests",
+      "objective": "Make the required tests/ui/test_ui.py Qt tests runnable in CI by installing the desktop extra and the Ubuntu libraries Qt's offscreen platform needs in the python job of .github/workflows/ci.yml, per PLAN-013, without skipping or changing any test.",
+      "status": "planned",
+      "depends_on": [
+        "TOOL-003"
+      ],
+      "read": [
+        ".github/workflows/ci.yml",
+        "tests/ui/test_ui.py",
+        "pyproject.toml",
+        "docs/decisions/PLAN-013-ci-desktop-tests.md"
+      ],
+      "write_globs": [
+        ".github/workflows/ci.yml"
+      ],
+      "acceptance": {
+        "AC1": "The only change is in the python job of .github/workflows/ci.yml: an apt-get update and install step with at least libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 (any extra package justified in ci.txt by the CI log line showing it was missing), and the pip install extras extended from dev,evaluation to dev,evaluation,desktop; the ruff, unittest and lint steps, the matrix and the cpp job are unchanged, and no test file changes",
+        "AC2": "A CI run on a pushed commit containing the change has python (3.11), python (3.12) and cpp all succeeding, with both previously failing Qt tests passing; ci.txt in the attempt folder records the run ID, commit SHA (the same SHA later fast-forwarded to deploy-hosted), per-job conclusions, and per Python job the two Qt test lines ending in ok and the unittest summary with skipped no higher than 9 (baseline run 39853854581)"
+      },
+      "required_artifacts": [
+        ".github/workflows/ci.yml"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Workflow-only change; pushes of tracking-improvements to origin to trigger CI. No gate, contract, test, threshold or dependency-pin change. At most three attempts and independent review."
     }
   ]
 }
