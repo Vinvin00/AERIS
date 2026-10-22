@@ -21,7 +21,7 @@ One unlabelled clip; nothing here is accuracy.
 
 ## Tasks
 
-- **AERIS-032** QUT multi-sequence evaluation harness on all 15 published sequences (S1–S7
+- **AERIS-032** (replaced by **AERIS-035**, Addendum A) QUT multi-sequence evaluation harness on all 15 published sequences (S1–S7
   single target, M1–M8 with other aircraft) at the AERIS-031 pinned revision `0bb9ece`. Measured
   size is about 29.4 MB (28.35 MB video, ~1 MB CSV) under a 40 MB cap [P13], into Git-ignored
   `data/raw/qut/`.
@@ -176,4 +176,12 @@ before AERIS-022. The contract had placed the QUT manifest and candidate list in
 That is a planning error, not an implementation one; the test is not changed. The manifest moves
 to `configs/qut/sequences.json` and the candidate list to `configs/qut/candidates.json` in the
 AERIS-032/033/034 write scopes, required artifacts and criteria. Nothing else changes. The
-change is committed on its own (no write-scope file) so the AERIS-032 retry baseline overlays it.
+change is committed on its own (no write-scope file).
+
+Because a retry keeps attempt 01's baseline and never overlays a task's own `tasks.json` entry
+(TOOL-001), the corrected contract cannot reach an AERIS-032 retry (attempt 02 was prepared, saw
+the old entry in its baseline and was abandoned with no work). Following PLAN-006, **AERIS-035**
+is a copy of the corrected AERIS-032 contract (same objective, scope, criteria, checks and
+budget) with a fresh attempt budget; AERIS-032 is set to `deferred`; AERIS-033 depends on
+AERIS-035. Reviewer: `git diff 2c5b8a0 -- orchestration/tasks.json` shows only the AERIS-035
+entry, AERIS-032 `deferred` and the AERIS-033 dependency.
