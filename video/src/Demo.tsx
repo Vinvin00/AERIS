@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import {
-  AbsoluteFill, Easing, OffthreadVideo, Sequence, interpolate, spring, staticFile,
+  AbsoluteFill, Easing, OffthreadVideo, Sequence, getInputProps, interpolate, spring, staticFile,
   useCurrentFrame, useVideoConfig,
 } from "remotion";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
@@ -42,6 +42,7 @@ function useFocus(scene: Scene) {
 
 const Grain = () => {
   const frame = useCurrentFrame();
+  if (getInputProps().grain === false) return null; // --props='{"grain":false}' for GIF exports
   return (
     <AbsoluteFill style={{ opacity: 0.09, mixBlendMode: "overlay", pointerEvents: "none" }}>
       <svg width="100%" height="100%">
