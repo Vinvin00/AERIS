@@ -1,0 +1,11 @@
+.git
+.venv
+build
+data
+models
+benchmarks
+experiments
+orchestration
+tests
+docs
+**/__pycache__

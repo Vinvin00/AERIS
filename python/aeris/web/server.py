@@ -15,11 +15,13 @@ import math
 import mimetypes
 import os
 from pathlib import Path
+from http.cookies import SimpleCookie
 import shutil
 import subprocess
 import sys
 import tempfile
-from threading import Lock, Thread
+from threading import BoundedSemaphore, Lock, Thread
+import time
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
 import webbrowser
@@ -33,6 +35,55 @@ from aeris.web.live import LiveSession, load_stages
 ASSETS = Path(__file__).resolve().parent / "static"
 MAX_UPLOAD_BYTES = 500_000_000
 ALLOWED_ARTIFACTS = {"overlay.mp4", "metrics.json", "tracks.csv", "run_manifest.json"}
+
+
+class Hosted:
+    """Public-deployment policy, enabled by ``--hosted``.
+
+    Samples only (no uploads, no camera/URL sources), one visitor session per cookie,
+    one compute job at a time, per-IP rate limits, and an explicit host/origin allowlist.
+    """
+    MAX_SESSIONS = 50
+    POSTS_PER_MINUTE = 20
+    REQUESTS_PER_MINUTE = 240
+
+    def __init__(self, hosts: set[str], origins: set[str]) -> None:
+        self.hosts, self.origins = hosts, origins
+        self.lock = Lock()
+        self.sessions: dict[str, tuple[DemoState, float]] = {}
+        self.hits: dict[tuple[str, bool], list[float]] = {}
+        self.job = BoundedSemaphore(1)
+
+    def limited(self, ip: str, post: bool) -> bool:
+        now = time.monotonic()
+        with self.lock:
+            hits = self.hits.setdefault((ip, post), [])
+            hits[:] = [t for t in hits if now - t < 60]
+            if len(hits) >= (self.POSTS_PER_MINUTE if post else self.REQUESTS_PER_MINUTE):
+                return True
+            hits.append(now)
+            if len(self.hits) > 10_000:
+                self.hits = {k: v for k, v in self.hits.items() if v and now - v[-1] < 60}
+        return False
+
+    def session(self, sid: str) -> DemoState | None:
+        """The visitor's state, creating it on first use; ``None`` when the server is full."""
+        with self.lock:
+            entry = self.sessions.get(sid)
+            if entry is None:
+                if len(self.sessions) >= self.MAX_SESSIONS:
+                    idle = [(seen, key) for key, (s, seen) in self.sessions.items()
+                            if s.status != "running" and not (s.live and s.live.active)]
+                    if not idle:
+                        return None
+                    _, oldest = min(idle)
+                    evicted = self.sessions.pop(oldest)[0]
+                    Thread(target=evicted.stop_live, daemon=True).start()
+                state = DemoState(hosted=self)
+            else:
+                state = entry[0]
+            self.sessions[sid] = (state, time.monotonic())
+            return state
 
 
 def browser_preview(path: Path, cache: Path) -> Path:
@@ -78,8 +129,9 @@ def try_browser_preview(path: Path, cache: Path) -> tuple[Path | None, str | Non
 
 class DemoState:
     def __init__(self, *, camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
-                 current_zoom: float | None = None) -> None:
+                 current_zoom: float | None = None, hosted: Hosted | None = None) -> None:
         self.camera, self.pose, self.current_zoom = camera, pose, current_zoom
+        self.hosted = hosted
         self.lock = Lock()
         self.selected_video: Path | None = None
         self.preview_video: Path | None = None
@@ -152,6 +204,8 @@ class DemoState:
         Thread(target=work, daemon=True).start()
 
     def select_upload(self, name: str, stream, size: int) -> None:
+        if self.hosted:
+            raise ValueError("Uploads are disabled on the public demo.")
         if not 0 < size <= MAX_UPLOAD_BYTES:
             raise ValueError("Video must be between 1 byte and 500 MB.")
         suffix = Path(name).suffix.lower()
@@ -211,6 +265,8 @@ class DemoState:
             if not shutil.which("ffprobe"):
                 raise RuntimeError("ffprobe is missing. Install ffmpeg first.")
             video = self.selected_video
+            if self.hosted and not self.hosted.job.acquire(blocking=False):
+                raise RuntimeError("The demo server is busy with another visitor's job. Try again shortly.")
             self.run_dir = ROOT / "benchmarks/runs" / (
                 "web-demo-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
                 + "-" + uuid4().hex[:8]
@@ -261,11 +317,16 @@ class DemoState:
                     self.process = None
                     self.status = "failed"
                     self.message = f"Could not start AERIS: {exc}"
+            finally:
+                if self.hosted:
+                    self.hosted.job.release()
 
         Thread(target=work, daemon=True).start()
 
     def start_live(self, source: str, profile: str = WEB_DEFAULT_PROFILE) -> None:
         """``camera:N``, an rtsp/http(s) URL, or ``selected`` (the chosen video, paced real time)."""
+        if self.hosted and source != "selected":
+            raise ValueError("The public demo only plays the selected sample.")
         if source.startswith("camera:") and source[7:].isdigit():
             target, paced = int(source[7:]), False
         elif source.startswith(("rtsp://", "http://", "https://")):
@@ -283,15 +344,21 @@ class DemoState:
             if self.status == "running":
                 raise RuntimeError("A recorded-video analysis is running.")
         self.stop_live()
+        if self.hosted and not self.hosted.job.acquire(blocking=False):
+            raise RuntimeError("The demo server is busy with another visitor's job. Try again shortly.")
         try:
             stages = load_stages(profile)
         except Exception as exc:
+            if self.hosted:
+                self.hosted.job.release()
             raise RuntimeError(f"Cannot load the detector: {exc}") from exc
         session = LiveSession(target, stages, paced=paced, label=source,
                               camera=self.camera, pose=self.pose, current_zoom=self.current_zoom)
         with self.lock:
             self.live = session
         session.start()
+        if self.hosted:
+            Thread(target=lambda: (session._thread.join(), self.hosted.job.release()), daemon=True).start()
 
     def stop_live(self) -> None:
         with self.lock:
@@ -310,9 +377,33 @@ class DemoState:
             process.terminate()
 
 
-def handler_for(state: DemoState):
+def handler_for(state: DemoState, hosted: Hosted | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "AERISWeb/1.0"
+        new_sid: str | None = None
+
+        def end_headers(self):
+            if self.new_sid:
+                self.send_header("Set-Cookie", f"aeris_sid={self.new_sid}; Path=/; HttpOnly; Secure; SameSite=Lax")
+            super().end_headers()
+
+        def _admit(self, post: bool) -> DemoState | None:
+            """Local: the single state. Hosted: rate limit, then this visitor's own state."""
+            if not hosted:
+                return state
+            forwarded = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if hosted.limited(forwarded or self.client_address[0], post):
+                self._json({"error": "Too many requests. Slow down."}, HTTPStatus.TOO_MANY_REQUESTS)
+                return None
+            cookie = SimpleCookie(self.headers.get("Cookie", ""))
+            sid = cookie["aeris_sid"].value if "aeris_sid" in cookie else ""
+            if len(sid) != 32 or not all(c in "0123456789abcdef" for c in sid):
+                sid = uuid4().hex
+                self.new_sid = sid
+            visitor = hosted.session(sid)
+            if visitor is None:
+                self._json({"error": "The demo is at capacity. Try again later."}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return visitor
 
         def log_message(self, format, *args):
             if urlsplit(self.path).path != "/api/state":
@@ -329,6 +420,8 @@ def handler_for(state: DemoState):
 
         def _valid_host(self) -> bool:
             port = self.server.server_port
+            if hosted:
+                return self.headers.get("Host", "") in hosted.hosts
             return self.headers.get("Host", "") in {f"127.0.0.1:{port}", f"localhost:{port}"}
 
         def _file(self, path: Path):
@@ -368,8 +461,14 @@ def handler_for(state: DemoState):
                     remaining -= len(chunk)
 
         def do_GET(self):
+            if self.path == "/healthz":
+                self._json({"ok": True})
+                return
             if not self._valid_host():
                 self.send_error(HTTPStatus.FORBIDDEN, "Invalid request host")
+                return
+            state = self._admit(post=False)
+            if state is None:
                 return
             path = urlsplit(self.path).path
             if path == "/api/state":
@@ -381,8 +480,9 @@ def handler_for(state: DemoState):
                      "observation": s.observation} for s in SAMPLES
                 ]})
             elif path == "/api/profiles":
-                self._json({"default": WEB_DEFAULT_PROFILE, "profiles": [
-                    {"name": n, "label": p.label, "note": p.note} for n, p in PROFILES.items()]})
+                available = {n: p for n, p in PROFILES.items() if not hosted or weights_path(n).is_file()}
+                self._json({"default": WEB_DEFAULT_PROFILE if WEB_DEFAULT_PROFILE in available else next(iter(available), None),
+                            "profiles": [{"name": n, "label": p.label, "note": p.note} for n, p in available.items()]})
             elif path == "/api/live/stream":
                 with state.lock:
                     session = state.live
@@ -428,9 +528,12 @@ def handler_for(state: DemoState):
                 return
             origin = self.headers.get("Origin", "")
             port = self.server.server_port
-            allowed = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+            allowed = hosted.origins if hosted else {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
             if origin not in allowed:
                 self._json({"error": "Invalid request origin."}, HTTPStatus.FORBIDDEN)
+                return
+            state = self._admit(post=True)
+            if state is None:
                 return
             path = urlsplit(self.path).path
             try:
@@ -438,6 +541,9 @@ def handler_for(state: DemoState):
                 if length < 0:
                     raise ValueError("Invalid request length.")
                 if path == "/api/upload":
+                    if hosted:
+                        self.close_connection = True
+                        raise ValueError("Uploads are disabled on the public demo.")
                     if length > MAX_UPLOAD_BYTES:
                         raise ValueError("Video exceeds 500 MB.")
                     name = unquote(self.headers.get("X-Filename", "video.mp4"))
@@ -473,6 +579,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Local AERIS browser demo")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-open", action="store_true")
+    parser.add_argument("--hosted", action="store_true",
+                        help="public deployment: bind 0.0.0.0, samples only, per-visitor sessions, rate limits; "
+                             "needs AERIS_ALLOWED_HOSTS and AERIS_ALLOWED_ORIGINS (comma-separated)")
     parser.add_argument("--calibration", type=Path, help="fixed-camera calibration JSON for live bearings")
     parser.add_argument("--pose", type=Path, help="surveyed fixed-camera pose JSON for live bearings")
     parser.add_argument("--current-zoom", type=float, help="operator-asserted current zoom for live bearings")
@@ -486,11 +595,18 @@ def main(argv=None) -> int:
         parser.error("--calibration and --pose must be supplied together")
     if args.current_zoom is not None and (not math.isfinite(args.current_zoom) or args.current_zoom <= 0):
         parser.error("--current-zoom must be finite and positive")
+    hosted = None
+    if args.hosted:
+        split = lambda name: {v.strip() for v in os.environ.get(name, "").split(",") if v.strip()}
+        hosts, origins = split("AERIS_ALLOWED_HOSTS"), split("AERIS_ALLOWED_ORIGINS")
+        if not hosts or not origins:
+            parser.error("--hosted needs AERIS_ALLOWED_HOSTS and AERIS_ALLOWED_ORIGINS")
+        hosted = Hosted(hosts, origins)
     state = DemoState(camera=CameraModel(calibration), pose=pose, current_zoom=args.current_zoom)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(state))
+    server = ThreadingHTTPServer(("0.0.0.0" if hosted else "127.0.0.1", args.port), handler_for(state, hosted) if hosted else handler_for(state))
     url = f"http://127.0.0.1:{server.server_port}"
     print(f"AERIS web demo: {url}", flush=True)
-    if not args.no_open:
+    if not args.no_open and not hosted:
         webbrowser.open(url)
     try:
         server.serve_forever()

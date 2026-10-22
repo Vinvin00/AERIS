@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 import unittest
 from unittest import mock
 
-from aeris.web.server import DemoState, handler_for
+from aeris.web.server import DemoState, Hosted, handler_for
 
 
 class WebUITests(unittest.TestCase):
@@ -507,3 +507,38 @@ class LiveScenePanelTests(unittest.TestCase):
         self.assertLess(abs(one_s["x"] - (last + 60)), 3, (one_s, last))
         self.assertLess(abs(drawn[-1][0][0] - (last + 60)), 3, (drawn[-1], last))   # drawn arrow
         self.assertTrue(boxes and min(boxes) >= 1, boxes)          # detections are masked out
+
+
+class HostedPolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.hosted = Hosted({"demo.test"}, {"https://app.test"})
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_for(DemoState(), self.hosted))
+        Thread(target=self.server.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def call(self, path, *, host="demo.test", origin="https://app.test", body=None, cookie=""):
+        headers = {"Host": host, "Origin": origin, "Cookie": cookie, "Content-Type": "application/json"}
+        data = None if body is None else json.dumps(body).encode()
+        request = Request(self.base + path, data=data, headers=headers)
+        try:
+            return urlopen(request, timeout=5)
+        except HTTPError as error:
+            return error
+
+    def test_host_origin_upload_and_live_source_are_restricted(self):
+        self.assertEqual(self.call("/api/state", host="evil.test").status, 403)
+        self.assertEqual(self.call("/api/select", origin="https://evil.test", body={"slug": "x"}).status, 403)
+        self.assertEqual(self.call("/api/upload", body={}).status, 400)
+        refused = self.call("/api/live/start", body={"source": "http://169.254.169.254/"})
+        self.assertEqual(refused.status, 400)
+        self.assertIn("selected sample", json.loads(refused.read())["error"])
+
+    def test_each_visitor_gets_a_cookie_and_posts_are_rate_limited(self):
+        first = self.call("/api/state")
+        self.assertIn("aeris_sid=", first.headers["Set-Cookie"])
+        codes = [self.call("/api/cancel", body={}).status for _ in range(Hosted.POSTS_PER_MINUTE + 2)]
+        self.assertEqual(codes[-1], 429)
