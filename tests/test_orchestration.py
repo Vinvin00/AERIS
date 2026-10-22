@@ -766,7 +766,8 @@ class GitRetryTests(unittest.TestCase):
         self.assertEqual(self.base()["rebased"], [])
 
     def test_unmatched_allow_path_warns_on_stderr_and_is_not_overlaid(self):
-        import contextlib, io
+        import contextlib
+        import io
         self.start()
         err = io.StringIO()
         with contextlib.redirect_stderr(err):

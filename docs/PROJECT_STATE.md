@@ -135,6 +135,11 @@ independence is operational only.
   0.1168 vs frame-pass 0.1231; off-target 17 -> 44), so no holdout run and crops stay opt-in. F-35
   (unlabelled): 153 -> 156 tracked frames. The harness now drops and counts out-of-image target labels.
 
+- TOOL-003 orchestrator lint fixes (ruff E731 in `tools/orchestrate.py`, E401 in
+  `tests/test_orchestration.py`; PLAN-012), accepted 2026-10-22 on attempt 01 after independent
+  review that also re-ran the checks with the pre-change orchestrator. With the direct
+  `server.py` fix (68d285d), `ruff check .` is clean, unblocking CI.
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |

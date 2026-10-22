@@ -279,7 +279,7 @@ class Workflow:
 
     def _check_new_tool(self, path, base, head, original):
         """Validate an owner-named tools/ path; returns it. Raises on anything that could shadow an import."""
-        norm = lambda text: unicodedata.normalize("NFC", text).casefold()
+        def norm(text): return unicodedata.normalize("NFC", text).casefold()
         parts = path.split("/")
         require(len(parts) == 2 and parts[0] == "tools" and parts[1].endswith(".py"),
                 f"--allow-new-tool needs a direct child tools/<name>.py, got {path!r}")
