@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "state_order": [
+    "cx_px",
+    "cy_px",
+    "vx_px_s",
+    "vy_px_s",
+    "w_px",
+    "h_px"
+  ],
+  "accel_sigma_px_s2": 200.0,
+  "size_sigma_px_sqrt_s": 4.0,
+  "initial_velocity_sigma_px_s": 100.0,
+  "r_position_frac": 0.05,
+  "r_size_frac": 0.1,
+  "r_floor_px": 1.0,
+  "gate_chi2": 13.277,
+  "confirm_hits": 3,
+  "tentative_timeout_s": 0.5,
+  "max_coast_s": 1.0,
+  "duplicate_iou": 0.95,
+  "birth_suppress_iou": 0.5,
+  "notes": {
+    "status": "AERIS-033 candidate manoeuvre-a200-s1-position (PLAN-011 grid); baseline.json values except accel_sigma_px_s2, size_sigma_frac_sqrt_s, gate_mode. Not selected unless docs/decisions/033 says so.",
+    "gate_chi2": "chi-square 0.99 quantile, 4 degrees of freedom (cx, cy, w, h).",
+    "R": "Measurement noise comes from box size (fractions of w/h with a pixel floor), not from detector confidence; no validated confidence-to-R method exists.",
+    "timeouts": "All lifecycle timeouts are seconds, not frames. Tentative tracks survive misses up to tentative_timeout_s; confirmed tracks coast as 'lost' for max_coast_s.",
+    "duplicate_iou": "Two same-class detections with IoU >= this in one frame are treated as one (lower score dropped).",
+    "size_sigma_frac_sqrt_s": "Size process noise proportional to box size: q_size = (size_sigma_px_sqrt_s^2 + (frac * size)^2) * dt. 0 reproduces baseline.",
+    "gate_mode": "'full' gates on (cx, cy, w, h) with gate_chi2; 'position' gates on (cx, cy) with gate_chi2_position (chi-square 0.99, 2 dof = 9.21); the update still uses all four."
+  },
+  "size_sigma_frac_sqrt_s": 1.0,
+  "gate_mode": "position",
+  "gate_chi2_position": 9.21
+}

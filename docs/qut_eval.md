@@ -108,4 +108,7 @@ What this shows, descriptively:
   p50 on the development machine. The same clips vary between runs (S3: 25.6 ms in the plain run,
   11.3 ms in the pan run); the cause was not investigated.
 
-No holdout result exists yet; PLAN-011 runs the holdout only for a written selection.
+No holdout result exists for this baseline section; AERIS-033's selection and holdout runs are
+in [ADR 033](decisions/033-manoeuvre-robust-tracker.md). The S2 holdout sequence has six target
+labels outside the image at its end, which the harness rejects; until AERIS-034 handles them, S2
+is unavailable and the AERIS-033 holdout used the other six holdout sequences.

@@ -87,6 +87,16 @@ class KalmanTracker:
                     "max_coast_s", "tentative_timeout_s", "duplicate_iou", "birth_suppress_iou"):
             if key not in self.cfg or not math.isfinite(self.cfg[key]) or self.cfg[key] <= 0:
                 raise TrackerError(f"config {key} must be a positive finite number")
+        # Optional AERIS-033 keys; their defaults reproduce the AERIS-009 model exactly.
+        frac = self.cfg.get("size_sigma_frac_sqrt_s", 0.0)
+        if isinstance(frac, bool) or not isinstance(frac, (int, float)) or not math.isfinite(frac) or frac < 0:
+            raise TrackerError("config size_sigma_frac_sqrt_s must be a finite number >= 0")
+        if self.cfg.get("gate_mode", "full") not in ("full", "position"):
+            raise TrackerError("config gate_mode must be 'full' or 'position'")
+        if self.cfg.get("gate_mode") == "position":
+            g = self.cfg.get("gate_chi2_position")
+            if isinstance(g, bool) or not isinstance(g, (int, float)) or not math.isfinite(g) or g <= 0:
+                raise TrackerError("config gate_chi2_position must be a positive finite number")
         self._tracks: list[_Track] = []
         self._next_id = 1
         self._time: float | None = None
@@ -95,7 +105,9 @@ class KalmanTracker:
                          "births_suppressed": 0, "gated_pairs": 0, "low_score_matches": 0}
 
     # -- model ---------------------------------------------------------------
-    def _transition(self, dt: float):
+    def _transition(self, dt: float, size=(0.0, 0.0)):
+        """``size`` (w, h) scales the optional size-proportional noise ``size_sigma_frac_sqrt_s``:
+        a box that grows or shrinks fast as an aircraft closes in is then not gated out."""
         f = np.eye(6)
         f[0, 2] = f[1, 3] = dt
         q = np.zeros((6, 6))
@@ -103,7 +115,9 @@ class KalmanTracker:
         block = a2 * np.array([[dt**4 / 4, dt**3 / 2], [dt**3 / 2, dt**2]])
         for pos, vel in ((0, 2), (1, 3)):
             q[np.ix_([pos, vel], [pos, vel])] = block
-        q[4, 4] = q[5, 5] = self.cfg["size_sigma_px_sqrt_s"] ** 2 * dt
+        frac = self.cfg.get("size_sigma_frac_sqrt_s", 0.0)
+        q[4, 4] = (self.cfg["size_sigma_px_sqrt_s"] ** 2 + (frac * size[0]) ** 2) * dt
+        q[5, 5] = (self.cfg["size_sigma_px_sqrt_s"] ** 2 + (frac * size[1]) ** 2) * dt
         return f, q
 
     def _measurement_noise(self, w: float, h: float) -> np.ndarray:
@@ -120,7 +134,7 @@ class KalmanTracker:
             raise TrackerError(f"{label}: covariance not positive semi-definite")
 
     def _predict(self, track: _Track, dt: float) -> None:
-        f, q = self._transition(dt)
+        f, q = self._transition(dt, (track.x[4], track.x[5]))
         track.x = f @ track.x
         track.p = f @ track.p @ f.T + q
         track.p = (track.p + track.p.T) / 2
@@ -229,7 +243,9 @@ class KalmanTracker:
         if not n_t or not n_d:
             return [], track_ids, list(range(n_d))
         cost = np.full((n_t, n_d), _BIG)
-        gate = self.cfg["gate_chi2"]
+        position_only = self.cfg.get("gate_mode", "full") == "position"
+        gate = self.cfg["gate_chi2_position"] if position_only else self.cfg["gate_chi2"]
+        axes = slice(0, 2) if position_only else slice(0, 4)
         for i, track in enumerate(self._tracks[ti] for ti in track_ids):
             predicted = self.H @ track.x
             for j, det in enumerate(dets):
@@ -237,8 +253,8 @@ class KalmanTracker:
                     continue
                 box = _box(det)
                 s = self.H @ track.p @ self.H.T + self._measurement_noise(box[2], box[3])
-                innovation = box - predicted
-                d2 = float(innovation @ np.linalg.solve(s, innovation))
+                innovation = (box - predicted)[axes]
+                d2 = float(innovation @ np.linalg.solve(s[axes, axes], innovation))
                 if d2 <= gate:
                     cost[i, j] = d2
                 else:

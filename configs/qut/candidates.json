@@ -21,6 +21,94 @@
    "tracker_config": "configs/tracker/baseline.json",
    "note": "secondary evidence: the hosted demo's profile (external, unaccepted tiling code)",
    "tracker_config_sha256": "9aea649f15b53982cb5ddfa4584325ef2910641fdc8e87e8954f686fc6f58438"
+  },
+  {
+   "name": "manoeuvre-a200-s0-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a200-s0-position.json",
+   "tracker_config_sha256": "700b3fa5d8cd11a97b2623ecd6576d6d1ca68da64cadb6d04fc5beac3608aafd",
+   "note": "accel 200 px/s^2, size frac 0.0/sqrt(s), gate position"
+  },
+  {
+   "name": "manoeuvre-a200-s1-full",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a200-s1-full.json",
+   "tracker_config_sha256": "2129b906bde6ed92fa4e7888ecc314e889de24e22e96347cdd8b8a69d0a148b4",
+   "note": "accel 200 px/s^2, size frac 1.0/sqrt(s), gate full"
+  },
+  {
+   "name": "manoeuvre-a200-s1-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a200-s1-position.json",
+   "tracker_config_sha256": "ef9780ce3a12793b033f78b45ff40ddb5b466c9af2ee86715617a556f3ce8f78",
+   "note": "accel 200 px/s^2, size frac 1.0/sqrt(s), gate position"
+  },
+  {
+   "name": "manoeuvre-a1000-s0-full",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a1000-s0-full.json",
+   "tracker_config_sha256": "c605779cf48f59e3097393a969ef14b6ee31eae94427bdaac51d66d7de7774c5",
+   "note": "accel 1000 px/s^2, size frac 0.0/sqrt(s), gate full"
+  },
+  {
+   "name": "manoeuvre-a1000-s0-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a1000-s0-position.json",
+   "tracker_config_sha256": "9f5d9a51dad5825648a2981d25a3e4a32d7ddb63d03223c2b3a69bcd3a757298",
+   "note": "accel 1000 px/s^2, size frac 0.0/sqrt(s), gate position"
+  },
+  {
+   "name": "manoeuvre-a1000-s1-full",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a1000-s1-full.json",
+   "tracker_config_sha256": "f907ab50254a07ce742d716e8e3c400f66596498048132d1aa1a5b63381ca0c0",
+   "note": "accel 1000 px/s^2, size frac 1.0/sqrt(s), gate full"
+  },
+  {
+   "name": "manoeuvre-a1000-s1-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a1000-s1-position.json",
+   "tracker_config_sha256": "c4b6700b4b9b2eafdda414f747ee4ddb45961e12d2c460bd139d9d832ec25fbd",
+   "note": "accel 1000 px/s^2, size frac 1.0/sqrt(s), gate position"
+  },
+  {
+   "name": "manoeuvre-a3000-s0-full",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s0-full.json",
+   "tracker_config_sha256": "2dce0dedebbd1d7fa358d0cac4213ba0af51448715259d5dbfb8afbdbea457c3",
+   "note": "accel 3000 px/s^2, size frac 0.0/sqrt(s), gate full"
+  },
+  {
+   "name": "manoeuvre-a3000-s0-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s0-position.json",
+   "tracker_config_sha256": "13e7af84a3c8d44020d8e211524d50320dfac6622e6763f1abc7ec0056aa2d1f",
+   "note": "accel 3000 px/s^2, size frac 0.0/sqrt(s), gate position"
+  },
+  {
+   "name": "manoeuvre-a3000-s1-full",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s1-full.json",
+   "tracker_config_sha256": "a1b6558ff975cf4a3e9b29e79c4deb5d958a4dd5eda9704187362d6a6ca9bf5c",
+   "note": "accel 3000 px/s^2, size frac 1.0/sqrt(s), gate full"
+  },
+  {
+   "name": "manoeuvre-a3000-s1-position",
+   "task": "AERIS-033",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s1-position.json",
+   "tracker_config_sha256": "9d7b204c4702c75bbf843fd565f11f8fc3f496e4f740267d835dc80b6abcfe3b",
+   "note": "accel 3000 px/s^2, size frac 1.0/sqrt(s), gate position"
   }
  ]
 }

@@ -129,8 +129,10 @@ def try_browser_preview(path: Path, cache: Path) -> tuple[Path | None, str | Non
 
 class DemoState:
     def __init__(self, *, camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
-                 current_zoom: float | None = None, hosted: Hosted | None = None) -> None:
+                 current_zoom: float | None = None, hosted: Hosted | None = None,
+                 tracker_config: Path | None = None) -> None:
         self.camera, self.pose, self.current_zoom = camera, pose, current_zoom
+        self.tracker_config = tracker_config   # None: the tracker's baseline.json default
         self.hosted = hosted
         self.lock = Lock()
         self.selected_video: Path | None = None
@@ -253,6 +255,13 @@ class DemoState:
                 self.message = f"Could not prepare video: {exc}"
             raise
 
+    def cli_command(self, video: Path, output: Path, profile: str) -> list[str]:
+        command = [sys.executable, "-m", "aeris", str(video), "--output", str(output), "--profile", profile,
+                   "--input-note", "Unlabeled local web demonstration; no accuracy claim"]
+        if self.tracker_config is not None:
+            command += ["--tracker-config", str(self.tracker_config)]
+        return command
+
     def run(self, profile: str = WEB_DEFAULT_PROFILE) -> None:
         if profile not in PROFILES:
             raise ValueError("Unknown detector profile.")
@@ -282,8 +291,7 @@ class DemoState:
             env = os.environ.copy()
             env["PYTHONPATH"] = str(ROOT / "python") + os.pathsep + env.get("PYTHONPATH", "")
             env["ORT_DISABLE_TELEMETRY"] = "1"
-            command = [sys.executable, "-m", "aeris", str(video), "--output", str(output), "--profile", profile,
-                       "--input-note", "Unlabeled local web demonstration; no accuracy claim"]
+            command = self.cli_command(video, output, profile)
             try:
                 process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
                                            stderr=subprocess.STDOUT, text=True)
@@ -353,7 +361,9 @@ class DemoState:
                 self.hosted.job.release()
             raise RuntimeError(f"Cannot load the detector: {exc}") from exc
         session = LiveSession(target, stages, paced=paced, label=source,
-                              camera=self.camera, pose=self.pose, current_zoom=self.current_zoom)
+                              camera=self.camera, pose=self.pose, current_zoom=self.current_zoom,
+                              **({"tracker_config": json.loads(self.tracker_config.read_text()),
+                                  "tracker_config_name": self.tracker_config.name} if self.tracker_config else {}))
         with self.lock:
             self.live = session
         session.start()
@@ -585,6 +595,8 @@ def main(argv=None) -> int:
     parser.add_argument("--calibration", type=Path, help="fixed-camera calibration JSON for live bearings")
     parser.add_argument("--pose", type=Path, help="surveyed fixed-camera pose JSON for live bearings")
     parser.add_argument("--current-zoom", type=float, help="operator-asserted current zoom for live bearings")
+    parser.add_argument("--tracker-config", type=Path, default=None,
+                        help="tracker config JSON for live and recorded runs (default configs/tracker/baseline.json)")
     args = parser.parse_args(argv)
     try:
         calibration = Calibration.from_dict(json.loads(args.calibration.read_text())) if args.calibration else None
@@ -602,7 +614,14 @@ def main(argv=None) -> int:
         if not hosts or not origins:
             parser.error("--hosted needs AERIS_ALLOWED_HOSTS and AERIS_ALLOWED_ORIGINS")
         hosted = Hosted(hosts, origins)
-    state = DemoState(camera=CameraModel(calibration), pose=pose, current_zoom=args.current_zoom)
+    if args.tracker_config is not None:
+        from aeris.tracking.tracker import KalmanTracker, TrackerError
+        try:
+            KalmanTracker("check", json.loads(args.tracker_config.read_text()))
+        except (OSError, ValueError, TrackerError) as exc:
+            parser.error(f"--tracker-config: {exc}")
+    state = DemoState(camera=CameraModel(calibration), pose=pose, current_zoom=args.current_zoom,
+                      tracker_config=args.tracker_config)
     server = ThreadingHTTPServer(("0.0.0.0" if hosted else "127.0.0.1", args.port), handler_for(state, hosted) if hosted else handler_for(state))
     url = f"http://127.0.0.1:{server.server_port}"
     print(f"AERIS web demo: {url}", flush=True)

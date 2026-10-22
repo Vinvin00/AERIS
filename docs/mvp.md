@@ -40,6 +40,9 @@ directory and renamed on success, so a failure leaves nothing behind.
 `--min-score` (default 0.3, untuned, not validation-selected) is the detection threshold: only detections at or
 above it start or confirm tracks and count in detection metrics; lower ones may only extend existing tracks (AERIS-027);
 `--camera-motion estimate|none` (default `estimate`) makes the displayed forecast arrow scene-relative (AERIS-028);
+`--tracker-config FILE` (default `configs/tracker/baseline.json`) selects the tracker parameters; its file name and
+SHA-256 are recorded in the manifest, and `python -m aeris.web.server --tracker-config FILE` applies it to live and
+recorded runs (AERIS-033; `configs/tracker/manoeuvre-a3000-s0-full.json` is the QUT-selected candidate);
 `--stride`, `--max-frames`, `--warmup-frames`, `--timestamp-policy`, `--no-render`, `--sequence-id`,
 `--model-config`, `--input-note` (free-text provenance recorded in the manifest).
 

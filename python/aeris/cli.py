@@ -38,7 +38,8 @@ from aeris.estimation.camera_motion import CameraMotion, apply_transform
 from aeris.estimation.trajectory import MODELS as FORECAST_MODELS
 from aeris.estimation.trajectory import TrajectoryForecaster, evaluate_forecasts, forecast_vs_detections
 from aeris.evaluation.metrics import TrackObservation, detection_metrics, tracking_metrics
-from aeris.tracking.tracker import TENTATIVE, KalmanTracker
+from aeris.tracking.tracker import CONFIG_PATH as TRACKER_CONFIG_PATH, TENTATIVE, KalmanTracker
+from aeris.tracking.tracker import TrackerError, load_config as load_tracker_config
 from aeris.video import pipeline
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -228,7 +229,8 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
 def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibration=None,
                  annotations=None, min_score=DEFAULT_MIN_SCORE, timestamp_policy="pts_or_inferred",
                  stride=1, max_frames=None, warmup_frames=1, render=True, command=None,
-                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="estimate") -> dict:
+                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="estimate",
+                 tracker_config: Path | None = None) -> dict:
     """Run the whole pipeline and write the artifact set atomically. Returns the manifest."""
     input_video, output_dir = Path(input_video), Path(output_dir)
     if not input_video.is_file():
@@ -263,7 +265,8 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
             by_frame.setdefault(det.frame_index, []).append(det)
 
     camera = CameraModel(calibration)
-    tracker = KalmanTracker(sequence_id)
+    tracker_path = Path(tracker_config) if tracker_config else TRACKER_CONFIG_PATH
+    tracker = KalmanTracker(sequence_id, load_tracker_config(tracker_path))
     forecasters = {name: TrajectoryForecaster(sequence_id, name) for name in FORECAST_MODELS}
     track_rows, predictions, drawn, previous = [], [], {}, {}
     measured = defaultdict(list)    # track_id -> [(t, assigned detection center)]
@@ -467,7 +470,8 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                       "height": result["height"], "nominal_fps": result["nominal_fps"]},
             "sequence_id": sequence_id,
             "detector": describe_stages(stages),
-            "tracker_config_sha256": sha256_file(ROOT / "configs/tracker/baseline.json"),
+            "tracker_config": tracker_path.name,
+            "tracker_config_sha256": sha256_file(tracker_path),
             "forecast_models": sorted(FORECAST_MODELS),
             "calibration": ({"calibration_id": calibration.calibration_id, "camera_id": calibration.camera_id,
                              "quality": calibration.quality} if calibration else
@@ -510,6 +514,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-config", type=Path, default=None,
                         help="detector config (default configs/detector/baseline.json)")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
+    parser.add_argument("--tracker-config", type=Path, default=None,
+                        help="tracker config JSON (default configs/tracker/baseline.json; see docs/tracking.md)")
     parser.add_argument("--camera-motion", choices=("none", "estimate"), default="estimate",
                         help="estimate background motion so the forecast arrow is scene-relative "
                              "(default; use 'none' for a known fixed camera); written predictions "
@@ -570,8 +576,9 @@ def main(argv=None) -> int:
             min_score=args.min_score, timestamp_policy=args.timestamp_policy, stride=args.stride,
             max_frames=args.max_frames, warmup_frames=args.warmup_frames, render=not args.no_render,
             command=[sys.executable, "-m", "aeris", *(argv if argv is not None else sys.argv[1:])],
-            dataset_info=dataset_info, input_note=args.input_note, camera_motion=args.camera_motion)
-    except (CliError, ValueError, OSError) as exc:
+            dataset_info=dataset_info, input_note=args.input_note, camera_motion=args.camera_motion,
+            tracker_config=args.tracker_config)
+    except (CliError, TrackerError, ValueError, OSError) as exc:
         print(f"aeris: error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps({"output": str(args.output), "artifacts": sorted(manifest["artifact_sha256"]),

@@ -118,6 +118,17 @@ independence is operational only.
   profile: target detection recall 0.123, track recall 0.115, 26 target fragments; detection is the
   main limit on QUT. Approximate centroid labels: **no AP, HOTA/IDF1 or accuracy claim.**
 
+- AERIS-033 manoeuvre-robust tracker options (`size_sigma_frac_sqrt_s`, `gate_mode`; defaults
+  reproduce AERIS-009 bit for bit), 11 pre-registered `configs/tracker/manoeuvre-*.json`
+  candidates and `--tracker-config` in the CLI, live and web paths, ADR 033, accepted 2026-10-22 on
+  attempt 01 after 368 tests and fresh independent review. The PLAN-011 rule selected
+  `manoeuvre-a3000-s0-full` (QUT dev fragments 26 -> 24; passes on a six-sequence holdout, S2
+  unavailable because of out-of-image labels). F-35 smoke clip, unlabelled: 55 -> 6 tracks. Size-aware
+  candidates (8-9 fragments) failed the fixed-50 px guards on very close aircraft; a size-relative
+  guard needs a planning change. **Default stays `baseline.json` until the owner decides.** The
+  holdout's selection record (SHA-256 prefix 4b90d7) is ADR 033's text before its "## Holdout"
+  heading (no trailing newline).
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |
@@ -126,6 +137,7 @@ independence is operational only.
 | 001 | `validate_sequence` accepts mixed `decode_pts`/`inferred_fps` sources; AERIS-008 added a rejecting helper in the video pipeline, `validate_sequence` itself unchanged (contract change) | Helper done; contract change open |
 | 002 N1 | Manifest validator checks key presence but not values: empty strings, empty `artifacts`/`sources`, non-bool flags, unknown status/evaluation names, `1e400` | AERIS-003 (when porting to `python/aeris/data/validate.py`) |
 | 002 N2 | 9 of 35 validator-rule mutants survive the tests (fallback, role/status, width bins, duplicate IDs, `holdout_rule`) | AERIS-003 |
+| 033 | Reviewer minors: empty/non-dict config silently runs baseline; string config values raise TypeError; position-gate boundary test; server resolves relative --tracker-config once; QUT fast-zoom run and common-subset forecast comparison missing from ADR 033; wording in docs/tracking.md | AERIS-034 (tracker/server/tests in scope) or follow-up |
 | 002 N3 | FGVC recall-only smoke check needs a fixed detection budget (top-k or pre-fixed score threshold) or it rewards box spam | AERIS-005/006 |
 | 006 | 1627560 class/box not asserted in a test; airplane scored per anchor instead of YOLOX argmax-class selection (undocumented); confirm weight license before release | AERIS-007+/release |
 | 008 | p95 not asserted in tests; read-back dimension comparison unexercised; max_frames equal to clip length cannot detect extra PTS | later video task |

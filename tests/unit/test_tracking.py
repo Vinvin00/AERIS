@@ -387,3 +387,57 @@ class PreLowScoreBehaviourTests(unittest.TestCase):
         a, b = KalmanTracker("s"), KalmanTracker("s")
         pairs = [(snapshot(a.step(t, d)), snapshot(b.step(t, d, high_score=0.5))) for t, d in cluttered_scene()]
         assert any(x != y for x, y in pairs) and b.counters["low_score_matches"] > 0
+
+
+class ManoeuvreOptionTests(unittest.TestCase):
+    """AERIS-033: optional size-proportional size noise and position-only gating."""
+
+    def approach(self, n=12, dt=0.04, growth=1.35):
+        """A target whose box grows 35 % per frame, like an aircraft closing on the camera."""
+        out, w = [], 10.0
+        for i in range(n):
+            out.append((round(i * dt, 6), {"A": box(200, 150, min(w, 380), min(w * 0.4, 280))}))
+            w *= growth
+        return out
+
+    def test_explicit_defaults_reproduce_the_baseline_exactly(self):
+        explicit = {**load_config(), "size_sigma_frac_sqrt_s": 0.0, "gate_mode": "full"}
+        for scene in (crossing(), self.approach()):
+            _, a = run(scene)
+            _, b = run(scene, cfg=explicit)
+            self.assertEqual([[(s.track_id, s.center, s.size, s.covariance, s.lifecycle) for s in f] for f in a],
+                             [[(s.track_id, s.center, s.size, s.covariance, s.lifecycle) for s in f] for f in b])
+
+    def test_size_proportional_noise_keeps_a_fast_growing_box_on_one_track(self):
+        scene = self.approach()
+        base, _ = run(scene)
+        grown, _ = run(scene, cfg={**load_config(), "size_sigma_frac_sqrt_s": 1.0})
+        self.assertGreater(base.counters["births"], 1)
+        self.assertEqual(grown.counters["births"], 1)
+
+    def test_position_gate_ignores_size_innovation(self):
+        scene = self.approach()
+        cfg = {**load_config(), "gate_mode": "position", "gate_chi2_position": 9.21}
+        tracker, _ = run(scene, cfg=cfg)
+        self.assertEqual(tracker.counters["births"], 1)
+        far = [(0.0, {"A": box(100, 100)}), (0.04, {"A": box(100, 100)}), (0.08, {"A": box(160, 100)})]
+        tracker, _ = run(far, cfg=cfg)
+        self.assertEqual(tracker.counters["births"], 2)   # a 60 px position jump is still gated out
+
+    def test_new_options_are_validated(self):
+        for bad in ({"size_sigma_frac_sqrt_s": -1.0}, {"size_sigma_frac_sqrt_s": float("nan")},
+                    {"size_sigma_frac_sqrt_s": True}, {"gate_mode": "loose"},
+                    {"gate_mode": "position"}, {"gate_mode": "position", "gate_chi2_position": 0}):
+            with self.assertRaises(TrackerError, msg=bad):
+                KalmanTracker("s", {**load_config(), **bad})
+
+    def test_manoeuvre_configs_load_and_differ_from_baseline_only_in_listed_keys(self):
+        base = load_config()
+        paths = sorted((ROOT / "configs" / "tracker").glob("manoeuvre*.json"))
+        self.assertEqual(len(paths), 11)
+        for path in paths:
+            cfg = json.loads(path.read_text())
+            KalmanTracker("s", cfg)
+            changed = {k for k in cfg if k != "notes" and cfg[k] != base.get(k)}
+            self.assertLessEqual(changed, {"accel_sigma_px_s2", "size_sigma_frac_sqrt_s", "gate_mode",
+                                           "gate_chi2_position"}, path.name)

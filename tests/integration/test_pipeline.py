@@ -136,6 +136,25 @@ class ArtifactTests(PipelineCase):
         assert set(manifest["artifact_sha256"]) == set(cli.ARTIFACTS)
         assert "-m" in manifest["command"] and "aeris" in manifest["command"]
 
+    def test_tracker_config_is_selectable_and_recorded(self):
+        assert self.run_cli("default") == 0
+        default = json.loads((self.out("default") / "run_manifest.json").read_text())
+        assert default["tracker_config"] == "baseline.json"
+        assert default["tracker_config_sha256"] == hashlib.sha256(
+            (ROOT / "configs/tracker/baseline.json").read_bytes()).hexdigest()
+        chosen = ROOT / "configs/tracker/manoeuvre-a3000-s0-full.json"
+        assert self.run_cli("chosen", extra=["--tracker-config", str(chosen)]) == 0
+        manifest = json.loads((self.out("chosen") / "run_manifest.json").read_text())
+        assert manifest["tracker_config"] == chosen.name
+        assert manifest["tracker_config_sha256"] == hashlib.sha256(chosen.read_bytes()).hexdigest()
+        i = manifest["command"].index("--tracker-config")
+        assert manifest["command"][i + 1] == str(chosen)
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "bad.json"
+            bad.write_text(json.dumps({**json.loads(chosen.read_text()), "gate_mode": "loose"}))
+            assert self.run_cli("bad", extra=["--tracker-config", str(bad)]) == 2
+        assert not self.out("bad").exists()
+
     def test_replay_runs_are_deterministic(self):
         assert self.run_cli("a") == 0 and self.run_cli("b") == 0
         for name in ("tracks.csv", "predictions.jsonl", "metrics.json"):

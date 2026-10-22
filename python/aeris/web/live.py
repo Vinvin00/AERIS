@@ -56,8 +56,10 @@ def fixed_camera_stability(motion: CameraMotion, estimated: bool, width: int, he
 class LiveSession:
     def __init__(self, source, stages, *, paced: bool, label: str,
                  camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
-                 current_zoom: float | None = None):
+                 current_zoom: float | None = None, tracker_config: dict | None = None,
+                 tracker_config_name: str = "baseline.json"):
         self.source, self.stages, self.paced, self.label = source, stages, paced, label
+        self.tracker_config = tracker_config
         self.camera = camera or CameraModel(None)
         self.pose = pose
         self.current_zoom = current_zoom
@@ -65,7 +67,8 @@ class LiveSession:
         self.jpeg: bytes | None = None
         self.seq = 0
         self.stats = {"state": "starting", "message": "Opening source…", "frames": 0, "dropped": 0,
-                      "fps": None, "latency_ms": None, "detections": 0, "tracks": 0, "source": label}
+                      "fps": None, "latency_ms": None, "detections": 0, "tracks": 0, "source": label,
+                      "tracker_config": tracker_config_name}
         self._stop = Event()
         self._thread = Thread(target=self._run, daemon=True)
 
@@ -95,7 +98,7 @@ class LiveSession:
             pts, timestamp_source, timestamp_reason = (
                 timestamp_plan(Path(self.source), fps, "pts_or_inferred") if self.paced
                 else (None, "monotonic_arrival", None))
-            tracker = KalmanTracker("live")
+            tracker = KalmanTracker("live", self.tracker_config)
             # Forecasts run in reference-frame (scene-relative) pixels so camera pans do not
             # masquerade as aircraft motion; everything shown is mapped back to the current frame.
             forecaster = TrajectoryForecaster("live", "constant_velocity")

@@ -442,6 +442,57 @@ class ForecastNoiseCallSiteTests(unittest.TestCase):
         self.assertTrue(all(abs(s - 10.0) < 1e-6 for s in sigmas), sigmas)
 
 
+class TrackerConfigTests(unittest.TestCase):
+    """AERIS-033: the live and recorded paths take an explicit tracker config; default baseline."""
+
+    def test_live_session_uses_and_reports_the_given_tracker_config(self):
+        import cv2
+        import numpy as np
+        from aeris.tracking import tracker as tracking
+        from aeris.web.live import LiveSession
+        root = Path(__file__).resolve().parents[2]
+        chosen = root / "configs/tracker/manoeuvre-a3000-s0-full.json"
+        seen = []
+
+        class Spy(tracking.KalmanTracker):
+            def __init__(self, sequence_id, config=None):
+                seen.append(config)
+                super().__init__(sequence_id, config)
+
+        class Stages:
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, **kwargs):
+                return []
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch("aeris.web.live.KalmanTracker", Spy):
+            path = str(Path(tmp) / "clip.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (64, 48))
+            for _ in range(4):
+                writer.write(np.zeros((48, 64, 3), np.uint8))
+            writer.release()
+            default = LiveSession(path, Stages(), paced=False, label="a")
+            default.start()
+            default._thread.join(timeout=10)
+            custom = LiveSession(path, Stages(), paced=False, label="b",
+                                 tracker_config=json.loads(chosen.read_text()), tracker_config_name=chosen.name)
+            custom.start()
+            custom._thread.join(timeout=10)
+        self.assertEqual(default.stats["tracker_config"], "baseline.json")
+        self.assertEqual(custom.stats["tracker_config"], chosen.name)
+        self.assertIsNone(seen[0])                                  # tracker's own baseline default
+        self.assertEqual(seen[1]["accel_sigma_px_s2"], 3000.0)
+
+    def test_recorded_runs_pass_the_tracker_config_to_the_cli(self):
+        video, out = Path("v.mp4"), Path("o")
+        self.assertNotIn("--tracker-config", DemoState().cli_command(video, out, "fast"))
+        chosen = Path("configs/tracker/manoeuvre-a3000-s0-full.json")
+        command = DemoState(tracker_config=chosen).cli_command(video, out, "fast")
+        self.assertEqual(command[-2:], ["--tracker-config", str(chosen)])
+
+
 class LiveScenePanelTests(unittest.TestCase):
     def test_live_panel_is_scene_relative_under_a_pan(self):
         """Textured clip panning 5 px/frame; the aircraft moves +3 px/frame in the scene (60 px/s at
