@@ -1,0 +1,20 @@
+{
+  "name": "aeris-demo-video",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "data": "python3 prepare.py",
+    "render": "remotion render Demo16x9 out/aeris-demo-16x9.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "typescript": "5.8.3"
+  }
+}
