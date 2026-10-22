@@ -1228,6 +1228,190 @@
       "required_artifacts": ["tools/orchestrate.py", "tests/test_orchestration.py", "docs/decisions/TOOL-002-retry-merges-and-tool-files.md"],
       "checks": ["governance", "unit"],
       "budget": "Offline tooling change only: no dependencies, downloads or gate edits; Git is invoked read-only. At most three attempts. A separate independent review must try to abuse the rule."
+    },
+    {
+      "id": "AERIS-032",
+      "title": "QUT multi-sequence evaluation harness",
+      "objective": "Measure detection, track continuity, off-target and false-alarm proxies and forecast error on all 15 pinned QUT sequences with the PLAN-011 pre-registered measures and development/holdout split, so detector and tracker changes are compared on labelled real video instead of one unlabelled clip.",
+      "status": "deferred",
+      "depends_on": [
+        "AERIS-027",
+        "AERIS-031"
+      ],
+      "read": [
+        "docs/public_video_pilot.md",
+        "docs/evaluation.md",
+        "docs/tracking.md",
+        "docs/decisions/PLAN-011-qut-eval-tracker-guided-detection.md"
+      ],
+      "write_globs": [
+        "scripts/qut_eval.py",
+        "tests/unit/test_qut_eval.py",
+        "configs/qut/sequences.json",
+        "configs/qut/candidates.json",
+        "benchmarks/qut_eval/*.json",
+        "docs/qut_eval.md",
+        "docs/decisions/032-*.md"
+      ],
+      "acceptance": {
+        "AC1": "A manifest pins every QUT sequence video (published LFS SHA-256), target-label CSV, one or more other-aircraft CSVs and target-info.csv (published Git blob SHA-1 plus measured SHA-256) at the AERIS-031 revision with sizes, dates, global-frame bounds and the PLAN-011 split; the runner refuses unpinned or mismatched files, never fetches other release files, checks dev/holdout overlap and records it, and media stays Git-ignored",
+        "AC2": "The runner composes the accepted tracker (selectable config file, AERIS-027 low-score pass) and forecasters with a selectable detector profile on video only, opens labels after runtime outputs are fixed, and reports per-sequence and pooled PLAN-011 measures 1-9 with supports and availability reasons, plus profile, detector config and weight hashes, tracker config hash, code commit and frame resolution; it refuses variants missing from the candidate list, stamps results with the list SHA-256, stride and timestamp source, compares two reports on the common forecast subset and evaluates the PLAN-011 selection rule",
+        "AC3": "Holdout runs require a written selection record; the optional dev-only synthetic pan shifts frames and labels by the same seeded offset; unit tests cover label and other-aircraft loading, bounds, association, every measure, pooling, the selection rule including zero baselines, split enforcement and the pan offset on small synthetic inputs; the unchanged baseline is recorded on the development split for the fast profile (selection baseline) and fast-zoom (secondary), with limitations and unavailable metrics stated"
+      },
+      "required_artifacts": [
+        "scripts/qut_eval.py",
+        "tests/unit/test_qut_eval.py",
+        "configs/qut/sequences.json",
+        "docs/qut_eval.md",
+        "docs/decisions/032-qut-eval-harness.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Download only the 15 QUT compressed videos, their target and other-aircraft label CSVs and target-info.csv at the pinned revision, at most 40 MB total (about 29.4 MB measured), into Git-ignored data/raw/qut. Existing local models and dependencies only; no training, new weights, gate, contract, test-expectation or threshold change. At most three attempts and independent review."
+    },
+    {
+      "id": "AERIS-033",
+      "title": "Manoeuvre-robust tracker motion model",
+      "objective": "Stop one manoeuvring or camera-followed aircraft from fragmenting into many tracks by adding a configuration-selected motion model (higher or innovation-adaptive process noise) chosen under the PLAN-011 rule on the AERIS-032 development split, selectable in the CLI and live paths (the hosted demo inherits it through the CLI), with the baseline configuration and default unchanged.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-035"
+      ],
+      "read": [
+        "docs/tracking.md",
+        "docs/decisions/009-kalman-tracker.md",
+        "docs/mvp.md",
+        "docs/decisions/PLAN-011-qut-eval-tracker-guided-detection.md"
+      ],
+      "write_globs": [
+        "python/aeris/tracking/tracker.py",
+        "configs/tracker/manoeuvre*.json",
+        "python/aeris/cli.py",
+        "python/aeris/web/live.py",
+        "python/aeris/web/server.py",
+        "tests/unit/test_tracking.py",
+        "tests/integration/test_pipeline.py",
+        "tests/ui/test_web.py",
+        "configs/qut/candidates.json",
+        "benchmarks/qut_eval/*.json",
+        "docs/tracking.md",
+        "docs/mvp.md",
+        "docs/qut_eval.md",
+        "docs/decisions/033-*.md"
+      ],
+      "acceptance": {
+        "AC1": "The tracker supports the new motion model through configuration only; configs/tracker/baseline.json and every existing test expectation are unchanged and pass; new options are validated; the baseline config reproduces previous states exactly (tested)",
+        "AC2": "A candidate list of at most 12 is written in the ADR before the first development run; every candidate's pooled development measures are recorded; selection follows the PLAN-011 rule against the fast-profile baseline; the chosen candidate and the baseline run once on the holdout and the PLAN-011 holdout consequence is applied; synthetic-pan development results and fast-zoom results are reported as secondary evidence",
+        "AC3": "The CLI and live paths accept an explicit tracker-config setting that is recorded in the manifest or live status, default baseline.json; unit, CLI and web tests cover the new model, validation and the setting; the F-35 smoke clip track count is reported as unlabelled evidence only; changing any default is left to an owner decision"
+      },
+      "required_artifacts": [
+        "python/aeris/tracking/tracker.py",
+        "tests/unit/test_tracking.py",
+        "docs/decisions/033-manoeuvre-robust-tracker.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "tracking",
+        "pipeline"
+      ],
+      "budget": "Offline code and evaluation on already-downloaded QUT data and the local F-35 demo cache. No new downloads, training, dependency, gate, contract, test-expectation or threshold change. At most 12 candidates, three attempts and independent review. No attempt while an AERIS-012 attempt is open."
+    },
+    {
+      "id": "AERIS-034",
+      "title": "Tracker-guided full-resolution crop",
+      "objective": "Raise recall on small aircraft by running the detector, each frame, on native-resolution model-sized crops around confirmed or lost tracks' causally propagated positions, feeding those detections to the tracker as extend-only measurements, in batch, live and evaluation paths; switchable, off by default in live, and selected under the PLAN-011 rule.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-033"
+      ],
+      "read": [
+        "docs/detection.md",
+        "docs/tracking.md",
+        "docs/mvp.md",
+        "docs/decisions/PLAN-011-qut-eval-tracker-guided-detection.md"
+      ],
+      "write_globs": [
+        "python/aeris/detection/guided.py",
+        "python/aeris/video/pipeline.py",
+        "python/aeris/tracking/tracker.py",
+        "python/aeris/cli.py",
+        "python/aeris/web/live.py",
+        "python/aeris/web/server.py",
+        "scripts/qut_eval.py",
+        "tests/unit/test_guided_crop.py",
+        "tests/unit/test_tracking.py",
+        "tests/unit/test_qut_eval.py",
+        "tests/integration/test_pipeline.py",
+        "tests/ui/test_web.py",
+        "configs/qut/candidates.json",
+        "benchmarks/qut_eval/*.json",
+        "docs/detection.md",
+        "docs/mvp.md",
+        "docs/qut_eval.md",
+        "docs/decisions/034-*.md"
+      ],
+      "acceptance": {
+        "AC1": "Crop centres use only the last emitted TrackState propagated to the current timestamp; crops are model-input-sized at native resolution, clipped to the frame, at most 4 per frame ordered by most recent observation; boxes map to original-frame pixels; crop detections only extend existing confirmed or lost tracks and never start or confirm one; CameraMotion uses frame-pass detections only",
+        "AC2": "Batch, live and QUT runner interleave frame pass, crops and tracker step when crops are on; with crops off, tracks.csv and predictions.jsonl are byte-identical to the previous path and live track states are unchanged (both tested); the setting, crops per frame and added ms/frame p50/p95 are recorded; live crops default off",
+        "AC3": "Unit tests cover placement, clipping, mapping, budget, causality and extend-only association; development measures with crops on and off follow the PLAN-011 rule against the PLAN-011 AERIS-034 baseline (the AERIS-033 chosen config, fast profile, crops off), the chosen setting runs once on the holdout with the PLAN-011 consequence applied, and any default change is left to an owner decision"
+      },
+      "required_artifacts": [
+        "python/aeris/detection/guided.py",
+        "tests/unit/test_guided_crop.py",
+        "docs/decisions/034-tracker-guided-crop.md"
+      ],
+      "checks": [
+        "governance",
+        "unit",
+        "tracking",
+        "pipeline"
+      ],
+      "budget": "Offline code and evaluation on already-downloaded QUT data and the local F-35 demo cache. No new downloads, training, dependency, gate, contract, test-expectation or threshold change. At most 12 candidates, three attempts and independent review. No attempt while an AERIS-012 attempt is open."
+    },
+    {
+      "id": "AERIS-035",
+      "title": "QUT multi-sequence evaluation harness",
+      "objective": "Measure detection, track continuity, off-target and false-alarm proxies and forecast error on all 15 pinned QUT sequences with the PLAN-011 pre-registered measures and development/holdout split, so detector and tracker changes are compared on labelled real video instead of one unlabelled clip. Replaces AERIS-032 (PLAN-011 Addendum A); identical contract with a fresh attempt budget.",
+      "status": "planned",
+      "depends_on": [
+        "AERIS-027",
+        "AERIS-031"
+      ],
+      "read": [
+        "docs/public_video_pilot.md",
+        "docs/evaluation.md",
+        "docs/tracking.md",
+        "docs/decisions/PLAN-011-qut-eval-tracker-guided-detection.md"
+      ],
+      "write_globs": [
+        "scripts/qut_eval.py",
+        "tests/unit/test_qut_eval.py",
+        "configs/qut/sequences.json",
+        "configs/qut/candidates.json",
+        "benchmarks/qut_eval/*.json",
+        "docs/qut_eval.md",
+        "docs/decisions/032-*.md"
+      ],
+      "acceptance": {
+        "AC1": "A manifest pins every QUT sequence video (published LFS SHA-256), target-label CSV, one or more other-aircraft CSVs and target-info.csv (published Git blob SHA-1 plus measured SHA-256) at the AERIS-031 revision with sizes, dates, global-frame bounds and the PLAN-011 split; the runner refuses unpinned or mismatched files, never fetches other release files, checks dev/holdout overlap and records it, and media stays Git-ignored",
+        "AC2": "The runner composes the accepted tracker (selectable config file, AERIS-027 low-score pass) and forecasters with a selectable detector profile on video only, opens labels after runtime outputs are fixed, and reports per-sequence and pooled PLAN-011 measures 1-9 with supports and availability reasons, plus profile, detector config and weight hashes, tracker config hash, code commit and frame resolution; it refuses variants missing from the candidate list, stamps results with the list SHA-256, stride and timestamp source, compares two reports on the common forecast subset and evaluates the PLAN-011 selection rule",
+        "AC3": "Holdout runs require a written selection record; the optional dev-only synthetic pan shifts frames and labels by the same seeded offset; unit tests cover label and other-aircraft loading, bounds, association, every measure, pooling, the selection rule including zero baselines, split enforcement and the pan offset on small synthetic inputs; the unchanged baseline is recorded on the development split for the fast profile (selection baseline) and fast-zoom (secondary), with limitations and unavailable metrics stated"
+      },
+      "required_artifacts": [
+        "scripts/qut_eval.py",
+        "tests/unit/test_qut_eval.py",
+        "configs/qut/sequences.json",
+        "docs/qut_eval.md",
+        "docs/decisions/032-qut-eval-harness.md"
+      ],
+      "checks": [
+        "governance",
+        "unit"
+      ],
+      "budget": "Download only the 15 QUT compressed videos, their target and other-aircraft label CSVs and target-info.csv at the pinned revision, at most 40 MB total (about 29.4 MB measured), into Git-ignored data/raw/qut. Existing local models and dependencies only; no training, new weights, gate, contract, test-expectation or threshold change. At most three attempts and independent review."
     }
   ]
 }

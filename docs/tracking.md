@@ -48,6 +48,26 @@ noisy velocity on a steady one); the convergence test uses a tight 2 px/s^2 mode
 All values are engineering defaults to be chosen on a development set and recorded
 before comparing candidates.
 
+## Manoeuvre options (AERIS-033)
+
+Two optional keys, absent from `baseline.json`, whose defaults reproduce the model above exactly:
+`size_sigma_frac_sqrt_s` adds size noise proportional to the box (`q_size = (size_sigma_px_sqrt_s² +
+(frac·size)²)·dt`), and `gate_mode: "position"` gates association on the centre only with
+`gate_chi2_position` (the update still uses the box). Eleven candidate configs
+`configs/tracker/manoeuvre-*.json` were compared on the QUT development split
+([ADR 033](decisions/033-manoeuvre-robust-tracker.md), [QUT evaluation](qut_eval.md)). The
+pre-registered rule selected `manoeuvre-a3000-s0-full` (accel σ 3000 px/s², otherwise baseline).
+It passed on a six-sequence holdout but **fails the rule on the full seven-sequence holdout**
+(off-target and impurity guards, mostly in S2; [ADR 034](decisions/034-tracker-guided-crop.md)),
+so it stays opt-in: selectable with `--tracker-config` in the CLI and the web server, with
+`baseline.json` the default. The size-aware candidates kept an approaching aircraft on fewer
+tracks (8–9 fragments against 24–26) but failed the fixed-50 px guards in the last second of the
+clips; see ADR 033.
+
+The tracker also accepts `extend_only` detections (AERIS-034 guided crops): a third association
+pass offers them only to confirmed or lost tracks left unmatched, so they never start or confirm a
+track.
+
 ## Evidence and AC3
 
 `tests/unit/test_tracking.py` (20 tests): crossing ID stability, a 0.3 s detection

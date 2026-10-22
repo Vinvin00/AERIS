@@ -1,0 +1,1107 @@
+{
+ "manifest_sha256": "9ca541ba98061bf1d868a267e129b4963ea26b7720ca5544e9914e5ae2a467e7",
+ "name": "guided-a3000-s0-full",
+ "plan": "docs/decisions/PLAN-011-qut-eval-tracker-guided-detection.md",
+ "pooled": {
+  "ambiguous_swap_frames": 0,
+  "forecast_centroid_error": {
+   "constant_acceleration@0.1": {
+    "availability_reason": null,
+    "median_px": 6.004888103053956,
+    "p90_px": 15.13485940446094,
+    "support": 1269
+   },
+   "constant_acceleration@0.25": {
+    "availability_reason": null,
+    "median_px": 11.845020434690932,
+    "p90_px": 31.17641735599859,
+    "support": 1263
+   },
+   "constant_acceleration@0.5": {
+    "availability_reason": null,
+    "median_px": 29.746436954543796,
+    "p90_px": 77.87486898560508,
+    "support": 1238
+   },
+   "constant_acceleration@1.0": {
+    "availability_reason": null,
+    "median_px": 89.99850382038372,
+    "p90_px": 217.98284538973957,
+    "support": 1168
+   },
+   "constant_acceleration@2.0": {
+    "availability_reason": null,
+    "median_px": 299.26259453853436,
+    "p90_px": 682.2703624261524,
+    "support": 1003
+   },
+   "constant_velocity@0.1": {
+    "availability_reason": null,
+    "median_px": 5.439738351850745,
+    "p90_px": 13.28659615648273,
+    "support": 1269
+   },
+   "constant_velocity@0.25": {
+    "availability_reason": null,
+    "median_px": 7.631919904551775,
+    "p90_px": 24.97246821475148,
+    "support": 1263
+   },
+   "constant_velocity@0.5": {
+    "availability_reason": null,
+    "median_px": 12.714878968751654,
+    "p90_px": 48.86305519079603,
+    "support": 1238
+   },
+   "constant_velocity@1.0": {
+    "availability_reason": null,
+    "median_px": 25.555918470419805,
+    "p90_px": 110.93925334065726,
+    "support": 1168
+   },
+   "constant_velocity@2.0": {
+    "availability_reason": null,
+    "median_px": 63.128191097787344,
+    "p90_px": 220.76756663770402,
+    "support": 1003
+   }
+  },
+  "identity_swaps": 0,
+  "labelled_target_frames": 10792,
+  "non_target_confirmed_tracks": 1,
+  "off_target_observations": 44,
+  "target_detection_hits": 1329,
+  "target_detection_hits_with_crops": 1260,
+  "target_detection_recall": 0.12314677538917716,
+  "target_detection_recall_with_crops": 0.1167531504818384,
+  "target_fragments": 24,
+  "target_id_switches": 23,
+  "target_track_hits": 1272,
+  "target_track_impurity": 31,
+  "target_track_recall": 0.1178650852483321
+ },
+ "raw_forecast_errors": {
+  "keys": 11882,
+  "path": "data/processed/qut_eval_raw/guided-a3000-s0-full-dev.json",
+  "sha256": "06e376549557151e757dd97990b010717d4ab4744e65a26cedbc20bca42ed00d"
+ },
+ "schema_version": 1,
+ "scope": "QUT fixed ground-camera clips with approximate centroid labels; descriptive, not a benchmark",
+ "selection_record": null,
+ "sequences": {
+  "M1": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 11.177291977219284,
+    "p95": 16.823518637102097
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 5.770927818068713,
+     "p90_px": 13.910559932856081,
+     "support": 178
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 10.579098340785006,
+     "p90_px": 29.638749379965073,
+     "support": 177
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 27.551456716636395,
+     "p90_px": 68.1783992718607,
+     "support": 174
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 85.02382722751274,
+     "p90_px": 201.19664995670522,
+     "support": 164
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 280.80158145755007,
+     "p90_px": 647.2544835189212,
+     "support": 142
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 4.748677238346495,
+     "p90_px": 11.434855008788702,
+     "support": 178
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 6.636949307951129,
+     "p90_px": 19.18632462231827,
+     "support": 177
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 10.764710439637408,
+     "p90_px": 36.52250522075219,
+     "support": 174
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 21.895329214006388,
+     "p90_px": 77.29669634091758,
+     "support": 164
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 52.48501503569027,
+     "p90_px": 172.2915074491528,
+     "support": 142
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.0025830231606960297,
+     "p95": 9.79935445357114
+    },
+    "crops_total": 248,
+    "extend_only_matches": 3,
+    "frames_with_crops": 191
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1180,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 3,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 4,
+    "decoded_frames": 2274,
+    "detections_at_floor": 220,
+    "detections_at_track_score": 190,
+    "tracker": {
+     "births": 5,
+     "births_suppressed": 3,
+     "deleted": 0,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 3,
+     "gated_pairs": 129,
+     "low_score_matches": 3,
+     "steps": 2274
+    }
+   },
+   "target_detection_hits": 189,
+   "target_detection_hits_with_crops": 177,
+   "target_detection_recall": 0.16016949152542373,
+   "target_detection_recall_with_crops": 0.15,
+   "target_fragments": 3,
+   "target_id_switches": 3,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 179,
+   "target_track_impurity": 2,
+   "target_track_recall": 0.15169491525423728,
+   "track_and_forecast_ms": {
+    "p50": 0.002834014594554901,
+    "p95": 0.40643520187586546
+   }
+  },
+  "M3": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 10.853750514797866,
+    "p95": 15.504137583775446
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 5.345152032913525,
+     "p90_px": 12.865496370960043,
+     "support": 186
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 12.408035675194203,
+     "p90_px": 30.110030087298604,
+     "support": 186
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 32.691391582374834,
+     "p90_px": 81.5651189574567,
+     "support": 182
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 93.38276428700973,
+     "p90_px": 210.30111925522542,
+     "support": 170
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 297.75472405856806,
+     "p90_px": 706.3077188472228,
+     "support": 153
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 4.515822917018474,
+     "p90_px": 9.566272996663354,
+     "support": 186
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 7.5545467455449264,
+     "p90_px": 18.47911561861767,
+     "support": 186
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 13.921241925224024,
+     "p90_px": 36.751105752465286,
+     "support": 182
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 27.73043793656384,
+     "p90_px": 68.27249648135957,
+     "support": 170
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 68.0806330888789,
+     "p90_px": 172.4473871449511,
+     "support": 153
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.00200001522898674,
+     "p95": 9.704749536467716
+    },
+    "crops_total": 229,
+    "extend_only_matches": 1,
+    "frames_with_crops": 202
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 2141,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 0,
+   "other_aircraft_labels_outside_video": 1,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 2,
+    "decoded_frames": 2474,
+    "detections_at_floor": 223,
+    "detections_at_track_score": 190,
+    "tracker": {
+     "births": 2,
+     "births_suppressed": 7,
+     "deleted": 0,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 1,
+     "gated_pairs": 38,
+     "low_score_matches": 8,
+     "steps": 2474
+    }
+   },
+   "target_detection_hits": 190,
+   "target_detection_hits_with_crops": 189,
+   "target_detection_recall": 0.08874357776739841,
+   "target_detection_recall_with_crops": 0.08827650630546474,
+   "target_fragments": 2,
+   "target_id_switches": 2,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 186,
+   "target_track_impurity": 0,
+   "target_track_recall": 0.08687529191966371,
+   "track_and_forecast_ms": {
+    "p50": 0.0025419285520911217,
+    "p95": 0.3956807020585984
+   }
+  },
+  "M5": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 10.779520962387323,
+    "p95": 15.473511186428368
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 6.150494612205883,
+     "p90_px": 18.449048935872142,
+     "support": 134
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 14.272971318613004,
+     "p90_px": 41.46756249302076,
+     "support": 133
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 35.64511306519128,
+     "p90_px": 92.53763293398292,
+     "support": 128
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 110.56081234667087,
+     "p90_px": 293.5489273893912,
+     "support": 121
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 361.79140366559625,
+     "p90_px": 903.4463356008775,
+     "support": 100
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 5.386041451521118,
+     "p90_px": 15.634564207830634,
+     "support": 134
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 9.093537437313982,
+     "p90_px": 33.158283939350916,
+     "support": 133
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 15.511554935508967,
+     "p90_px": 51.098884956102964,
+     "support": 128
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 33.155890706349396,
+     "p90_px": 113.9679021424628,
+     "support": 121
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 89.14941346458221,
+     "p90_px": 241.8772581317095,
+     "support": 100
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.0018749851733446121,
+     "p95": 0.0030410010367631912
+    },
+    "crops_total": 200,
+    "extend_only_matches": 7,
+    "frames_with_crops": 150
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1059,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 5,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 3,
+    "decoded_frames": 5476,
+    "detections_at_floor": 171,
+    "detections_at_track_score": 143,
+    "tracker": {
+     "births": 5,
+     "births_suppressed": 4,
+     "deleted": 1,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 7,
+     "gated_pairs": 130,
+     "low_score_matches": 6,
+     "steps": 5476
+    }
+   },
+   "target_detection_hits": 143,
+   "target_detection_hits_with_crops": 119,
+   "target_detection_recall": 0.13503305004721436,
+   "target_detection_recall_with_crops": 0.11237016052880075,
+   "target_fragments": 3,
+   "target_id_switches": 3,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 134,
+   "target_track_impurity": 5,
+   "target_track_recall": 0.12653446647780925,
+   "track_and_forecast_ms": {
+    "p50": 0.0024579931050539017,
+    "p95": 0.003750086762011051
+   }
+  },
+  "M7": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 10.753416980151087,
+    "p95": 15.14812360983342
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 6.004888103053956,
+     "p90_px": 12.623812157223373,
+     "support": 167
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 9.459023785758662,
+     "p90_px": 27.035342626811623,
+     "support": 167
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 20.601190279880193,
+     "p90_px": 65.13749557014447,
+     "support": 164
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 63.56067258355015,
+     "p90_px": 195.14065221823074,
+     "support": 156
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 219.62037106311672,
+     "p90_px": 594.7551889996749,
+     "support": 135
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 5.455822258887341,
+     "p90_px": 11.413710935908258,
+     "support": 167
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 6.370737446193708,
+     "p90_px": 18.510388329851835,
+     "support": 167
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 9.570543812007303,
+     "p90_px": 41.849185651580854,
+     "support": 164
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 16.033117353095122,
+     "p90_px": 114.71388615288555,
+     "support": 156
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 40.45174608725686,
+     "p90_px": 211.7191957453051,
+     "support": 135
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.002124928869307041,
+     "p95": 0.006166985258460045
+    },
+    "crops_total": 252,
+    "extend_only_matches": 3,
+    "frames_with_crops": 184
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1136,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 4,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 4,
+    "decoded_frames": 5770,
+    "detections_at_floor": 195,
+    "detections_at_track_score": 185,
+    "tracker": {
+     "births": 6,
+     "births_suppressed": 4,
+     "deleted": 2,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 3,
+     "gated_pairs": 119,
+     "low_score_matches": 1,
+     "steps": 5770
+    }
+   },
+   "target_detection_hits": 179,
+   "target_detection_hits_with_crops": 171,
+   "target_detection_recall": 0.15757042253521128,
+   "target_detection_recall_with_crops": 0.1505281690140845,
+   "target_fragments": 4,
+   "target_id_switches": 4,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 168,
+   "target_track_impurity": 4,
+   "target_track_recall": 0.14788732394366197,
+   "track_and_forecast_ms": {
+    "p50": 0.0025419285520911217,
+    "p95": 0.00516704167239368
+   }
+  },
+  "S1": {
+   "alignment": "inferred: last decoded frame = last target label (global 11727); published bounds disagree by one frame (start_frame 7305, end_frame 11728, 4423 decoded); +/-1 frame (40 ms) uncertainty",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 10.998748941347003,
+    "p95": 18.38859673589467
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 7.738491530385372,
+     "p90_px": 23.347165252781156,
+     "support": 129
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 17.150241058864438,
+     "p90_px": 62.624065759568495,
+     "support": 127
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 47.51342719204592,
+     "p90_px": 156.5953528578254,
+     "support": 127
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 142.83795259749357,
+     "p90_px": 342.51594429289275,
+     "support": 117
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 438.815666989305,
+     "p90_px": 1055.3891923319313,
+     "support": 97
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 7.786262329249887,
+     "p90_px": 22.203551100005782,
+     "support": 129
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 10.23283146421657,
+     "p90_px": 40.545676518139544,
+     "support": 127
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 17.239549218522903,
+     "p90_px": 93.41956748790673,
+     "support": 127
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 35.74150062424007,
+     "p90_px": 238.4223269817687,
+     "support": 117
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 86.47583217291479,
+     "p90_px": 414.4991829488104,
+     "support": 97
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.0030410010367631912,
+     "p95": 0.009333842899650335
+    },
+    "crops_total": 339,
+    "extend_only_matches": 28,
+    "frames_with_crops": 158
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1057,
+   "non_target_confirmed_tracks": 1,
+   "off_target_observations": 19,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 5,
+    "decoded_frames": 4423,
+    "detections_at_floor": 172,
+    "detections_at_track_score": 156,
+    "tracker": {
+     "births": 5,
+     "births_suppressed": 3,
+     "deleted": 2,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 28,
+     "gated_pairs": 297,
+     "low_score_matches": 3,
+     "steps": 4423
+    }
+   },
+   "target_detection_hits": 144,
+   "target_detection_hits_with_crops": 135,
+   "target_detection_recall": 0.13623462630085148,
+   "target_detection_recall_with_crops": 0.12771996215704826,
+   "target_fragments": 3,
+   "target_id_switches": 3,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 129,
+   "target_track_impurity": 7,
+   "target_track_recall": 0.12204351939451277,
+   "track_and_forecast_ms": {
+    "p50": 0.002959044650197029,
+    "p95": 0.006620876956731066
+   }
+  },
+  "S3": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 25.56006208760664,
+    "p95": 39.40739746321924
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 6.114526434728677,
+     "p90_px": 14.063866344269828,
+     "support": 196
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 9.397562669684188,
+     "p90_px": 24.818339155145868,
+     "support": 195
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 24.053710248876815,
+     "p90_px": 55.054873809782485,
+     "support": 191
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 79.79140669312352,
+     "p90_px": 177.7316415408171,
+     "support": 184
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 287.5047735672276,
+     "p90_px": 491.63184643821296,
+     "support": 163
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 5.94861023852631,
+     "p90_px": 13.497115307046009,
+     "support": 196
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 8.08325259069011,
+     "p90_px": 24.475520330595085,
+     "support": 195
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 11.535028168958517,
+     "p90_px": 45.309605294927245,
+     "support": 191
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 22.263511728230547,
+     "p90_px": 90.02310718546111,
+     "support": 184
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 48.2976173143408,
+     "p90_px": 234.25930707753068,
+     "support": 163
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.002125045284628868,
+     "p95": 0.006250053411349654
+    },
+    "crops_total": 258,
+    "extend_only_matches": 1,
+    "frames_with_crops": 212
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1849,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 2,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 3,
+    "decoded_frames": 6110,
+    "detections_at_floor": 245,
+    "detections_at_track_score": 203,
+    "tracker": {
+     "births": 4,
+     "births_suppressed": 5,
+     "deleted": 0,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 1,
+     "gated_pairs": 70,
+     "low_score_matches": 9,
+     "steps": 6110
+    }
+   },
+   "target_detection_hits": 200,
+   "target_detection_hits_with_crops": 199,
+   "target_detection_recall": 0.10816657652785289,
+   "target_detection_recall_with_crops": 0.10762574364521363,
+   "target_fragments": 3,
+   "target_id_switches": 3,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 196,
+   "target_track_impurity": 2,
+   "target_track_recall": 0.10600324499729584,
+   "track_and_forecast_ms": {
+    "p50": 0.002500019036233425,
+    "p95": 0.005834037438035011
+   }
+  },
+  "S5": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 10.964791988953948,
+    "p95": 17.484666942618787
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 5.250840329335988,
+     "p90_px": 11.976661630250213,
+     "support": 138
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 12.611186888664427,
+     "p90_px": 25.309317761569865,
+     "support": 138
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 33.65917517343773,
+     "p90_px": 68.99722281006098,
+     "support": 134
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 104.1970356672931,
+     "p90_px": 183.72075088415107,
+     "support": 122
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 346.3814732093115,
+     "p90_px": 575.4094282354832,
+     "support": 100
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 4.562311181209575,
+     "p90_px": 12.519834254428975,
+     "support": 138
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 7.734869248189918,
+     "p90_px": 22.812513612460247,
+     "support": 138
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 13.594793040169638,
+     "p90_px": 34.892800312661834,
+     "support": 134
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 32.72632689026114,
+     "p90_px": 91.91113065073588,
+     "support": 122
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 76.66478514711116,
+     "p90_px": 211.76248197095168,
+     "support": 100
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.0020419247448444366,
+     "p95": 9.722942020744085
+    },
+    "crops_total": 175,
+    "extend_only_matches": 0,
+    "frames_with_crops": 149
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1130,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 1,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 2,
+    "decoded_frames": 1677,
+    "detections_at_floor": 185,
+    "detections_at_track_score": 145,
+    "tracker": {
+     "births": 3,
+     "births_suppressed": 2,
+     "deleted": 0,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 0,
+     "gated_pairs": 54,
+     "low_score_matches": 2,
+     "steps": 1677
+    }
+   },
+   "target_detection_hits": 145,
+   "target_detection_hits_with_crops": 136,
+   "target_detection_recall": 0.12831858407079647,
+   "target_detection_recall_with_crops": 0.12035398230088495,
+   "target_fragments": 2,
+   "target_id_switches": 1,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 138,
+   "target_track_impurity": 1,
+   "target_track_recall": 0.12212389380530973,
+   "track_and_forecast_ms": {
+    "p50": 0.002500019036233425,
+    "p95": 0.4038004204630852
+   }
+  },
+  "S7": {
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame",
+   "ambiguous_swap_frames": 0,
+   "detect_ms": {
+    "p50": 20.538978453259915,
+    "p95": 37.89204152417369
+   },
+   "detection_cache": "hit",
+   "forecast_centroid_error": {
+    "constant_acceleration@0.1": {
+     "availability_reason": null,
+     "median_px": 6.267006073079231,
+     "p90_px": 22.805869891737732,
+     "support": 141
+    },
+    "constant_acceleration@0.25": {
+     "availability_reason": null,
+     "median_px": 11.138567956376267,
+     "p90_px": 40.43288875278931,
+     "support": 140
+    },
+    "constant_acceleration@0.5": {
+     "availability_reason": null,
+     "median_px": 27.643076954430782,
+     "p90_px": 79.71516483901812,
+     "support": 138
+    },
+    "constant_acceleration@1.0": {
+     "availability_reason": null,
+     "median_px": 82.6732060714108,
+     "p90_px": 209.6532174224883,
+     "support": 134
+    },
+    "constant_acceleration@2.0": {
+     "availability_reason": null,
+     "median_px": 271.2493641153094,
+     "p90_px": 672.4478237864245,
+     "support": 113
+    },
+    "constant_velocity@0.1": {
+     "availability_reason": null,
+     "median_px": 5.999054388863849,
+     "p90_px": 25.155133279027133,
+     "support": 141
+    },
+    "constant_velocity@0.25": {
+     "availability_reason": null,
+     "median_px": 7.764383597513094,
+     "p90_px": 45.79368610017819,
+     "support": 140
+    },
+    "constant_velocity@0.5": {
+     "availability_reason": null,
+     "median_px": 12.090723498409574,
+     "p90_px": 64.89421648469191,
+     "support": 138
+    },
+    "constant_velocity@1.0": {
+     "availability_reason": null,
+     "median_px": 24.926439169282716,
+     "p90_px": 144.86894588744497,
+     "support": 134
+    },
+    "constant_velocity@2.0": {
+     "availability_reason": null,
+     "median_px": 74.214132133653,
+     "p90_px": 255.55713618355654,
+     "support": 113
+    }
+   },
+   "guided_crops": {
+    "added_ms": {
+     "p50": 0.0018749851733446121,
+     "p95": 0.0030420487746596336
+    },
+    "crops_total": 224,
+    "extend_only_matches": 4,
+    "frames_with_crops": 162
+   },
+   "identity_swaps": 0,
+   "labelled_target_frames": 1240,
+   "non_target_confirmed_tracks": 0,
+   "off_target_observations": 10,
+   "other_aircraft_labels_outside_video": 0,
+   "resolution_px": [
+    1280,
+    720
+   ],
+   "runtime": {
+    "confirmed_tracks": 4,
+    "decoded_frames": 5656,
+    "detections_at_floor": 186,
+    "detections_at_track_score": 151,
+    "tracker": {
+     "births": 5,
+     "births_suppressed": 5,
+     "deleted": 0,
+     "duplicates_dropped": 0,
+     "extend_only_matches": 4,
+     "gated_pairs": 119,
+     "low_score_matches": 13,
+     "steps": 5656
+    }
+   },
+   "target_detection_hits": 139,
+   "target_detection_hits_with_crops": 134,
+   "target_detection_recall": 0.11209677419354838,
+   "target_detection_recall_with_crops": 0.10806451612903226,
+   "target_fragments": 4,
+   "target_id_switches": 4,
+   "target_labels_outside_image": 0,
+   "target_labels_panned_out_of_frame": 0,
+   "target_track_hits": 142,
+   "target_track_impurity": 10,
+   "target_track_recall": 0.11451612903225807,
+   "track_and_forecast_ms": {
+    "p50": 0.002334010787308216,
+    "p95": 0.0033852411434054375
+   }
+  }
+ },
+ "split": "dev",
+ "split_overlaps": [
+  {
+   "date": "2020-06-24",
+   "dev": "M3",
+   "frames": 5,
+   "global_frames": [
+    25040,
+    25044
+   ],
+   "holdout": "M4"
+  }
+ ],
+ "synthetic_pan": null,
+ "unavailable": {
+  "AP": "approximate target centroids; no exhaustive boxes or verified negative frames",
+  "HOTA_IDF1": "identity labels cover the target and some other aircraft only; no complete per-frame boxes",
+  "confidence_intervals": "few sequences from one camera on two days; no independent sampling design",
+  "false_alarm_rate": "off-target and non-target counts are proxies; unlabelled aircraft, birds and label gaps are not separable"
+ },
+ "variant": {
+  "association_gate_px": 50.0,
+  "candidate": {
+   "guided_crops": true,
+   "name": "guided-a3000-s0-full",
+   "note": "AERIS-033 selected tracker + tracker-guided full-resolution crops (max 4 per frame, extend-only)",
+   "profile": "fast",
+   "task": "AERIS-034",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s0-full.json",
+   "tracker_config_sha256": "2dce0dedebbd1d7fa358d0cac4213ba0af51448715259d5dbfb8afbdbea457c3"
+  },
+  "candidate_list_sha256": "4e5505390288db0506f88bfed8eaaeace255fce02be899c7901afcfcc43f706c",
+  "code_commit": "92a66fb2c664491bd2e3c822c8ecf83c11f4a015",
+  "detector_config": "configs/detector/baseline.json",
+  "detector_config_sha256": "06a982d55b62ea8ff7cd64c544ca16b7f18147ca5083338be8cc8939e95b9cc8",
+  "horizons_s": [
+   0.1,
+   0.25,
+   0.5,
+   1.0,
+   2.0
+  ],
+  "low_score_pass": true,
+  "profile": "fast",
+  "profile_ownership": "accepted AERIS-006 whole-frame baseline",
+  "profile_tiles": 1,
+  "stride": 1,
+  "timestamp_policy": "pts",
+  "track_score": 0.3,
+  "tracker_config": "configs/tracker/manoeuvre-a3000-s0-full.json",
+  "tracker_config_sha256": "2dce0dedebbd1d7fa358d0cac4213ba0af51448715259d5dbfb8afbdbea457c3",
+  "weights_sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+  "working_tree_dirty": true
+ }
+}

@@ -38,7 +38,8 @@ from aeris.estimation.camera_motion import CameraMotion, apply_transform
 from aeris.estimation.trajectory import MODELS as FORECAST_MODELS
 from aeris.estimation.trajectory import TrajectoryForecaster, evaluate_forecasts, forecast_vs_detections
 from aeris.evaluation.metrics import TrackObservation, detection_metrics, tracking_metrics
-from aeris.tracking.tracker import TENTATIVE, KalmanTracker
+from aeris.tracking.tracker import CONFIG_PATH as TRACKER_CONFIG_PATH, TENTATIVE, KalmanTracker
+from aeris.tracking.tracker import TrackerError, load_config as load_tracker_config
 from aeris.video import pipeline
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -228,7 +229,8 @@ def render_overlay(video: Path, out: Path, drawn: dict[int, list], fps: float) -
 def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibration=None,
                  annotations=None, min_score=DEFAULT_MIN_SCORE, timestamp_policy="pts_or_inferred",
                  stride=1, max_frames=None, warmup_frames=1, render=True, command=None,
-                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="estimate") -> dict:
+                 dataset_info=None, input_note=None, low_score_pass=True, camera_motion="estimate",
+                 tracker_config: Path | None = None, guided=None) -> dict:
     """Run the whole pipeline and write the artifact set atomically. Returns the manifest."""
     input_video, output_dir = Path(input_video), Path(output_dir)
     if not input_video.is_file():
@@ -244,16 +246,40 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     started = time.perf_counter()
     motion, to_ref = (CameraMotion() if camera_motion == "estimate" else None), {}
 
-    def estimate_motion(index, image, found):     # frame -> reference transform, per processed frame
+    tracker_path = Path(tracker_config) if tracker_config else TRACKER_CONFIG_PATH
+    tracker = KalmanTracker(sequence_id, load_tracker_config(tracker_path))
+
+    def estimate_motion(index, image, found, timestamp_s=None):   # frame -> reference transform
         motion.update(image, [d.bbox for d in found])
         to_ref[index] = motion.to_ref.copy()
 
+    # AERIS-034: with guided crops the tracker must run inside the decode loop, because each frame's
+    # crops are placed from the previous frame's track states. Without crops nothing here runs and the
+    # tracker runs after decoding exactly as before.
+    guided_states, crop_counts, crop_ms, last_states = {}, [], [], []
+
+    def track_with_crops(index, image, found, timestamp_s):
+        nonlocal last_states
+        if motion:
+            estimate_motion(index, image, found)
+        t0 = time.perf_counter()
+        crops, n = guided(image, last_states, found, sequence_id=sequence_id, frame_index=index,
+                          timestamp_s=timestamp_s)
+        crop_ms.append(1000 * (time.perf_counter() - t0))
+        crop_counts.append(n)
+        if low_score_pass:
+            states = tracker.step(timestamp_s, found, high_score=min_score, extend_only=crops)
+        else:
+            states = tracker.step(timestamp_s, [d for d in found if d.score >= min_score], extend_only=crops)
+        guided_states[index] = last_states = states
+
+    hook = track_with_crops if guided is not None else (estimate_motion if motion else None)
     try:
         result = pipeline.process_video(input_video, stages, sequence_id=sequence_id,
                                         output_video=None, timestamp_policy=timestamp_policy,
                                         stride=stride, max_frames=max_frames,
                                         warmup_frames=warmup_frames,
-                                        frame_hook=estimate_motion if motion else None)
+                                        frame_hook=hook)
     except pipeline.VideoError as exc:
         raise CliError(str(exc)) from exc
     by_frame, all_by_frame = {}, {}    # at/above min_score; everything the detector kept
@@ -263,7 +289,6 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
             by_frame.setdefault(det.frame_index, []).append(det)
 
     camera = CameraModel(calibration)
-    tracker = KalmanTracker(sequence_id)
     forecasters = {name: TrajectoryForecaster(sequence_id, name) for name in FORECAST_MODELS}
     track_rows, predictions, drawn, previous = [], [], {}, {}
     measured = defaultdict(list)    # track_id -> [(t, assigned detection center)]
@@ -277,7 +302,9 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
     for frame in result["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
         t0 = time.perf_counter()
-        if low_score_pass:     # sub-threshold detections may only extend existing tracks
+        if guided is not None:  # already stepped inside the decode loop, with this frame's crops
+            states = guided_states[index]
+        elif low_score_pass:     # sub-threshold detections may only extend existing tracks
             states = tracker.step(t, all_by_frame.get(index, []), high_score=min_score)
         else:
             states = tracker.step(t, by_frame.get(index, []))
@@ -467,7 +494,17 @@ def run_pipeline(input_video, output_dir, *, stages, sequence_id=None, calibrati
                       "height": result["height"], "nominal_fps": result["nominal_fps"]},
             "sequence_id": sequence_id,
             "detector": describe_stages(stages),
-            "tracker_config_sha256": sha256_file(ROOT / "configs/tracker/baseline.json"),
+            "tracker_config": tracker_path.name,
+            "guided_crops": ({"enabled": True, "max_crops_per_frame": getattr(guided, "max_crops", None),
+                              "crops_total": sum(crop_counts),
+                              "frames_with_crops": sum(1 for n in crop_counts if n),
+                              "extend_only_matches": tracker.counters.get("extend_only_matches", 0),
+                              "added_ms_per_frame": {"p50": float(np.percentile(crop_ms, 50)) if crop_ms else None,
+                                                     "p95": float(np.percentile(crop_ms, 95)) if crop_ms else None},
+                              "timing_note": "crop placement, crop inference and merge; the tracker step "
+                                             "runs inside the decode loop in this mode"}
+                             if guided is not None else {"enabled": False}),
+            "tracker_config_sha256": sha256_file(tracker_path),
             "forecast_models": sorted(FORECAST_MODELS),
             "calibration": ({"calibration_id": calibration.calibration_id, "camera_id": calibration.camera_id,
                              "quality": calibration.quality} if calibration else
@@ -510,6 +547,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-config", type=Path, default=None,
                         help="detector config (default configs/detector/baseline.json)")
     parser.add_argument("--min-score", type=float, default=DEFAULT_MIN_SCORE)
+    parser.add_argument("--guided-crops", action="store_true",
+                        help="also detect on full-resolution crops around tracked aircraft (AERIS-034; off by default)")
+    parser.add_argument("--tracker-config", type=Path, default=None,
+                        help="tracker config JSON (default configs/tracker/baseline.json; see docs/tracking.md)")
     parser.add_argument("--camera-motion", choices=("none", "estimate"), default="estimate",
                         help="estimate background motion so the forecast arrow is scene-relative "
                              "(default; use 'none' for a known fixed camera); written predictions "
@@ -563,6 +604,12 @@ def main(argv=None) -> int:
             if stages.gate is not None and stages.gate < args.min_score:
                 raise CliError(f"profile {args.profile!r} gates zoom at {stages.gate}, below --min-score "
                                f"{args.min_score}: weak full-frame hits would suppress the zoom")
+        guided = None
+        if args.guided_crops:
+            if args.detections is not None:
+                raise CliError("--guided-crops needs the detector; it cannot run on replayed detections")
+            from aeris.detection.guided import GuidedCrops
+            guided = GuidedCrops(stages)
         annotations, dataset_info = _load_annotations(args.annotations)
         manifest = run_pipeline(
             args.input, args.output, stages=stages, sequence_id=args.sequence_id,
@@ -570,8 +617,9 @@ def main(argv=None) -> int:
             min_score=args.min_score, timestamp_policy=args.timestamp_policy, stride=args.stride,
             max_frames=args.max_frames, warmup_frames=args.warmup_frames, render=not args.no_render,
             command=[sys.executable, "-m", "aeris", *(argv if argv is not None else sys.argv[1:])],
-            dataset_info=dataset_info, input_note=args.input_note, camera_motion=args.camera_motion)
-    except (CliError, ValueError, OSError) as exc:
+            dataset_info=dataset_info, input_note=args.input_note, camera_motion=args.camera_motion,
+            tracker_config=args.tracker_config, guided=guided)
+    except (CliError, TrackerError, ValueError, OSError) as exc:
         print(f"aeris: error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps({"output": str(args.output), "artifacts": sorted(manifest["artifact_sha256"]),
