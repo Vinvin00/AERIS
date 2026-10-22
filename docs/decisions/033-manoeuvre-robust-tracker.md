@@ -1,5 +1,12 @@
 # ADR 033 — Manoeuvre-robust tracker motion model
 
+> **Superseded holdout outcome (2026-10-22, coordinator note added at AERIS-034 acceptance):** the
+> six-sequence holdout below passed, but the full seven-sequence holdout run in AERIS-034 (S2
+> included) **fails** the PLAN-011 rule for `manoeuvre-a3000-s0-full`; see
+> [ADR 034](034-tracker-guided-crop.md). The candidate stays opt-in; the default is unchanged.
+> The holdout's selection record (SHA-256 prefix 4b90d7) is this file's text before "## Holdout",
+> excluding this note.
+
 Date: 2026-10-22. Task: AERIS-033. Plan: PLAN-011 r3 (Addendum A).
 
 ## Motivation (baseline evidence only)
