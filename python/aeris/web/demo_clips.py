@@ -39,12 +39,6 @@ DEMO_CLIPS = (
            "Designism", "CC0", "93ff24731306f12cce508d000a978ce35ca772e9",
            "air-force-one.webm", 0, 20, "source/air-force-one-20s-1920x1080.mp4",
            "air-force-one-run/overlay.mp4", "", 1920, 1080),
-    Sample("spitfire", "Spitfire · portrait video", "Vintage fighter, far to close, portrait video",
-           "https://commons.wikimedia.org/wiki/File:Spitfire_G-AWGB_landing_at_Biggin_Hill_airfield.webm",
-           "https://upload.wikimedia.org/wikipedia/commons/1/1e/Spitfire_G-AWGB_landing_at_Biggin_Hill_airfield.webm",
-           "JoBrodie", "CC0", "8e8221678e713174d659aec34072a9a2bd7109cf",
-           "spitfire.webm", 6, 14, "source/spitfire-6to20s-1080x1920.mp4",
-           "spitfire-run/overlay.mp4", "", 1080, 1920),
 )
 
 BY_SLUG = {**CATALOG, **{sample.slug: sample for sample in DEMO_CLIPS}}
