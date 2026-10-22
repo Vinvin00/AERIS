@@ -109,6 +109,15 @@ independence is operational only.
   after a size refusal. AERIS-012 attempt 03 command:
   `prepare AERIS-012 --retry --allow-new-tool tools/audit_publication.py`.
 
+- AERIS-035 QUT multi-sequence evaluation harness (`scripts/qut_eval.py`, `configs/qut/`,
+  `docs/qut_eval.md`, ADR 032, PLAN-011), accepted 2026-10-22 on attempt 02 (attempt 01 revised for
+  an unbound `compare` input and an ambiguous-frame count) after 360 tests and a fresh independent
+  review. It replaced AERIS-032, whose contract put configs in `configs/evaluation/` (PLAN-011
+  Addendum A). All 15 pinned QUT sequences (29.35 MB, Git-ignored), pre-registered dev/holdout split
+  and selection rule; S1/S2/S4 frame alignment is inferred (±1 frame). Development baseline, fast
+  profile: target detection recall 0.123, track recall 0.115, 26 target fragments; detection is the
+  main limit on QUT. Approximate centroid labels: **no AP, HOTA/IDF1 or accuracy claim.**
+
 ## Reviewer follow-ups (minor, not yet done)
 
 | From | Follow-up | Owner task |

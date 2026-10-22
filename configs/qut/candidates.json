@@ -1,0 +1,26 @@
+{
+ "schema_version": 1,
+ "rule": "PLAN-011: at most 12 candidates per task, all listed before that task's first development run; results carry this file's SHA-256; each entry pins its tracker config SHA-256",
+ "synthetic_pan": {
+  "amplitude_px": 120.0,
+  "seed": 11
+ },
+ "candidates": [
+  {
+   "name": "baseline",
+   "task": "AERIS-035",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/baseline.json",
+   "note": "selection baseline: accepted AERIS-006 whole-frame detector, unchanged tracker",
+   "tracker_config_sha256": "9aea649f15b53982cb5ddfa4584325ef2910641fdc8e87e8954f686fc6f58438"
+  },
+  {
+   "name": "baseline-fast-zoom",
+   "task": "AERIS-035",
+   "profile": "fast-zoom",
+   "tracker_config": "configs/tracker/baseline.json",
+   "note": "secondary evidence: the hosted demo's profile (external, unaccepted tiling code)",
+   "tracker_config_sha256": "9aea649f15b53982cb5ddfa4584325ef2910641fdc8e87e8954f686fc6f58438"
+  }
+ ]
+}

@@ -1,0 +1,532 @@
+{
+ "schema_version": 1,
+ "source": "QUT aircraft collision-course dataset",
+ "rights": "BSD-3-Clause per publisher",
+ "rights_url": "https://open.qcr.ai/dataset/aircraft-collision-course/",
+ "revision": "0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9",
+ "base_url": "https://huggingface.co/datasets/jasminmartin/vision_based_aircraft_detection_dataset/resolve/0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9",
+ "sequence_bounds_url": "https://huggingface.co/datasets/jasminmartin/vision_based_aircraft_detection_dataset/resolve/0bb9ece0c70d56a56f0334dfdd867b0d7fce15f9/target-info.csv",
+ "digests": "videos: published Git LFS SHA-256; label CSVs and target-info.csv: published Git blob SHA-1 (the release publishes no SHA-256 for them) plus SHA-256 measured on 2026-10-22; both are checked",
+ "split_rule": "PLAN-011: dev = S1,S3,S5,S7,M1,M3,M5,M7 (tuning allowed); holdout = S2,S4,S6,M2,M4,M6,M8 (baseline and a pre-selected candidate only)",
+ "sequences": [
+  {
+   "id": "S1",
+   "split": "dev",
+   "start_frame": 7305,
+   "end_frame": 11728,
+   "video_start_frame": 10200,
+   "first_target_frame": 10240,
+   "notes": "Flashing bright target aircraft in near-horizon clouds and haze.",
+   "video": {
+    "remote": "Videos/S1.mp4",
+    "local": "S1.mp4",
+    "bytes": 4065499,
+    "sha256": "cfb2c03b51ba812c3dde8a5c3772ae4fef08e0d077e1fcb33487348201dba6f8"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S1_labels.csv",
+    "local": "S1_labels.csv",
+    "bytes": 29882,
+    "git_blob_sha1": "de20f0ad092322e5b5b40349b61c686a5e88e82b",
+    "sha256": "e08b6d3c64b0635ee37c73f99728cd8d1bd67c8ee5570c4e0fd4987a6a4a0fd6"
+   },
+   "other_labels": [],
+   "date": "2020-06-23",
+   "decoded_frames": 4423,
+   "first_decoded_global_frame": 7305,
+   "alignment": "inferred: last decoded frame = last target label (global 11727); published bounds disagree by one frame (start_frame 7305, end_frame 11728, 4423 decoded); +/-1 frame (40 ms) uncertainty"
+  },
+  {
+   "id": "S2",
+   "split": "holdout",
+   "start_frame": 16816,
+   "end_frame": 24549,
+   "video_start_frame": 22560,
+   "first_target_frame": 22601,
+   "notes": "Target aircraft transitions between dim and bright in cloudy sky.",
+   "video": {
+    "remote": "Videos/S2.mp4",
+    "local": "S2.mp4",
+    "bytes": 5708101,
+    "sha256": "9d63c78b144dd70cf934b10ad8376371e8bf1e6b45f5da40020809a01b8642af"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S2_labels.csv",
+    "local": "S2_labels.csv",
+    "bytes": 108634,
+    "git_blob_sha1": "8adc581c91dec26ed0886c115f58c7624549ffd1",
+    "sha256": "06196f9f1483da8aa9c2abfc04ed347bb7c78b0266861d3eb3fa0579f2aa5ed6"
+   },
+   "other_labels": [],
+   "date": "2020-06-23",
+   "decoded_frames": 7733,
+   "first_decoded_global_frame": 16816,
+   "alignment": "inferred: last decoded frame = last target label (global 24548); published bounds disagree by one frame (start_frame 16816, end_frame 24549, 7733 decoded); +/-1 frame (40 ms) uncertainty"
+  },
+  {
+   "id": "S3",
+   "split": "dev",
+   "start_frame": 3435,
+   "end_frame": 9544,
+   "video_start_frame": 7500,
+   "first_target_frame": 7696,
+   "notes": "Dim target aircraft in cloudy sky.",
+   "video": {
+    "remote": "Videos/S3.mp4",
+    "local": "S3.mp4",
+    "bytes": 2424847,
+    "sha256": "6ddb66d0816ebdb2be242347f5c88b4500de53f2354188561ae73194c591124e"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S3_labels.csv",
+    "local": "S3_labels.csv",
+    "bytes": 51786,
+    "git_blob_sha1": "38c6247e3a23ab36b7baf09d77e3760359da9dcf",
+    "sha256": "98a7aa4f95ff963db73afee4d4fb5a11aaeb550fa57af9ab2c699aa9c30aacb7"
+   },
+   "other_labels": [],
+   "date": "2020-06-23",
+   "decoded_frames": 6110,
+   "first_decoded_global_frame": 3435,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "S4",
+   "split": "holdout",
+   "start_frame": 50391,
+   "end_frame": 51587,
+   "video_start_frame": 50300,
+   "first_target_frame": 50400,
+   "notes": "Bright target aircraft in clear sky.",
+   "video": {
+    "remote": "Videos/S4.mp4",
+    "local": "S4.mp4",
+    "bytes": 538930,
+    "sha256": "72c9cd57db35aceab214c6466f2af00361fa856a903bf76cb72ba163ff2c6a6b"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S4_labels.csv",
+    "local": "S4_labels.csv",
+    "bytes": 33914,
+    "git_blob_sha1": "882e362f7ee50e075202567bb567603049d4db04",
+    "sha256": "5cbe9bd2f6a5cfbbbe398fd5cc89edea3e9850dca946cf2e2ea8e5804ee8e41f"
+   },
+   "other_labels": [],
+   "date": "2020-06-24",
+   "decoded_frames": 1198,
+   "first_decoded_global_frame": 50390,
+   "alignment": "inferred: last decoded frame = last target label (global 51587); published bounds disagree by one frame (start_frame 50391, end_frame 51587, 1198 decoded); +/-1 frame (40 ms) uncertainty"
+  },
+  {
+   "id": "S5",
+   "split": "dev",
+   "start_frame": 57750,
+   "end_frame": 59426,
+   "video_start_frame": 58200,
+   "first_target_frame": 58297,
+   "notes": "Bright target aircraft in clear sky.",
+   "video": {
+    "remote": "Videos/S5.mp4",
+    "local": "S5.mp4",
+    "bytes": 729266,
+    "sha256": "f02f21c5fa60eb64e553961b522644e02620303677457e160a2ba41672e2efdd"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S5_labels.csv",
+    "local": "S5_labels.csv",
+    "bytes": 32223,
+    "git_blob_sha1": "185f3da38ced2cc01266082fddde8337c374207e",
+    "sha256": "e9b1721f13f9208aa0486df1a4d7e655655a86f745f8fc21d8d582217236f9ab"
+   },
+   "other_labels": [],
+   "date": "2020-06-24",
+   "decoded_frames": 1677,
+   "first_decoded_global_frame": 57750,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "S6",
+   "split": "holdout",
+   "start_frame": 65460,
+   "end_frame": 67513,
+   "video_start_frame": 66330,
+   "first_target_frame": 66406,
+   "notes": "Bright target aircraft in clear sky.",
+   "video": {
+    "remote": "Videos/S6.mp4",
+    "local": "S6.mp4",
+    "bytes": 916459,
+    "sha256": "a3244ab88b520f4a72ef13d6d076d8fa375a506e1fbcde115bd965c1333e3805"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S6_labels.csv",
+    "local": "S6_labels.csv",
+    "bytes": 31557,
+    "git_blob_sha1": "2ad4f94cc64d41ed5bb3ebf4d39acfa47a0e90e5",
+    "sha256": "f96bb24dc85964481c7c3a4d8db2f4c20db666209380b850aa7b48afcff695c5"
+   },
+   "other_labels": [],
+   "date": "2020-06-24",
+   "decoded_frames": 2054,
+   "first_decoded_global_frame": 65460,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "S7",
+   "split": "dev",
+   "start_frame": 94412,
+   "end_frame": 100067,
+   "video_start_frame": 98700,
+   "first_target_frame": 98828,
+   "notes": "Bright target aircraft in clear sky.",
+   "video": {
+    "remote": "Videos/S7.mp4",
+    "local": "S7.mp4",
+    "bytes": 1555817,
+    "sha256": "135535ad91e4885001c4c910041a03ff87e381375745090d08517e4f496cad66"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/S7_labels.csv",
+    "local": "S7_labels.csv",
+    "bytes": 35580,
+    "git_blob_sha1": "8bddd59185aa6f88f039d6de80a002a9d3855d4a",
+    "sha256": "e964e70a403640ac215638269e0e80865d2aeafb98dcd2cc5b10f136ae965966"
+   },
+   "other_labels": [],
+   "date": "2020-06-24",
+   "decoded_frames": 5656,
+   "first_decoded_global_frame": 94412,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M1",
+   "split": "dev",
+   "start_frame": 80746,
+   "end_frame": 83019,
+   "video_start_frame": 81750,
+   "first_target_frame": 81840,
+   "notes": "Bright target in clear sky, with second aircraft flashing in and out of view",
+   "video": {
+    "remote": "Videos/M1.mp4",
+    "local": "M1.mp4",
+    "bytes": 949664,
+    "sha256": "0474f64dc55a7f7214be511c78e25229a86bc8fabba7ef0034709920b2f18661"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M1_labels.csv",
+    "local": "M1_labels.csv",
+    "bytes": 33690,
+    "git_blob_sha1": "41ab1c6322a1d09e2cd7cf5521b0ee46d8eaee28",
+    "sha256": "eda0b8ddb09a558b1b00ed8fc8a8adc10e7bdff8ac5d68ac536a9e5211b7c21a"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M1_labels.csv",
+     "local": "other_M1_labels.csv",
+     "bytes": 24776,
+     "git_blob_sha1": "b87362b0c1231f4cee5d38e09266636a9f7d9116",
+     "sha256": "030d2ed2762396b56e58461b53dae4ed308958009a2596c189396461d0d234b8"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 2274,
+   "first_decoded_global_frame": 80746,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M2",
+   "split": "holdout",
+   "start_frame": 5900,
+   "end_frame": 9790,
+   "video_start_frame": 8300,
+   "first_target_frame": 8388,
+   "notes": "Bright target in clear sky, with second aircraft dim aircraft crossing",
+   "video": {
+    "remote": "Videos/M2.mp4",
+    "local": "M2.mp4",
+    "bytes": 1513565,
+    "sha256": "2f907e837b93178aed89fad3e5118a0de51aa64fc7b2fa041ef952ac05e35dec"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M2_labels.csv",
+    "local": "M2_labels.csv",
+    "bytes": 38740,
+    "git_blob_sha1": "a0a882639c938833198e4b117ed72e262a8e01b2",
+    "sha256": "3e3ea8b952e6f75a04a993e64b60786e5fdbac265e9552f1c9fe36ca155cbef0"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M2_labels.csv",
+     "local": "other_M2_labels.csv",
+     "bytes": 32014,
+     "git_blob_sha1": "9bbfe39fd21194588fb5401347d470fa8073b16e",
+     "sha256": "630e6ab3c90d447e1b756a6b19e1c5ea2d6d01e41b4cbbd9ede1952ae3460809"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 3891,
+   "first_decoded_global_frame": 5900,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M3",
+   "split": "dev",
+   "start_frame": 22571,
+   "end_frame": 25044,
+   "video_start_frame": 22800,
+   "first_target_frame": 22904,
+   "notes": "Dim target in clear sky, second dim aircraft with flashing lights, third dim aircraft crossingarget fist appears as dim dot",
+   "video": {
+    "remote": "Videos/M3.mp4",
+    "local": "M3.mp4",
+    "bytes": 1051095,
+    "sha256": "a7f0ccd046bf7f6c485b3d79f8330114d2a657ec20937b5f1025d12f57e9cb98"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M3_labels.csv",
+    "local": "M3_labels.csv",
+    "bytes": 63116,
+    "git_blob_sha1": "57bca9e48bcf66a081e62709d4eeb7d4e0ab421e",
+    "sha256": "315e79b94d3af98a8981e8e6bd2790b657ed39b61fe1c4674e303b7c20c44ee6"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M3_1_labels.csv",
+     "local": "other_M3_1_labels.csv",
+     "bytes": 23673,
+     "git_blob_sha1": "8212a1c6f95601aa5aa808c83dea52dc9168cc95",
+     "sha256": "f6b7ef6bbba1a340b93e5f0fe4d28ed7f02e1f0cbd95bce384af6bd0bb4b8255"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M3_2_labels.csv",
+     "local": "other_M3_2_labels.csv",
+     "bytes": 13431,
+     "git_blob_sha1": "5ba320258db7bd1de81cc1e689cc14ffacd8b42c",
+     "sha256": "0e580ca64ad46c8afb8449e5d07fc1b991fd455e05dd18ad2894f9f4499e2bc4"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 2474,
+   "first_decoded_global_frame": 22571,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M4",
+   "split": "holdout",
+   "start_frame": 25040,
+   "end_frame": 27269,
+   "video_start_frame": 25900,
+   "first_target_frame": 25904,
+   "notes": "Bright target aircraft in clear sky, second dim aircraft, third aircraft transitions from dim to bright, fourth dim aircraft.",
+   "video": {
+    "remote": "Videos/M4.mp4",
+    "local": "M4.mp4",
+    "bytes": 951434,
+    "sha256": "3cd43d01691de3a5a11b660cd0b6826db46a821dceae5f305749512f3c63fd16"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M4_labels.csv",
+    "local": "M4_labels.csv",
+    "bytes": 39313,
+    "git_blob_sha1": "3ab8d4dc3333cd7d75d58b3e5421821cc01c6957",
+    "sha256": "58e0dc9479687b2cb81057994f511a8fe77ddc0fda7b336e629a26e763b2d760"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M4_1_labels.csv",
+     "local": "other_M4_1_labels.csv",
+     "bytes": 1891,
+     "git_blob_sha1": "eb1584625622fe937ed0bc328a6dfc4d7a2fc350",
+     "sha256": "280b80e64afd17ea89ac4b1037d0ae77ed6c8cb97752dd71ccc763562cf2312f"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M4_2_labels.csv",
+     "local": "other_M4_2_labels.csv",
+     "bytes": 30348,
+     "git_blob_sha1": "239840dc73b9b4c9a356115e0f6c21fa608c7cb5",
+     "sha256": "3646274e635115aad26fd16b70b5224ce911d73bfb7c326866bd7945e78e8690"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M4_3_labels.csv",
+     "local": "other_M4_3_labels.csv",
+     "bytes": 26271,
+     "git_blob_sha1": "ec2199d2dec4f72ee530ae649c41cb7c2513c947",
+     "sha256": "f0d85610622b70ec427128c0a571661c14d7c8de000e1323f80ce83c258eb30c"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 2230,
+   "first_decoded_global_frame": 25040,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M5",
+   "split": "dev",
+   "start_frame": 30423,
+   "end_frame": 35898,
+   "video_start_frame": 34750,
+   "first_target_frame": 34840,
+   "notes": "Bright target aircraft in clear sky, second aircraft transitions from dim to bright, third aircraft transitions from bright to dim, fourth dim aircraft.",
+   "video": {
+    "remote": "Videos/M5.mp4",
+    "local": "M5.mp4",
+    "bytes": 3738726,
+    "sha256": "42855754714bc4f7f7ee78cce53c9a46d88bcd4f7e43de6ba8d275ccf34c4e1b"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M5_labels.csv",
+    "local": "M5_labels.csv",
+    "bytes": 29827,
+    "git_blob_sha1": "9b5115c09703390253c0e60a236a3a810082a44b",
+    "sha256": "1f92666a468bd58a79baee4b8f6ba937bce0c06ace846c21cf1fc2efdaba7fef"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M5_1_labels.csv",
+     "local": "other_M5_1_labels.csv",
+     "bytes": 46121,
+     "git_blob_sha1": "f7e28cbeb710f11c9910eee4621505f4de4cd52d",
+     "sha256": "117fba0fc724834db3ccc9c7262644db0157349aa72ec411847d71d4f804f555"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M5_2_labels.csv",
+     "local": "other_M5_2_labels.csv",
+     "bytes": 61049,
+     "git_blob_sha1": "9531d2167d2a2ec81ce1e531515bbd79eff42c23",
+     "sha256": "8864dd8d15eca8bf08d2081320bc7731fdbd5d3146d97ebc5231f5c0c86e8788"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M5_3_labels.csv",
+     "local": "other_M5_3_labels.csv",
+     "bytes": 6919,
+     "git_blob_sha1": "8537f26a753595bcb9144ccc4b14bb50d043f8b7",
+     "sha256": "c6bb4157531f478d8d04f3c1eaa2239bb24d0c1d8588e7eb396f10d7f1853cc4"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 5476,
+   "first_decoded_global_frame": 30423,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M6",
+   "split": "holdout",
+   "start_frame": 40220,
+   "end_frame": 43461,
+   "video_start_frame": 42200,
+   "first_target_frame": 42349,
+   "notes": "Bright target aircraft in clear sky, second bright aircraft.",
+   "video": {
+    "remote": "Videos/M6.mp4",
+    "local": "M6.mp4",
+    "bytes": 1399448,
+    "sha256": "d3ba395054b87e879e392fbed104dc31d9794476fbf70f6eefe99dba6423a87a"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M6_labels.csv",
+    "local": "M6_labels.csv",
+    "bytes": 31674,
+    "git_blob_sha1": "36aabf2e80859f4e2344c3ee1db299dfb863cb3c",
+    "sha256": "f000a29df3c0a6ed6f59c4aa7234f92385496444cd54b765a26f98c9facd7721"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M6_labels.csv",
+     "local": "other_M6_labels.csv",
+     "bytes": 21554,
+     "git_blob_sha1": "01b6217346580da9227fcf1255cef6eb7affb798",
+     "sha256": "5c5057c100d609466a78e029b37e2b622fb2668d256541bb6a3e6b3c42650e8e"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 3242,
+   "first_decoded_global_frame": 40220,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M7",
+   "split": "dev",
+   "start_frame": 70061,
+   "end_frame": 75830,
+   "video_start_frame": 74550,
+   "first_target_frame": 74695,
+   "notes": "Bright target aircraft in clear sky, second aircraft transitions from bright to dim, third dim aircraft.",
+   "video": {
+    "remote": "Videos/M7.mp4",
+    "local": "M7.mp4",
+    "bytes": 2434968,
+    "sha256": "19b433f9560d51a44de53bf2b9adc1d4be35613a328b73691deb4fb207b3919d"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M7_labels.csv",
+    "local": "M7_labels.csv",
+    "bytes": 32366,
+    "git_blob_sha1": "b5de4614091e276b0182d764df1a26dd4e47eae3",
+    "sha256": "9f128218a31ea8f23463ed9d1c666a248ddb34d37ef54b0318b90caf5927f682"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M7_1_labels.csv",
+     "local": "other_M7_1_labels.csv",
+     "bytes": 30611,
+     "git_blob_sha1": "67259e6d897db50c85de34c17676f41e45fc3d85",
+     "sha256": "e00b7229dc2cd4d009ec870978c2d713490132e23740f863180816b6271232b2"
+    },
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M7_2_labels.csv",
+     "local": "other_M7_2_labels.csv",
+     "bytes": 42888,
+     "git_blob_sha1": "cd4221cf95346240887b8cd7aa8e5369a3936d12",
+     "sha256": "548bdd8f5f4a46acfc5348b5a0faeef895daf99ff5d04e86b62011ba478a4199"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 5770,
+   "first_decoded_global_frame": 70061,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  },
+  {
+   "id": "M8",
+   "split": "holdout",
+   "start_frame": 90000,
+   "end_frame": 91326,
+   "video_start_frame": 90000,
+   "first_target_frame": 90090,
+   "notes": "Bright target aircraft in clear sky, second aircraft both bright and dim components (close to camera).",
+   "video": {
+    "remote": "Videos/M8.mp4",
+    "local": "M8.mp4",
+    "bytes": 372822,
+    "sha256": "125ba946aca2fd1007ee390d90f671a1bec0081bf9eea713cd123421fdc69213"
+   },
+   "target_labels": {
+    "remote": "Target%20Labels/target-aircarft-labels/M8_labels.csv",
+    "local": "M8_labels.csv",
+    "bytes": 35389,
+    "git_blob_sha1": "454fc7e068f41cd97e8ac71aac01f12ec9a358e0",
+    "sha256": "0f5397d94400a395fab139ced03d0e8436bf921c5c8912320fe653ab14c87368"
+   },
+   "other_labels": [
+    {
+     "remote": "Target%20Labels/multi-aircraft-labels/M8_labels.csv",
+     "local": "other_M8_labels.csv",
+     "bytes": 3713,
+     "git_blob_sha1": "ea299a7d98fb98169b00c047446c02bdd8c38bde",
+     "sha256": "bbfaefc08530166aa4e751077ba424cad0a99ef34cfe75c9922b5bd0cca2dab7"
+    }
+   ],
+   "date": "2020-06-24",
+   "decoded_frames": 1327,
+   "first_decoded_global_frame": 90000,
+   "alignment": "published start_frame; decoded count equals published bounds and the last target label is the last decoded frame"
+  }
+ ],
+ "target_info": {
+  "remote": "target-info.csv",
+  "local": "target-info.csv",
+  "bytes": 2092,
+  "git_blob_sha1": "c738fa31c12f6e9dc0280798764c2a3b6921b423",
+  "sha256": "8a53371d7423178f06210604dd26ab0067aa4c8033d7e26e54acf126e90cd5e3"
+ },
+ "not_fetched": ".DS_Store, ._* and image-sequences.zip are never fetched"
+}
