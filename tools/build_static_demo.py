@@ -6,6 +6,11 @@
 Downloads each clip from Wikimedia Commons (checksum-checked by aeris.ui.samples), runs
 `python -m aeris` once per clip, and copies the browser-playable results next to the
 console files. Media stays out of Git (`build/` is ignored); deploy the output folder.
+
+The hosted demo runs with the opt-in AERIS-033 tracker config `manoeuvre-a3000-s0-full` (owner
+decision, 2026-10-22): it keeps camera-followed jets on far fewer track IDs (F-35 clip: 55 -> 6),
+but failed the full QUT held-back check (ADR 034), so the CLI and local web default stay
+`baseline.json`. The page states this. Runs are cached per tracker config under the work folder.
 """
 from __future__ import annotations
 
@@ -28,6 +33,11 @@ from aeris.web.server import ASSETS, browser_preview  # noqa: E402
 SLUGS = ["formation", "hkia-late", "tokyo-small", "b52-dubai", "f35-airshow",
          "red-arrows", "air-force-one", "spitfire"]
 PROFILE = "fast-zoom"
+# The hosted demo opts into the AERIS-033 tracker; the CLI and local web default stay baseline.json.
+TRACKER_CONFIG = Path("configs/tracker/manoeuvre-a3000-s0-full.json")
+TRACKER_NOTE = ("Tracker: manoeuvre-a3000-s0-full, an opt-in setting that keeps a fast, camera-followed "
+                "aircraft on far fewer track IDs. On labelled QUT aircraft video it passed the tuning clips "
+                "but failed the full held-back check (ADR 034), so it is not the AERIS default.")
 
 
 def main() -> int:
@@ -44,10 +54,11 @@ def main() -> int:
         sample = BY_SLUG[slug]
         print(f"[{slug}] preparing", flush=True)
         clip = prepare_sample(sample, cache)
-        run = args.work / "runs" / slug
+        run = args.work / "runs" / TRACKER_CONFIG.stem / slug   # keyed by tracker: never reuse other runs
         if not (run / "metrics.json").is_file():
             shutil.rmtree(run, ignore_errors=True)
             subprocess.run([sys.executable, "-m", "aeris", str(clip), "--output", str(run), "--profile", PROFILE,
+                            "--tracker-config", str(TRACKER_CONFIG),
                             "--input-note", "Unlabeled hosted demonstration; no accuracy claim"],
                            cwd=ROOT, env=env, check=True)
         target = args.out / "demo" / slug
@@ -63,17 +74,19 @@ def main() -> int:
             "observation": (f"{counts['detections_at_or_above_min_score']} detections in "
                             f"{counts['frames_processed']} frames, {counts['tracks_created']} track "
                             f"{'ID' if counts['tracks_created'] == 1 else 'IDs'} "
-                            f"(one offline run, {PROFILE} profile)."),
+                            f"(one offline run, {PROFILE} profile, {TRACKER_CONFIG.stem} tracker)."),
         })
     (args.out / "demo/manifest.json").write_text(
-        json.dumps({"samples": samples, "profile_note": PROFILES[PROFILE].note}, indent=1))
+        json.dumps({"samples": samples, "profile_note": PROFILES[PROFILE].note,
+                    "tracker_config": TRACKER_CONFIG.name, "tracker_note": TRACKER_NOTE}, indent=1))
     for name in ("app.js", "style.css", "static-api.js"):
         shutil.copy(ASSETS / name, args.out / name)
     page = (ASSETS / "index.html").read_text()
     for old, new in [
         ('<html lang="en">', '<html lang="en" data-static>'),
         ('<script src="/app.js" defer></script>', '<script src="/static-api.js" defer></script>\n  <script src="/app.js" defer></script>'),
-        ("Runs on your machine. One click to try.", "Pre-recorded results from the real pipeline. One click to try."),
+        ("Runs on your machine. One click to try.",
+         "Pre-recorded results from the real pipeline. One click to try. " + TRACKER_NOTE),
         ("Drop in your own clip", "Run it yourself"),
     ]:
         assert old in page, old
