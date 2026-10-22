@@ -109,6 +109,15 @@
    "tracker_config": "configs/tracker/manoeuvre-a3000-s1-position.json",
    "tracker_config_sha256": "9d7b204c4702c75bbf843fd565f11f8fc3f496e4f740267d835dc80b6abcfe3b",
    "note": "accel 3000 px/s^2, size frac 1.0/sqrt(s), gate position"
+  },
+  {
+   "name": "guided-a3000-s0-full",
+   "task": "AERIS-034",
+   "profile": "fast",
+   "tracker_config": "configs/tracker/manoeuvre-a3000-s0-full.json",
+   "tracker_config_sha256": "2dce0dedebbd1d7fa358d0cac4213ba0af51448715259d5dbfb8afbdbea457c3",
+   "guided_crops": true,
+   "note": "AERIS-033 selected tracker + tracker-guided full-resolution crops (max 4 per frame, extend-only)"
   }
  ]
 }

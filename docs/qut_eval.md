@@ -108,7 +108,10 @@ What this shows, descriptively:
   p50 on the development machine. The same clips vary between runs (S3: 25.6 ms in the plain run,
   11.3 ms in the pan run); the cause was not investigated.
 
-No holdout result exists for this baseline section; AERIS-033's selection and holdout runs are
-in [ADR 033](decisions/033-manoeuvre-robust-tracker.md). The S2 holdout sequence has six target
-labels outside the image at its end, which the harness rejects; until AERIS-034 handles them, S2
-is unavailable and the AERIS-033 holdout used the other six holdout sequences.
+No holdout result exists for this baseline section. AERIS-033's selection is in
+[ADR 033](decisions/033-manoeuvre-robust-tracker.md); its full seven-sequence holdout result, and
+AERIS-034's guided-crop result, are in [ADR 034](decisions/034-tracker-guided-crop.md). Since
+AERIS-034, target labels outside the image (six at the end of S2) are dropped and counted as
+`target_labels_outside_image` rather than aborting the run, and a result written outside
+`benchmarks/qut_eval/` gets its own raw-error file. Results include
+`target_detection_recall_with_crops` beside the frame-pass detection recall (equal when no crops run).

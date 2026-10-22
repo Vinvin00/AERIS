@@ -61,3 +61,13 @@ PYTHONPATH=python .venv/bin/python -m aeris.detection.baseline IMG1.jpg IMG2.jpg
 ```
 
 Real-model tests skip when the weights or FGVC sample are absent (for example in CI).
+
+## Tracker-guided crops (AERIS-034, opt-in)
+
+`python/aeris/detection/guided.py` runs the same model on up to four model-input-sized windows cut at
+native resolution around confirmed or lost tracks, centred on each track's last state propagated to the
+current time. Edge fragments are dropped, crop boxes are merged by NMS, and boxes overlapping a
+frame-pass box (IoU ≥ 0.5) are dropped; the remainder reach the tracker as extend-only measurements.
+Enable it with `--guided-crops` in the CLI or web server; it is off by default. On the QUT development
+split it did not pass the PLAN-011 rule (lower crop-inclusive detection recall, more off-target
+observations); see [ADR 034](decisions/034-tracker-guided-crop.md). Not a quality claim.

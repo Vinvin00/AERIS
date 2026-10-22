@@ -57,9 +57,10 @@ class LiveSession:
     def __init__(self, source, stages, *, paced: bool, label: str,
                  camera: CameraModel | None = None, pose: FixedCameraPose | None = None,
                  current_zoom: float | None = None, tracker_config: dict | None = None,
-                 tracker_config_name: str = "baseline.json"):
+                 tracker_config_name: str = "baseline.json", guided=None):
         self.source, self.stages, self.paced, self.label = source, stages, paced, label
         self.tracker_config = tracker_config
+        self.guided = guided    # AERIS-034 tracker-guided crops; None (default) = off
         self.camera = camera or CameraModel(None)
         self.pose = pose
         self.current_zoom = current_zoom
@@ -68,7 +69,8 @@ class LiveSession:
         self.seq = 0
         self.stats = {"state": "starting", "message": "Opening source…", "frames": 0, "dropped": 0,
                       "fps": None, "latency_ms": None, "detections": 0, "tracks": 0, "source": label,
-                      "tracker_config": tracker_config_name}
+                      "tracker_config": tracker_config_name, "guided_crops": guided is not None,
+                      "crops": 0}
         self._stop = Event()
         self._thread = Thread(target=self._run, daemon=True)
 
@@ -105,6 +107,7 @@ class LiveSession:
             motion = CameraMotion()
             start = time.monotonic()
             last_t, index, position, ema = -1.0, 0, 0, None
+            last_states = []
             seen_n: dict[str, int] = {}
             measured: dict[str, list] = {}
             issued: list = []
@@ -153,7 +156,14 @@ class LiveSession:
                 found = self.stages.postprocess(raw, prepared, width=width, height=height,
                                                 sequence_id="live", frame_index=index, timestamp_s=t)
                 dets = [d for d in found if d.score >= DEFAULT_MIN_SCORE]
-                states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE)
+                if self.guided is None:
+                    states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE)
+                else:
+                    crops, n = self.guided(frame, last_states, found, sequence_id="live",
+                                           frame_index=index, timestamp_s=t)
+                    self.stats["crops"] += n
+                    states = tracker.step(t, found, high_score=DEFAULT_MIN_SCORE, extend_only=crops)
+                last_states = states
                 motion_estimated = motion.update(frame, [d.bbox for d in found])
                 stable = fixed_camera_stability(motion, motion_estimated, width, height)
                 if motion.counters["frames"] > 1 and stable is not True:

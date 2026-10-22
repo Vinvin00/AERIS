@@ -117,6 +117,19 @@ class LabelTests(unittest.TestCase):
             with self.assertRaisesRegex(q.EvalError, "columns"):
                 q.read_centroids(path, **bounds)
 
+    def test_out_of_image_target_rows_are_collected_only_when_asked(self):
+        bounds = dict(first_global_frame=1000, frame_count=4, width=40, height=30)
+        with TemporaryDirectory() as d:
+            path = self.write(d, ",frame,u,v\n0,1001,12,15\n1,1002,12,-19.6\n2,1003,90,15\n")
+            with self.assertRaisesRegex(q.EvalError, "coordinates"):
+                q.read_centroids(path, **bounds)
+            off = []
+            self.assertEqual(q.read_centroids(path, **bounds, off_image=off), ({1: (12.0, 15.0)}, 0))
+            self.assertEqual(off, [2, 3])
+            path = self.write(d, ",frame,u,v\n0,1001,nan,15\n")
+            with self.assertRaisesRegex(q.EvalError, "finite"):
+                q.read_centroids(path, **bounds, off_image=[])
+
     def test_other_aircraft_rows_outside_video_are_dropped_and_counted(self):
         bounds = dict(first_global_frame=1000, frame_count=4, width=40, height=30)
         with TemporaryDirectory() as d:
@@ -297,6 +310,45 @@ class CandidateListTests(unittest.TestCase):
         fast, pan, _ = q.load_candidate("baseline")
         self.assertEqual((fast["profile"], fast["tracker_config"]), ("fast", "configs/tracker/baseline.json"))
         self.assertEqual(pan, {"amplitude_px": 120.0, "seed": 11})
+
+
+class GuidedHarnessTests(unittest.TestCase):
+    def test_scratch_results_get_their_own_raw_file(self):
+        recorded = q.raw_path_for(ROOT / "benchmarks/qut_eval/a-dev.json")
+        self.assertEqual(recorded, q.RAW / "a-dev.json")
+        scratch = q.raw_path_for(Path("/tmp/x/a-dev.json"))
+        self.assertNotEqual(scratch, recorded)
+        self.assertTrue(scratch.name.endswith("-a-dev.json"))
+
+    def test_track_passes_crops_as_extend_only_and_crop_hits_are_reported_beside_frame_hits(self):
+        from aeris.data.contracts import BBox, DetectionRecord
+
+        def rec(i, x, score=0.9):
+            return DetectionRecord(1, "s", i, i * 0.04, 100, 100, BBox(x - 2.0, 48.0, x + 2.0, 52.0), 0,
+                                   "aeris-aircraft-v1", score, "t", {})
+        frames = [{"frame_index": i, "timestamp_s": i * 0.04} for i in range(8)]
+        detected = {"frames": frames, "decoded_frames": 8, "detect_ms": {"p50": 1.0, "p95": 1.0}, "cache": "hit",
+                    "detections": [rec(i, 10.0 + i) for i in range(8) if i not in (5, 6)]}
+        seen = []
+
+        def guided(image, states, found, *, sequence_id, frame_index, timestamp_s):
+            seen.append((image, frame_index))
+            live = [s for s in states if s.lifecycle in ("confirmed", "lost")]
+            return ([rec(frame_index, 10.0 + frame_index)] if live and not found else []), len(live)
+        import json as _json
+        cfg = _json.loads((ROOT / "configs/tracker/baseline.json").read_text())
+        rt = q.track(detected, "s", cfg, guided, iter(range(8)))
+        self.assertEqual([i for _, i in seen], list(range(8)))
+        self.assertEqual([img for img, _ in seen], list(range(8)))          # one decoded frame per step
+        self.assertEqual(rt["guided_crops"]["extend_only_matches"], 2)
+        observed = sorted(i for i, items in rt["observed"].items() if items)
+        self.assertEqual(observed, list(range(8)))
+        target = {i: (10.0 + i, 50.0) for i in range(8)}
+        result = q.evaluate(rt, target, [])
+        self.assertEqual((result["target_detection_hits"], result["target_detection_hits_with_crops"]), (6, 8))
+        plain = q.track(detected, "s", cfg)
+        self.assertIsNone(plain["guided_crops"])
+        self.assertEqual(q.evaluate(plain, target, [])["target_detection_hits_with_crops"], 6)
 
 
 class SplitAndPanTests(unittest.TestCase):

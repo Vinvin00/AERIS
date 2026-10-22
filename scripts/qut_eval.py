@@ -118,12 +118,15 @@ def fetch(manifest: dict, data_dir: Path = DATA) -> None:
 
 # -- labels --------------------------------------------------------------------------------
 def read_centroids(path: Path, *, first_global_frame: int, frame_count: int,
-                   width: int, height: int, drop_outside: bool = False) -> tuple[dict, int]:
+                   width: int, height: int, drop_outside: bool = False,
+                   off_image: list | None = None) -> tuple[dict, int]:
     """Published global-frame centroid CSV -> ({zero-based video frame: (u, v)}, dropped).
 
     Target labels must lie inside the video. Other-aircraft labels may start before or end after
     the published video bounds; with ``drop_outside`` those rows are dropped and counted, never
-    shifted."""
+    shifted. With an ``off_image`` list, a centroid outside the original-frame image (S2's last
+    target rows, where the aircraft passes over the camera) is appended there and skipped instead
+    of raising; it cannot be matched to any detection or track."""
     out, dropped = {}, 0
     with Path(path).open(newline="") as stream:
         reader = csv.DictReader(stream)
@@ -138,8 +141,14 @@ def read_centroids(path: Path, *, first_global_frame: int, frame_count: int,
                 continue
             if not previous < index < frame_count:
                 raise EvalError(f"{Path(path).name}: label frame outside video or out of order")
-            if not (math.isfinite(u) and math.isfinite(v) and 0 <= u < width and 0 <= v < height):
-                raise EvalError(f"{Path(path).name}: label outside original-frame coordinates")
+            if not (math.isfinite(u) and math.isfinite(v)):
+                raise EvalError(f"{Path(path).name}: label is not finite")
+            if not (0 <= u < width and 0 <= v < height):
+                if off_image is None:
+                    raise EvalError(f"{Path(path).name}: label outside original-frame coordinates")
+                off_image.append(index)
+                previous = index
+                continue
             out[index] = (u, v)
             previous = index
     if not out and not drop_outside:
@@ -249,8 +258,30 @@ def detect(video: Path, sequence_id: str, *, profile: str, video_sha256: str, fr
     return {**out, "detections": list(run["detections"]), "cache": "miss"}
 
 
-def track(detected: dict, sequence_id: str, tracker_config: dict) -> dict:
-    """Tracker (low-score pass) and causal forecasters over fixed detections; no labels."""
+def frames_bgr(video: Path, offsets: dict | None):
+    """Decoded frames in order (panned like the frame pass when ``offsets`` is given)."""
+    import cv2
+    capture = cv2.VideoCapture(str(video))
+    index = 0
+    try:
+        while True:
+            ok, image = capture.read()
+            if not ok:
+                return
+            if offsets:
+                dx, dy = offsets[index]
+                image = cv2.warpAffine(image, np.float32([[1, 0, dx], [0, 1, dy]]),
+                                       (image.shape[1], image.shape[0]), borderValue=(114, 114, 114))
+            yield image
+            index += 1
+    finally:
+        capture.release()
+
+
+def track(detected: dict, sequence_id: str, tracker_config: dict, guided=None, images=None) -> dict:
+    """Tracker (low-score pass) and causal forecasters over fixed detections; no labels.
+    With ``guided`` (AERIS-034) each frame also gets tracker-guided crops cut from ``images``,
+    placed from the previous frame's states, and passed to the tracker as extend-only."""
     from aeris.estimation.trajectory import MODELS, TrajectoryForecaster
     from aeris.tracking.tracker import CONFIRMED, KalmanTracker
 
@@ -260,10 +291,21 @@ def track(detected: dict, sequence_id: str, tracker_config: dict) -> dict:
     tracker = KalmanTracker(sequence_id, tracker_config)
     forecasters = {name: TrajectoryForecaster(sequence_id, name) for name in MODELS}
     observed, confirmed_ids, predictions, step_ms = defaultdict(list), set(), defaultdict(list), []
+    crop_dets, crop_counts, crop_ms, states = defaultdict(list), [], [], []
     for frame in detected["frames"]:
         index, t = frame["frame_index"], frame["timestamp_s"]
+        extend = None
+        if guided is not None:
+            image = next(images)
+            t0 = time.perf_counter()
+            extend, n = guided(image, states, by_frame[index], sequence_id=sequence_id,
+                               frame_index=index, timestamp_s=t)
+            crop_ms.append(1000 * (time.perf_counter() - t0))
+            crop_counts.append(n)
+            crop_dets[index] = extend
         t0 = time.perf_counter()
-        for state in tracker.step(t, by_frame[index], high_score=TRACK_SCORE):
+        states = tracker.step(t, by_frame[index], high_score=TRACK_SCORE, extend_only=extend)
+        for state in states:
             if state.observed:
                 observed[index].append((state.track_id, state.lifecycle, state.measurement_center_px))
                 for f in forecasters.values():
@@ -274,6 +316,11 @@ def track(detected: dict, sequence_id: str, tracker_config: dict) -> dict:
                     predictions[index].extend(f.forecast(state.track_id, t, HORIZONS_S))
         step_ms.append(1000 * (time.perf_counter() - t0))
     return {"frames": detected["frames"], "detections": by_frame, "observed": observed,
+            "crop_detections": crop_dets,
+            "guided_crops": ({"crops_total": sum(crop_counts), "frames_with_crops": sum(1 for n in crop_counts if n),
+                              "extend_only_matches": tracker.counters.get("extend_only_matches", 0),
+                              "added_ms": {"p50": percentile(crop_ms, 50), "p95": percentile(crop_ms, 95)}}
+                             if guided is not None else None),
             "confirmed_ids": confirmed_ids, "predictions": predictions,
             "counts": {"decoded_frames": detected["decoded_frames"],
                        "detections_at_floor": len(detected["detections"]),
@@ -300,12 +347,15 @@ def evaluate(runtime: dict, target: dict, others: list[dict], radius_px: float =
     times = {f["frame_index"]: f["timestamp_s"] for f in runtime["frames"]}
     ordered = sorted(target)
     label_times, label_points = [times[i] for i in ordered], [target[i] for i in ordered]
-    det_hits = track_hits = off_target = 0
+    det_hits = det_hits_crops = track_hits = off_target = 0
     carried, forecast_errors = [], {}
     for index in ordered:
         truth = target[index]
         dets = [_centre(d) for d in runtime["detections"].get(index, []) if d.score >= TRACK_SCORE]
         det_hits += unique_near(truth, dets, radius_px) is not None
+        with_crops = dets + [_centre(d) for d in runtime.get("crop_detections", {}).get(index, [])
+                             if d.score >= TRACK_SCORE]
+        det_hits_crops += unique_near(truth, with_crops, radius_px) is not None
         confirmed = [(tid, c) for tid, life, c in runtime["observed"].get(index, []) if life == "confirmed"]
         aircraft = [truth, *(o[index] for o in others if index in o)]
         off_target += sum(all(math.dist(c, p) > radius_px for p in aircraft) for _, c in confirmed)
@@ -345,7 +395,8 @@ def evaluate(runtime: dict, target: dict, others: list[dict], radius_px: float =
                     for index, point in target.items())
     fragments, switches = fragments_and_switches(carried)
     return {"labelled_target_frames": len(target), "target_detection_hits": det_hits,
-            "target_track_hits": track_hits, "target_fragments": fragments,
+            "target_track_hits": track_hits, "target_detection_hits_with_crops": det_hits_crops,
+            "target_fragments": fragments,
             "target_id_switches": switches, "off_target_observations": off_target,
             "target_track_impurity": impurity, "identity_swaps": len(swapped),
             "ambiguous_swap_frames": ambiguous,
@@ -370,7 +421,8 @@ def by_model_horizon(errors: dict) -> dict:
     return {k: describe(v) for k, v in sorted(grouped.items())}
 
 
-COUNT_KEYS = ("labelled_target_frames", "target_detection_hits", "target_track_hits", "target_fragments",
+COUNT_KEYS = ("labelled_target_frames", "target_detection_hits", "target_detection_hits_with_crops",
+              "target_track_hits", "target_fragments",
               "target_id_switches", "off_target_observations", "target_track_impurity", "identity_swaps",
               "ambiguous_swap_frames", "non_target_confirmed_tracks")
 
@@ -380,6 +432,7 @@ def summarise(result: dict) -> dict:
     out = {k: result[k] for k in COUNT_KEYS}
     out["target_detection_recall"] = result["target_detection_hits"] / n if n else None
     out["target_track_recall"] = result["target_track_hits"] / n if n else None
+    out["target_detection_recall_with_crops"] = result["target_detection_hits_with_crops"] / n if n else None
     out["forecast_centroid_error"] = by_model_horizon(result["forecast_errors_px"])
     return out
 
@@ -515,11 +568,20 @@ def run(args, manifest: dict) -> dict:
                           video_sha256=s["video"]["sha256"], frame_count=frame_count, pan=pan,
                           cache_dir=None if args.no_cache else CACHE)
         check_frame_count(s, detected["decoded_frames"])
-        runtime = track(detected, sequence_id, tracker_config)    # runtime outputs now fixed
+        guided = images = None
+        if candidate.get("guided_crops"):
+            from aeris.detection import profiles
+            from aeris.detection.guided import GuidedCrops
+            guided = GuidedCrops(profiles.build(profile))
+            offsets = ({int(k): tuple(v) for k, v in detected["pan_offsets"].items()}
+                       if detected.get("pan_offsets") else None)
+            images = frames_bgr(DATA / s["video"]["local"], offsets)
+        runtime = track(detected, sequence_id, tracker_config, guided, images)   # runtime outputs now fixed
         bounds = dict(first_global_frame=s["first_decoded_global_frame"], frame_count=detected["decoded_frames"],
                       width=detected["width"], height=detected["height"])
-        target, _ = read_centroids(DATA / s["target_labels"]["local"], **bounds)
-        check_alignment(s, target, detected["decoded_frames"])
+        off_image = []
+        target, _ = read_centroids(DATA / s["target_labels"]["local"], **bounds, off_image=off_image)
+        check_alignment(s, {**target, **{i: None for i in off_image}}, detected["decoded_frames"])
         others, outside, pan_dropped = [], 0, 0
         for o in s["other_labels"]:
             labels, n = read_centroids(DATA / o["local"], **bounds, drop_outside=True)
@@ -537,9 +599,11 @@ def run(args, manifest: dict) -> dict:
                                  "alignment": s["alignment"],
                                  "other_aircraft_labels_outside_video": outside,
                                  "target_labels_panned_out_of_frame": pan_dropped,
+                                 "target_labels_outside_image": len(off_image),
                                  "detection_cache": runtime["detection_cache"],
                                  "detect_ms": runtime["detect_ms"],
-                                 "track_and_forecast_ms": runtime["track_and_forecast_ms"]}
+                                 "track_and_forecast_ms": runtime["track_and_forecast_ms"],
+                                 **({"guided_crops": runtime["guided_crops"]} if runtime["guided_crops"] else {})}
         print(s["id"], json.dumps({k: per_sequence[s["id"]][k] for k in
               ("target_detection_recall", "target_track_recall", "target_fragments",
                "off_target_observations", "non_target_confirmed_tracks")}), flush=True)
@@ -575,6 +639,14 @@ def output_path(args) -> Path:
     if args.split == "holdout" and out.exists():
         raise EvalError(f"{out} exists; every holdout run is kept, so use a new candidate name")
     return out
+
+
+def raw_path_for(out: Path) -> Path:
+    """Raw-error file for a result. Results outside benchmarks/qut_eval get a name keyed by their
+    folder, so a scratch run never replaces the raw file of a recorded result."""
+    if out.parent.resolve() == (ROOT / "benchmarks/qut_eval").resolve():
+        return RAW / out.name
+    return RAW / f"{hashlib.sha256(str(out.parent.resolve()).encode()).hexdigest()[:8]}-{out.name}"
 
 
 def load_raw(report: dict) -> dict:
@@ -615,14 +687,15 @@ def main(argv=None) -> int:
         print(json.dumps(compare(a, b, raw_a, raw_b), indent=1, sort_keys=True))
         return 0
     out = output_path(args)
+    raw_path = raw_path_for(out)
     report, raw = run(args, manifest)
     raw_bytes = json.dumps(raw, sort_keys=True).encode()
-    report["raw_forecast_errors"] = {"path": str((RAW / out.name).relative_to(ROOT)),
+    report["raw_forecast_errors"] = {"path": str(raw_path.relative_to(ROOT)),
                                      "sha256": hashlib.sha256(raw_bytes).hexdigest(), "keys": len(raw)}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     RAW.mkdir(parents=True, exist_ok=True)
-    (RAW / out.name).write_bytes(raw_bytes)
+    raw_path.write_bytes(raw_bytes)
     print(json.dumps({"output": str(out), "pooled": report["pooled"]}, indent=1, sort_keys=True))
     return 0
 

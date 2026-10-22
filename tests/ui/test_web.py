@@ -493,6 +493,71 @@ class TrackerConfigTests(unittest.TestCase):
         self.assertEqual(command[-2:], ["--tracker-config", str(chosen)])
 
 
+class GuidedCropLiveTests(unittest.TestCase):
+    """AERIS-034 [Q8]: live crops are off by default, and the crops-on path with empty crops gives
+    the same track states as crops off."""
+
+    def run_session(self, guided):
+        import cv2
+        import numpy as np
+        from aeris.data.contracts import BBox, DetectionRecord
+        from aeris.tracking import tracker as tracking
+        from aeris.web.live import LiveSession
+        steps = []
+
+        class Spy(tracking.KalmanTracker):
+            def step(self, *args, **kwargs):
+                states = super().step(*args, **kwargs)
+                steps.append([(x.track_id, x.center, x.covariance, x.lifecycle) for x in states])
+                return states
+
+        class Stages:
+            def preprocess(self, frame):
+                return frame
+            def infer(self, prepared):
+                return None
+            def postprocess(self, raw, prepared, *, width, height, sequence_id, frame_index, timestamp_s):
+                if frame_index % 4 == 3:
+                    return []
+                x = 10 + 2 * frame_index
+                return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, width, height,
+                                        BBox(float(x), 10.0, float(x + 8), 18.0), 0, "aeris-aircraft-v1", 0.9, "t", {})]
+
+        plan = ([i / 20 for i in range(12)], "decode_pts", None)     # fixed media times: deterministic t
+        with tempfile.TemporaryDirectory() as tmp, mock.patch("aeris.web.live.KalmanTracker", Spy), \
+                mock.patch("aeris.web.live.timestamp_plan", return_value=plan):
+            path = str(Path(tmp) / "clip.avi")
+            writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 20.0, (64, 48))
+            for _ in range(12):
+                writer.write(np.zeros((48, 64, 3), np.uint8))
+            writer.release()
+            session = LiveSession(path, Stages(), paced=True, label="g", guided=guided)
+            session.start()
+            session._thread.join(timeout=10)
+        return session, steps
+
+    def test_crops_off_by_default_and_empty_crops_change_nothing(self):
+        calls = []
+
+        def empty(image, states, found, **kw):
+            calls.append(kw["frame_index"])
+            return [], 0
+        off, off_steps = self.run_session(None)
+        on, on_steps = self.run_session(empty)
+        self.assertFalse(off.stats["guided_crops"])
+        self.assertTrue(on.stats["guided_crops"])
+        self.assertEqual((off.stats["dropped"], on.stats["dropped"]), (0, 0))
+        self.assertEqual(len(off_steps), 12)
+        self.assertEqual(off_steps, on_steps)
+        self.assertEqual(calls, list(range(12)))
+
+    def test_server_crops_are_off_unless_enabled_and_reach_recorded_runs(self):
+        off, on = DemoState(), DemoState(guided_crops=True)
+        self.assertIsNone(off._guided(object()))
+        self.assertNotIn("--guided-crops", off.cli_command(Path("v.mp4"), Path("o"), "fast"))
+        self.assertIn("--guided-crops", on.cli_command(Path("v.mp4"), Path("o"), "fast"))
+
+
 class LiveScenePanelTests(unittest.TestCase):
     def test_live_panel_is_scene_relative_under_a_pan(self):
         """Textured clip panning 5 px/frame; the aircraft moves +3 px/frame in the scene (60 px/s at

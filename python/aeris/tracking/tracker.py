@@ -81,11 +81,15 @@ class KalmanTracker:
 
     def __init__(self, sequence_id: str, config: dict | None = None):
         self.sequence_id = sequence_id
-        self.cfg = config or load_config()
+        self.cfg = load_config() if config is None else config
+        if not isinstance(self.cfg, dict):
+            raise TrackerError("tracker config must be a JSON object")
         for key in ("accel_sigma_px_s2", "size_sigma_px_sqrt_s", "initial_velocity_sigma_px_s",
                     "r_position_frac", "r_size_frac", "r_floor_px", "gate_chi2", "confirm_hits",
                     "max_coast_s", "tentative_timeout_s", "duplicate_iou", "birth_suppress_iou"):
-            if key not in self.cfg or not math.isfinite(self.cfg[key]) or self.cfg[key] <= 0:
+            value = self.cfg.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) \
+                    or not math.isfinite(value) or value <= 0:
                 raise TrackerError(f"config {key} must be a positive finite number")
         # Optional AERIS-033 keys; their defaults reproduce the AERIS-009 model exactly.
         frac = self.cfg.get("size_sigma_frac_sqrt_s", 0.0)
@@ -153,12 +157,16 @@ class KalmanTracker:
 
     # -- public --------------------------------------------------------------
     def step(self, timestamp_s: float, detections: list[DetectionRecord],
-             high_score: float = 0.0) -> list[TrackState]:
+             high_score: float = 0.0, extend_only: list[DetectionRecord] | None = None) -> list[TrackState]:
         """Advance to ``timestamp_s`` using only detections at this time (possibly none).
 
         Detections scoring below ``high_score`` are used only in a second association pass
         (ByteTrack-style) to keep confirmed or lost tracks measured; they never start a track
         or confirm a tentative one. The default 0.0 makes every detection high-score.
+
+        ``extend_only`` detections (AERIS-034 guided crops) are offered in a third pass only to
+        confirmed or lost tracks still unmatched after the first two; they never start or confirm
+        a track. ``None`` (the default) leaves the previous behaviour untouched.
         """
         if not isinstance(high_score, (int, float)) or not 0 <= high_score <= 1:
             raise TrackerError("high_score must be in [0, 1]")
@@ -167,7 +175,7 @@ class KalmanTracker:
             raise TrackerError("timestamp_s must be finite and nonnegative")
         if self._time is not None and timestamp_s <= self._time:
             raise TrackerError(f"timestamp {timestamp_s} does not exceed previous {self._time}")
-        for d in detections:
+        for d in [*detections, *(extend_only or [])]:
             if d.sequence_id != self.sequence_id or d.timestamp_s != timestamp_s:
                 raise TrackerError("detection sequence or timestamp does not match this step")
             if self._size is None:
@@ -199,6 +207,14 @@ class KalmanTracker:
         rescued = {ti for ti, _ in low_matches}
         unmatched_tracks = [ti for ti in unmatched_tracks if ti not in rescued]
         pairs = [(ti, high[di]) for ti, di in matches] + [(ti, low[di]) for ti, di in low_matches]
+        if extend_only is not None:
+            extra = self._deduplicate(extend_only)
+            third = [ti for ti in unmatched_tracks if self._tracks[ti].lifecycle != TENTATIVE]
+            extend_matches, _, _ = self._associate(extra, third)
+            self.counters["extend_only_matches"] = self.counters.get("extend_only_matches", 0) + len(extend_matches)
+            extended = {ti for ti, _ in extend_matches}
+            unmatched_tracks = [ti for ti in unmatched_tracks if ti not in extended]
+            pairs += [(ti, extra[di]) for ti, di in extend_matches]
         for ti, det in pairs:
             track = self._tracks[ti]
             z = np.array([(det.bbox.x_min + det.bbox.x_max) / 2, (det.bbox.y_min + det.bbox.y_max) / 2,

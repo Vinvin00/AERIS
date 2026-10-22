@@ -194,8 +194,9 @@ def process_video(path: str | Path, stages: Stages, *, sequence_id: str,
                   frame_hook=None) -> dict:
     """Decode a recorded video, run detection on every ``stride``-th frame, optionally render.
 
-    ``frame_hook(index, image_bgr, detections)``, if given, is called for each processed frame
-    after detection, before any overlay is drawn (for example to estimate camera motion).
+    ``frame_hook(index, image_bgr, detections, timestamp_s)``, if given, is called for each
+    processed frame after detection, before any overlay is drawn (for example to estimate camera
+    motion, or to run the tracker and tracker-guided crops on this frame).
 
     Returns detections, per-frame timings, per-stage summaries and skipped-frame counts.
     Any decode, timestamp, dimension, detector or writer failure raises ``VideoError``.
@@ -272,7 +273,7 @@ def process_video(path: str | Path, stages: Stages, *, sequence_id: str,
                     raise VideoError(f"detector returned a record not matching frame {index}")
             detections.extend(found)
             if frame_hook is not None:
-                frame_hook(index, frame, found)
+                frame_hook(index, frame, found, timestamp)
             marks["render"] = 0.0
             if writer is not None:
                 t0 = time.perf_counter()

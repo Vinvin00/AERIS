@@ -42,7 +42,11 @@ above it start or confirm tracks and count in detection metrics; lower ones may 
 `--camera-motion estimate|none` (default `estimate`) makes the displayed forecast arrow scene-relative (AERIS-028);
 `--tracker-config FILE` (default `configs/tracker/baseline.json`) selects the tracker parameters; its file name and
 SHA-256 are recorded in the manifest, and `python -m aeris.web.server --tracker-config FILE` applies it to live and
-recorded runs (AERIS-033; `configs/tracker/manoeuvre-a3000-s0-full.json` is the QUT-selected candidate);
+recorded runs (AERIS-033; `configs/tracker/manoeuvre-a3000-s0-full.json` is the QUT development-selected candidate,
+which failed the full holdout, so it is not the default);
+`--guided-crops` (off by default) also runs the detector on up to four native-resolution crops around tracked
+aircraft and lets those boxes only extend existing tracks (AERIS-034; it did not improve the QUT measures; the
+manifest records crops and added time; not available with `--detections`);
 `--stride`, `--max-frames`, `--warmup-frames`, `--timestamp-policy`, `--no-render`, `--sequence-id`,
 `--model-config`, `--input-note` (free-text provenance recorded in the manifest).
 

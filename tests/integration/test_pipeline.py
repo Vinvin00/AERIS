@@ -23,7 +23,7 @@ import numpy as np
 
 from aeris import cli
 from aeris.data.contracts import (
-    AnnotationRecord, BBox, FrameRecord, GroundTruthObject, PredictionRecord,
+    AnnotationRecord, BBox, DetectionRecord, FrameRecord, GroundTruthObject, PredictionRecord,
 )
 from aeris.video import pipeline
 
@@ -154,6 +154,50 @@ class ArtifactTests(PipelineCase):
             bad.write_text(json.dumps({**json.loads(chosen.read_text()), "gate_mode": "loose"}))
             assert self.run_cli("bad", extra=["--tracker-config", str(bad)]) == 2
         assert not self.out("bad").exists()
+
+    def test_guided_crops_off_and_empty_crops_give_byte_identical_tracks_and_predictions(self):
+        """AERIS-034 AC2: the interleaved (crops on) path with crops that find nothing must equal
+        the unchanged crops-off path, so turning crops on changes outputs only through crops."""
+        calls = []
+
+        def no_crops(image, states, found, *, sequence_id, frame_index, timestamp_s):
+            calls.append((frame_index, timestamp_s, [s.track_id for s in states]))
+            return [], 0
+        off = cli.run_pipeline(self.clip, self.out("off"), stages=cli.ReplayStages(self.replay),
+                               render=False, command=["t"])
+        on = cli.run_pipeline(self.clip, self.out("on"), stages=cli.ReplayStages(self.replay),
+                              render=False, command=["t"], guided=no_crops)
+        for name in ("tracks.csv", "predictions.jsonl"):
+            assert (self.out("off") / name).read_bytes() == (self.out("on") / name).read_bytes(), name
+        assert off["guided_crops"] == {"enabled": False}
+        assert on["guided_crops"]["enabled"] and on["guided_crops"]["crops_total"] == 0
+        assert [c[0] for c in calls] == list(range(len(calls))) and len(calls) == N
+        assert calls[0][2] == []                     # first frame: no earlier states, so no crops
+
+    def test_guided_crop_detections_extend_tracks_and_are_recorded(self):
+        def one_crop(image, states, found, *, sequence_id, frame_index, timestamp_s):
+            live = [s for s in states if s.lifecycle in ("confirmed", "lost")]
+            if found or not live:
+                return [], 0
+            box = BBox(*map(float, box_at(frame_index)))    # the object a full-resolution crop would see
+            return [DetectionRecord(1, sequence_id, frame_index, timestamp_s, image.shape[1], image.shape[0], box, 0,
+                                    "aeris-aircraft-v1", 0.5, "crop", {})], 1
+        gap = self.tmp / "gap.json"
+        gap.write_text(json.dumps({"frames": {str(i): [{"bbox": box_at(i), "class_id": 0, "score": 0.9}]
+                                              for i in range(N) if i not in (5, 6, 7)}}))
+        cli.run_pipeline(self.clip, self.out("gap-off"), stages=cli.ReplayStages(gap), render=False, command=["t"])
+        manifest = cli.run_pipeline(self.clip, self.out("crops"), stages=cli.ReplayStages(gap),
+                                    render=False, command=["t"], guided=one_crop)
+        record = manifest["guided_crops"]
+        assert record["enabled"] and record["added_ms_per_frame"]["p50"] is not None
+        assert record["crops_total"] == 3 and record["extend_only_matches"] == 3
+        observed = {int(r["frame_index"]) for r in read_csv(self.out("crops") / "tracks.csv") if r["observed"] == "1"}
+        observed_off = {int(r["frame_index"]) for r in read_csv(self.out("gap-off") / "tracks.csv") if r["observed"] == "1"}
+        assert {5, 6, 7} <= observed and not {5, 6, 7} & observed_off
+        counts = [json.loads((self.out(n) / "metrics.json").read_text())["counts"] for n in ("gap-off", "crops")]
+        assert counts[0]["detections_total"] == counts[1]["detections_total"]   # crops are not detections
+        assert self.run_cli("refused", extra=["--guided-crops"]) == 2    # replayed detections cannot be cropped
+        assert not self.out("refused").exists()
 
     def test_replay_runs_are_deterministic(self):
         assert self.run_cli("a") == 0 and self.run_cli("b") == 0
