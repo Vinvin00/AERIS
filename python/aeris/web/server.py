@@ -621,7 +621,8 @@ def main(argv=None) -> int:
         parser.error("--current-zoom must be finite and positive")
     hosted = None
     if args.hosted:
-        split = lambda name: {v.strip() for v in os.environ.get(name, "").split(",") if v.strip()}
+        def split(name):
+            return {v.strip() for v in os.environ.get(name, "").split(",") if v.strip()}
         hosts, origins = split("AERIS_ALLOWED_HOSTS"), split("AERIS_ALLOWED_ORIGINS")
         if not hosts or not origins:
             parser.error("--hosted needs AERIS_ALLOWED_HOSTS and AERIS_ALLOWED_ORIGINS")
